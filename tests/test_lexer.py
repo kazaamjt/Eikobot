@@ -1,15 +1,11 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
 # pylint: disable=too-many-statements
-from pathlib import Path
+from testing_utils import get_file
 
 from eikobot.core.compiler.lexer import Lexer
-from eikobot.core.compiler.lexer.token import Token, TokenType
 from eikobot.core.compiler.misc import Index
-
-
-def get_file(name: str) -> Path:
-    return Path(__file__).resolve().parent / "files" / name
+from eikobot.core.compiler.token import Token, TokenType
 
 
 def test_char_generator() -> None:
