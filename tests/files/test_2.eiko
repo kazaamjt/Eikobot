@@ -1,0 +1,15 @@
+# This file is used to test the lexer
+# The file isn't meant to be valid
+
+resource Host:
+	ip: IpAddress
+	ssh_key: str
+
+resource Debian(Host):
+	version: int
+
+	implement default(self, version: int):
+		self.version = version
+		self.software = "nginx"
+
+debian_host = Debian(11)

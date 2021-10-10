@@ -1,0 +1,4 @@
+"This test shows off escape \\ sequence parsing.\n"
+123456
+123.123
+"base string"
