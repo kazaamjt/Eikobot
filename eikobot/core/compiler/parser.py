@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Union
 
 from . import ast
-from .errors import EikoParserError
+from .errors import EikoParserError, EikoSyntaxError
 from .lexer import Lexer
 from .token import TokenType
 
@@ -88,6 +88,11 @@ class Parser:
         return self._parse_bin_op_rhs(precedence, lhs)
 
     def _parse_primary(self) -> ast.ExprAST:
+        if self._current.type == TokenType.INDENT:
+            if self._current.content == "":
+                self._advance()
+                return self._parse_primary()
+
         if self._current.content in ["-", "not"]:
             return self._parse_unary_op()
 
@@ -109,7 +114,9 @@ class Parser:
         if self._current.type == TokenType.LEFT_PAREN:
             return self._parse_parens()
 
-        raise NotImplementedError
+        raise EikoSyntaxError(
+            f"Unexpected token {self._current.type}."
+        )
 
     def _parse_unary_op(self) -> Union[ast.UnaryNegExprAST, ast.UnaryNotExprAST]:
         token = self._current

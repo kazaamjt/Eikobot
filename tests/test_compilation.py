@@ -2,15 +2,14 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
 # pylint: disable=too-many-statements
-from testing_utils import get_file
+from pathlib import Path
 
 from eikobot.core.compiler.parser import Parser
 from eikobot.core.compiler.types import EikoInt
 
 
-def test_basic_math() -> None:
-    _file = get_file("test_basic_math.eiko")
-    parser = Parser(_file)
+def test_basic_math(eiko_basic_math_file: Path) -> None:
+    parser = Parser(eiko_basic_math_file)
     ast_list = [x for x in parser.parse()]
     assert len(ast_list) == 3
 

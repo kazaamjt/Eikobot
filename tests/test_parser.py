@@ -2,15 +2,15 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
 # pylint: disable=too-many-statements
+from pathlib import Path
+
 import pytest
-from testing_utils import get_file
 
 from eikobot.core.compiler.parser import Parser, ast
 
 
-def test_basic_math() -> None:
-    _file = get_file("test_basic_math.eiko")
-    parser = Parser(_file)
+def test_basic_math(eiko_basic_math_file: Path) -> None:
+    parser = Parser(eiko_basic_math_file)
     parse_iter = parser.parse()
 
     expr_1 = next(parse_iter)
