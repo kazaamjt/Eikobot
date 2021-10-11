@@ -1,64 +1,10 @@
 from dataclasses import dataclass
-from enum import Enum, auto
+from typing import Union
 
-from .errors import EikoInternalError
+from .errors import EikoCompilationError, EikoInternalError
+from .ops import BINOP_MATRIX, BinOP
 from .token import Token, TokenType
-
-
-class BinOP(Enum):
-    """Eiko supported binary operations"""
-
-    ADD = auto()
-    SUBTRACT = auto()
-    MULTIPLY = auto()
-    DIVIDE = auto()
-    INT_DIVIDE = auto()
-    EXPONENTIATION = auto()
-
-    @staticmethod
-    def from_str(op: str) -> "BinOP":
-        """Turns a string in to a bin_op"""
-        if op == "+":
-            return BinOP.ADD
-
-        if op == "-":
-            return BinOP.SUBTRACT
-
-        if op == "*":
-            return BinOP.MULTIPLY
-
-        if op == "/":
-            return BinOP.DIVIDE
-
-        if op == "//":
-            return BinOP.INT_DIVIDE
-
-        if op == "**":
-            return BinOP.EXPONENTIATION
-
-        raise EikoInternalError(
-            "Issue occured trying to parse binop. "
-            "This is deffinetly a bug, please report it on github.",
-        )
-
-    def __str__(self) -> str:
-        if self == BinOP.ADD:
-            return "+"
-        if self == BinOP.SUBTRACT:
-            return "-"
-        if self == BinOP.MULTIPLY:
-            return "*"
-        if self == BinOP.DIVIDE:
-            return "/"
-        if self == BinOP.INT_DIVIDE:
-            return "//"
-        if self == BinOP.EXPONENTIATION:
-            return "**"
-
-        raise EikoInternalError(
-            "This is a bug. Somehow this happned. "
-            "It shouldn't be possible for this bug to happen, yet here we are."
-        )
+from .types import EikoBaseType, EikoBool, EikoFloat, EikoInt, EikoStr
 
 
 @dataclass
@@ -67,9 +13,12 @@ class ExprAST:
 
     token: Token
 
+    def compile(self) -> EikoBaseType:
+        raise NotImplementedError
+
 
 @dataclass
-class EOFExprAST(ExprAST):
+class EOFExprAST(ExprAST):  # pylint: disable=abstract-method
     """This ExprAST marks end of parsing."""
 
 
@@ -80,6 +29,9 @@ class IntExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.value = int(self.token.content)
 
+    def compile(self) -> EikoInt:
+        return EikoInt(self.value)
+
 
 @dataclass
 class FloatExprAST(ExprAST):
@@ -87,6 +39,9 @@ class FloatExprAST(ExprAST):
 
     def __post_init__(self) -> None:
         self.value = float(self.token.content)
+
+    def compile(self) -> EikoFloat:
+        return EikoFloat(self.value)
 
 
 @dataclass
@@ -104,6 +59,9 @@ class BoolExprAST(ExprAST):
                 "This is deffinetly a bug, please report it on github."
             )
 
+    def compile(self) -> EikoBool:
+        return EikoBool(self.value)
+
 
 @dataclass
 class StringExprAST(ExprAST):
@@ -111,6 +69,9 @@ class StringExprAST(ExprAST):
 
     def __post_init__(self) -> None:
         self.value = self.token.content
+
+    def compile(self) -> EikoStr:
+        return EikoStr(self.value)
 
 
 @dataclass
@@ -126,6 +87,19 @@ class UnaryNegExprAST(ExprAST):
 
     rhs: ExprAST
 
+    def compile(self) -> Union[EikoInt, EikoFloat]:
+        rhs = self.rhs.compile()
+        if isinstance(rhs, EikoInt):
+            return EikoInt(-rhs.value)
+
+        if isinstance(rhs, EikoFloat):
+            return EikoFloat(-rhs.value)
+
+        raise EikoCompilationError(
+            f"Unable to perform unary negative on object of type {rhs.type}",
+            token=self.token,
+        )
+
 
 @dataclass
 class BinOpExprAST(ExprAST):
@@ -136,3 +110,33 @@ class BinOpExprAST(ExprAST):
 
     def __post_init__(self) -> None:
         self.bin_op = BinOP.from_str(self.token.content)
+
+    def compile(self) -> EikoBaseType:
+        lhs = self.lhs.compile()
+        rhs = self.rhs.compile()
+
+        arg_a_matrix = BINOP_MATRIX.get(lhs.type)
+        if arg_a_matrix is None:
+            raise EikoCompilationError(
+                f"No overload of operation {self.bin_op} for arguments"
+                f"of types {lhs.type} and {rhs.type} available.",
+                token=self.token,
+            )
+
+        arg_b_matrix = arg_a_matrix.get(rhs.type)
+        if arg_b_matrix is None:
+            raise EikoCompilationError(
+                f"No overload of operation {self.bin_op} for arguments"
+                f"of types {lhs.type} and {rhs.type} available.",
+                token=self.token,
+            )
+
+        op = arg_b_matrix.get(self.bin_op)
+        if op is None:
+            raise EikoCompilationError(
+                f"No overload of operation {self.bin_op} for arguments"
+                f"of types {lhs.type} and {rhs.type} available.",
+                token=self.token,
+            )
+
+        return op(lhs, rhs)  # type: ignore
