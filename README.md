@@ -1,6 +1,6 @@
 # Eikobot Desired State Engine
 
-The little engine that made it so.  
+The little Desired State Engine that made it so.  
 
 ## Example
 
@@ -10,62 +10,62 @@ if no constructor is specified, a default one is generated using all properties.
 
 ```
 resource Host:
-	ip: IpAddress
-	ssh_key: str
+    ip: IpAddress
+    ssh_key: str
 
 
 resource Debian(Host):
-	version: int
+    version: int
 
 
 resource Windows(Host):
-	version: str
+    version: str
 ```
 
 Resources can have a custom constructor:  
 
 ```
 resource WebServer:
-	host: Host
-	software: str
+    host: Host
+    software: str
 
-	implement default(self, host: Host):
-		self.host = host
-		self.software = "nginx"
+    implement default(self, host: Host):
+        self.host = host
+        self.software = "nginx"
 ```
 
 But you can also create multiple constructors and overload them:  
 
 ```
 resource WebServer:
-	host: Host
-	software: str
+    host: Host
+    software: str
 
-	implement default(self, host: Host):
-		self.host = host
-		software = "nginx"
+    implement default(self, host: Host):
+        self.host = host
+        software = "nginx"
 
-	implement specific(self, host: Host, software: str):
-		self.host = host
-		self.software = software
+    implement specific(self, host: Host, software: str):
+        self.host = host
+        self.software = software
 ```
 
 Lastly, we can use constraints on top of overloading them.  
 
 ```
 resource WebServer:
-	host: Host
-	software: str
+    host: Host
+    software: str
 
-	@constraint(isinstance(host, Debian))
-	implement debian(self, host: Host):
-		self.host = host
-		software = "nginx"
+    @constraint(isinstance(host, Debian))
+    implement debian(self, host: Host):
+        self.host = host
+        software = "nginx"
 
-	@constraint(isinstance(host, Windows))
-	implement windows(self, host: Host):
-		self.host = host
-		self.software = "iis"
+    @constraint(isinstance(host, Windows))
+    implement windows(self, host: Host):
+        self.host = host
+        self.software = "iis"
 ```
 
 Now the correct constructor will be selected based on what type of host it is.  
