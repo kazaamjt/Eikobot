@@ -2,7 +2,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, Union
 
 from .errors import EikoInternalError
-from .types import EikoBaseType, EikoFloat, EikoInt, EikoNumber
+from .types import EikoBaseType, EikoFloat, EikoInt, EikoNumber, EikoStr
 
 
 class BinOP(Enum):
@@ -101,8 +101,18 @@ def exponentiate_float(a: EikoNumber, b: EikoNumber) -> EikoFloat:
     return EikoFloat(a.value ** b.value)
 
 
+def add_string(a: EikoStr, b: EikoStr) -> EikoStr:
+    return EikoStr(a.value + b.value)
+
+
+def multiply_string(a: EikoStr, b: EikoInt) -> EikoStr:
+    return EikoStr(a.value * b.value)
+
+
 BinOpCallable = Union[
     Callable[[EikoInt, EikoInt], EikoBaseType],
+    Callable[[EikoStr, EikoInt], EikoBaseType],
+    Callable[[EikoStr, EikoStr], EikoBaseType],
     Callable[[EikoNumber, EikoNumber], EikoBaseType],
     Callable[[EikoBaseType, EikoBaseType], EikoBaseType],
 ]
@@ -131,4 +141,12 @@ BINOP_MATRIX: Dict[str, Dict[str, BinOpMatrix]] = {
         "float": _float_matrix.copy(),
     },
     "float": {"int": _float_matrix.copy(), "float": _float_matrix.copy()},
+    "str": {
+        "int": {
+            BinOP.MULTIPLY: multiply_string,
+        },
+        "str": {
+            BinOP.ADD: add_string,
+        },
+    },
 }

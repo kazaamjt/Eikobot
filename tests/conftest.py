@@ -45,6 +45,6 @@ def eiko_base_type_file() -> Iterable[Path]:
 
 
 @pytest.fixture
-def eiko_basic_math_file() -> Iterable[Path]:
-    tmp_file = get_file("test_basic_math.eiko")
+def eiko_basic_ops_file() -> Iterable[Path]:
+    tmp_file = get_file("test_basic_ops.eiko")
     yield tmp_file

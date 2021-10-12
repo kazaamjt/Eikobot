@@ -9,8 +9,8 @@ import pytest
 from eikobot.core.compiler.parser import Parser, ast
 
 
-def test_basic_math(eiko_basic_math_file: Path) -> None:
-    parser = Parser(eiko_basic_math_file)
+def test_basic_ops(eiko_basic_ops_file: Path) -> None:
+    parser = Parser(eiko_basic_ops_file)
     parse_iter = parser.parse()
 
     expr_1 = next(parse_iter)
@@ -82,6 +82,42 @@ def test_basic_math(eiko_basic_math_file: Path) -> None:
     assert isinstance(expr_3.lhs.lhs.rhs, ast.UnaryNegExprAST)
     assert isinstance(expr_3.lhs.lhs.rhs.rhs, ast.IntExprAST)
     assert expr_3.lhs.lhs.rhs.rhs.value == 3
+
+    expr_4 = next(parse_iter)
+    assert isinstance(expr_4, ast.BinOpExprAST)
+    assert expr_4.bin_op == ast.BinOP.ADD
+    assert isinstance(expr_4.rhs, ast.StringExprAST)
+    assert expr_4.rhs.value == "string 2"
+    assert isinstance(expr_4.lhs, ast.BinOpExprAST)
+    assert expr_4.lhs.bin_op == ast.BinOP.ADD
+    assert isinstance(expr_4.lhs.lhs, ast.StringExprAST)
+    assert expr_4.lhs.lhs.value == "string 1"
+    assert isinstance(expr_4.lhs.rhs, ast.StringExprAST)
+    assert expr_4.lhs.rhs.value == " + "
+
+    expr_5 = next(parse_iter)
+    assert isinstance(expr_5, ast.BinOpExprAST)
+    assert expr_5.bin_op == ast.BinOP.SUBTRACT
+    assert isinstance(expr_5.rhs, ast.IntExprAST)
+    assert expr_5.rhs.value == 4
+    assert isinstance(expr_5.lhs, ast.BinOpExprAST)
+    assert expr_5.lhs.bin_op == ast.BinOP.SUBTRACT
+    assert isinstance(expr_5.lhs.lhs, ast.IntExprAST)
+    assert expr_5.lhs.lhs.value == 4
+    assert isinstance(expr_5.lhs.rhs, ast.IntExprAST)
+    assert expr_5.lhs.rhs.value == 4
+
+    expr_6 = next(parse_iter)
+    assert isinstance(expr_6, ast.BinOpExprAST)
+    assert expr_6.bin_op == ast.BinOP.MULTIPLY
+    assert isinstance(expr_6.lhs, ast.StringExprAST)
+    assert expr_6.lhs.value == "ha"
+    assert isinstance(expr_6.rhs, ast.IntExprAST)
+    assert expr_6.rhs.value == 3
+
+    expr_7 = next(parse_iter)
+    assert isinstance(expr_7, ast.StringExprAST)
+    assert expr_7.value == "auto concat string"
 
     with pytest.raises(StopIteration):
         next(parse_iter)

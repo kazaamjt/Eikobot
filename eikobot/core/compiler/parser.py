@@ -4,7 +4,7 @@ from typing import Dict, Iterator, List, Union
 from . import ast
 from .errors import EikoParserError, EikoSyntaxError
 from .lexer import Lexer
-from .token import TokenType
+from .token import Token, TokenType
 
 
 class Parser:
@@ -55,9 +55,19 @@ class Parser:
         self._current = self._next
         self._next = self.lexer.next_token()
 
-        if skip_indentation:
-            while self._current.type == TokenType.INDENT:
-                self._advance()
+        if skip_indentation and self._current.type == TokenType.INDENT:
+            self._advance(skip_indentation)
+
+        if (
+            self._current.type == TokenType.STRING
+            and self._next.type == TokenType.STRING
+        ):
+            self._next = Token(
+                TokenType.STRING,
+                self._current.content + self._next.content,
+                self._current.index,
+            )
+            self._advance(skip_indentation)
 
         if (
             self._current.type == TokenType.INDENT
@@ -114,9 +124,7 @@ class Parser:
         if self._current.type == TokenType.LEFT_PAREN:
             return self._parse_parens()
 
-        raise EikoSyntaxError(
-            f"Unexpected token {self._current.type}."
-        )
+        raise EikoSyntaxError(f"Unexpected token {self._current.type}.")
 
     def _parse_unary_op(self) -> Union[ast.UnaryNegExprAST, ast.UnaryNotExprAST]:
         token = self._current
