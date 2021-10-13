@@ -4,8 +4,8 @@
 # pylint: disable=too-many-statements
 from pathlib import Path
 
+from eikobot.core.compiler.eiko_types import EikoInt, EikoStr
 from eikobot.core.compiler.parser import Parser
-from eikobot.core.compiler.types import EikoInt, EikoStr
 
 
 def test_basic_ops(eiko_basic_ops_file: Path) -> None:

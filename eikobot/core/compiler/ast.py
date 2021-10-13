@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import Union
+from typing import List, Union
 
+from .compilation_context import ResourceDefinition, ResourceProperty
+from .eiko_types import EikoBaseType, EikoBool, EikoFloat, EikoInt, EikoStr
 from .errors import EikoCompilationError, EikoInternalError
 from .ops import BINOP_MATRIX, BinOP
 from .token import Token, TokenType
-from .types import EikoBaseType, EikoBool, EikoFloat, EikoInt, EikoStr
 
 
 @dataclass
@@ -140,3 +141,26 @@ class BinOpExprAST(ExprAST):
             )
 
         return op(lhs, rhs)  # type: ignore
+
+
+@dataclass
+class ResourceDefinitionAST(ExprAST):
+    name: str
+
+    def __post_init__(self) -> None:
+        self.properties: List[ResourceProperty] = []
+
+    def add_property(self, new_property: ResourceProperty, token: Token) -> None:
+        for existing_property in self.properties:
+            if new_property.name == existing_property.name:
+                raise EikoCompilationError(
+                    f"Redefining property {new_property.name} "
+                    f"for Resource type {self.name}, ",
+                    "this is not allowed.",
+                    token=token,
+                )
+
+        self.properties.append(new_property)
+
+    def compile(self) -> ResourceDefinition:
+        return ResourceDefinition(self.name, self.properties)

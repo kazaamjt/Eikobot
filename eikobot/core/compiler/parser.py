@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Dict, Iterator, List, Union
+from typing import Dict, Iterator, List, Tuple, Union
 
 from . import ast
-from .errors import EikoParserError, EikoSyntaxError
+from .compilation_context import ResourceProperty
+from .errors import EikoCompilationError, EikoParserError, EikoSyntaxError
 from .lexer import Lexer
 from .token import Token, TokenType
 
@@ -37,6 +38,13 @@ class Parser:
             "**": 90,
             ".": 100,
         }
+
+    def parse(self) -> Iterator[ast.ExprAST]:
+        """Parses tokens and constructs the next set of ASTs."""
+        expr = self._parse_top_level()
+        while not isinstance(expr, ast.EOFExprAST):
+            yield expr
+            expr = self._parse_top_level()
 
     def print_op_precedence(self) -> None:
         """outputs every level and ops associated with said level."""
@@ -76,20 +84,18 @@ class Parser:
         ):
             self._advance()
 
-    def parse(self) -> Iterator[ast.ExprAST]:
-        """Parses tokens and constructs the next set of ASTs."""
-        expr = self._parse_top_level()
-        while not isinstance(expr, ast.EOFExprAST):
-            yield expr
-            expr = self._parse_top_level()
-
     def _parse_top_level(self) -> ast.ExprAST:
         if self._current.type != TokenType.INDENT or self._current.content != "":
-            raise EikoParserError("Unexpected token.", token=self._current)
+            raise EikoParserError(
+                f"Unexpected token: {self._current.content}.", token=self._current
+            )
 
         self._advance()
         if self._current.type == TokenType.EOF:
             return ast.EOFExprAST(self._current)
+
+        if self._current.type == TokenType.RESOURCE:
+            return self._parse_resource_definition()
 
         return self._parse_expression()
 
@@ -168,3 +174,75 @@ class Parser:
                 rhs = self._parse_bin_op_rhs(current_predecedence + 1, rhs)
 
             lhs = ast.BinOpExprAST(bin_op_token, lhs, rhs)
+
+    def _parse_resource_definition(self) -> ast.ResourceDefinitionAST:
+        if self._next.type != TokenType.IDENTIFIER:
+            raise EikoCompilationError(
+                f"Unexpected token {self._next.content}, "
+                "expected resource identifier.",
+                token=self._next,
+            )
+
+        rd_ast = ast.ResourceDefinitionAST(self._current, self._next.content)
+
+        self._advance()
+        self._advance()
+
+        if self._current.content != ":":
+            raise EikoCompilationError(
+                f"Unexpected token {self._current.content}.",
+                token=self._current,
+            )
+
+        self._advance()
+        if self._current.type != TokenType.INDENT:
+            raise EikoCompilationError(
+                f"Unexpected token {self._current.content}, "
+                "expected indented code block.",
+                token=self._current,
+            )
+
+        indent = self._current.content
+        while self._current.type == TokenType.INDENT:
+            if self._current.content == "":
+                break
+            if self._current.content != indent:
+                raise EikoCompilationError(
+                    "Unexpected indentation.",
+                    token=self._current,
+                )
+            self._advance()
+            token, prop = self._parse_resource_property()
+            rd_ast.add_property(prop, token)
+
+        return rd_ast
+
+    def _parse_resource_property(self) -> Tuple[Token, ResourceProperty]:
+        if self._current.type != TokenType.IDENTIFIER:
+            raise EikoCompilationError(
+                "Unexpected token. Expected a property identifier.",
+                token=self._current,
+            )
+
+        token = self._current
+        name = self._current.content
+        default_value = None
+
+        self._advance()
+        if self._current.content == ":":
+            self._advance()
+            if self._current.type != TokenType.IDENTIFIER:
+                raise EikoCompilationError(
+                    "Unexpected token. Expected a type identifier.",
+                    token=self._current,
+                )
+            prop_type = self._current.content
+            self._advance()
+
+        else:
+            raise EikoCompilationError(
+                "Unexpected token. Expected a type identifier.",
+                token=self._current,
+            )
+
+        return token, ResourceProperty(name, prop_type, default_value)
