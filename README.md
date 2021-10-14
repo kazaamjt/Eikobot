@@ -73,22 +73,22 @@ Note that the above example without the constraints would not be valid,
 as both constructors have the same signature and the compiler wouldn't know
 which one to use.  
 
-## Linters, type checkers, etc
+## Linters, type checkers, testing, etc
 
 Currently this project uses:
 
-- `mypy` for type checking
+- `mypy` for advanced type checking
 - `isort` to auto format the imports
 - `black` to auto format code
 - `flake8` to do basic linting (and pointing out where isort and black would make changes)
-- `pylint` for it's advanced linting and code smell detection
+- `pylint` for advanced linting and code smell detection
 
-Note that the `flake8-isort` and `flake8-pylint` plugins are used,
-so that only 1 linting command has to be used for 3 linters.  
-Flake8 will emit `isort` changes but not auto format them,
-isort still needs to be ran afterwards to fix any errors.  
+Note that the `flake8-isort` and `flake8-black` plugins are used,
+and Flake8 will emit `isort` and `black` issues but not auto format them,
+these tools will still need to be ran afterwards to fix any errors.  
+The `Flake8-pylint` and `Flake8-mypy` plugins are not used as they are in broken state.  
 
-for vscode, adding the following settings to your config is recommended:
+For vscode, adding the following settings to your config is recommended:
 
 ```json
 {
