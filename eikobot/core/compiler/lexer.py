@@ -161,7 +161,7 @@ class Lexer:
 
     def _scan_other(self) -> Token:  # pylint: disable=too-many-return-statements
         index = self._current_index()
-        if self._current in SPECIAL_CHARS.keys():
+        if self._current in SPECIAL_CHARS:
             special_char = self._current
             self._next()
             return Token(SPECIAL_CHARS[special_char], special_char, index)

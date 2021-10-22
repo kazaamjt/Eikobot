@@ -300,4 +300,135 @@ def test_basic_math(eiko_basic_ops_file: Path) -> None:
     assert lexer.next_token() == Token(
         TokenType.INTEGER, "2", Index(1, 22, eiko_basic_ops_file)
     )
-    # Can't be bothered finishing this rn
+
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(2, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.LEFT_PAREN, "(", Index(2, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.LEFT_PAREN, "(", Index(2, 1, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "1", Index(2, 2, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "+", Index(2, 4, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "2", Index(2, 6, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.RIGHT_PAREN, ")", Index(2, 7, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "//", Index(2, 9, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "-", Index(2, 12, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "3", Index(2, 13, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.RIGHT_PAREN, ")", Index(2, 14, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "**", Index(2, 15, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "2", Index(2, 17, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "+", Index(2, 19, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "-", Index(2, 21, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.LEFT_PAREN, "(", Index(2, 22, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "7", Index(2, 23, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "*", Index(2, 25, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "2", Index(2, 27, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.RIGHT_PAREN, ")", Index(2, 28, eiko_basic_ops_file)
+    )
+
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(3, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.STRING, "string 1", Index(3, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "+", Index(3, 11, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.STRING, " + ", Index(3, 13, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "+", Index(3, 19, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.STRING, "string 2", Index(3, 21, eiko_basic_ops_file)
+    )
+
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(4, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "4", Index(4, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "-", Index(4, 2, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "4", Index(4, 4, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "-", Index(4, 6, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "4", Index(4, 8, eiko_basic_ops_file)
+    )
+
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(5, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.STRING, "ha", Index(5, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.ARITHMETIC_OP, "*", Index(5, 5, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.INTEGER, "3", Index(5, 7, eiko_basic_ops_file)
+    )
+
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(6, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.STRING, "auto", Index(6, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.STRING, " concat", Index(6, 6, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.STRING, " string", Index(6, 15, eiko_basic_ops_file)
+    )
+
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(8, 0, eiko_basic_ops_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.EOF, "EOF", Index(8, 0, eiko_basic_ops_file)
+    )

@@ -1,9 +1,16 @@
-from typing import Union
+from typing import Dict, Optional, Union
+
+from ..errors import EikoCompilationError
 
 
 class EikoBaseType:
     def __init__(self, eiko_type: str) -> None:
         self.type = eiko_type
+
+    def get(self, name: str) -> Optional["EikoBaseType"]:
+        raise EikoCompilationError(
+            f"Object of type {self.type} has no property {name}."
+        )
 
 
 class EikoInt(EikoBaseType):
@@ -31,3 +38,12 @@ class EikoStr(EikoBaseType):
     def __init__(self, value: str) -> None:
         super().__init__("str")
         self.value = value
+
+
+class EikoResource(EikoBaseType):
+    def __init__(self, eiko_type: str, properties: Dict[str, EikoBaseType]) -> None:
+        super().__init__(eiko_type)
+        self.properties = properties
+
+    def get(self, name: str) -> Optional[EikoBaseType]:
+        return self.properties.get(name)

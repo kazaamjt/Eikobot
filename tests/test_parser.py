@@ -5,8 +5,9 @@
 from pathlib import Path
 
 import pytest
+from eikobot.core.compiler.ast import StringExprAST
 
-from eikobot.core.compiler.compilation_context import ResourceProperty
+from eikobot.core.compiler.definitions.resource import ResourceProperty
 from eikobot.core.compiler.parser import Parser, ast
 
 
@@ -131,11 +132,23 @@ def test_parse_resource(eiko_file_1: Path) -> None:
     expr_1 = next(parse_iter)
     assert isinstance(expr_1, ast.ResourceDefinitionAST)
     assert len(expr_1.properties) == 2
-    prop_1 = expr_1.properties[0]
+    prop_1 = expr_1.properties["ip"]
     assert isinstance(prop_1, ResourceProperty)
     assert prop_1.name == "ip"
     assert prop_1.type == "str"
-    prop_2 = expr_1.properties[1]
+    prop_2 = expr_1.properties["ip_2"]
     assert isinstance(prop_2, ResourceProperty)
     assert prop_2.name == "ip_2"
     assert prop_2.type == "str"
+
+    var_1 = next(parse_iter)
+    assert isinstance(var_1, ast.AssignmentAST)
+    assert isinstance(var_1.lhs, ast.VariableAST)
+    assert var_1.lhs.identifier == "test_1"
+    assert isinstance(var_1.rhs, ast.CallExprAst)
+    assert var_1.rhs.identifier == "Test"
+    assert len(var_1.rhs.args) == 2
+    assert isinstance(var_1.rhs.args[0], StringExprAST)
+    assert var_1.rhs.args[0].value == "192.168.0.1"
+    assert isinstance(var_1.rhs.args[1], StringExprAST)
+    assert var_1.rhs.args[1].value == "192.168.1.1"

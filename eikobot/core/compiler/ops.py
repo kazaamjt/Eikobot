@@ -1,7 +1,13 @@
 from enum import Enum, auto
 from typing import Callable, Dict, Union
 
-from .eiko_types import EikoBaseType, EikoFloat, EikoInt, EikoNumber, EikoStr
+from .definitions.base_types import (
+    EikoBaseType,
+    EikoFloat,
+    EikoInt,
+    EikoNumber,
+    EikoStr,
+)
 from .errors import EikoInternalError
 
 

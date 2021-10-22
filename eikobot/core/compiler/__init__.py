@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from .definitions.context import CompilerContext
 from .parser import Parser
 
 
@@ -10,9 +11,11 @@ class Compiler:
     """
 
     def __init__(self) -> None:
-        pass
+        self.context = CompilerContext(
+            "__main__",
+        )
 
     def compile(self, file: Path) -> None:
         parser = Parser(file)
         for expr in parser.parse():
-            pass
+            expr.compile(self.context)

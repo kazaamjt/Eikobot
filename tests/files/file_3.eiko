@@ -1,0 +1,6 @@
+resource Test:
+	ip: str
+	ip_2: str
+
+test_1 = Test("192.168.0.1", "192.168.1.1")
+ip_1 = test_1.ip_2

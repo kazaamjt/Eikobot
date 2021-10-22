@@ -1,8 +1,16 @@
 from dataclasses import dataclass
-from typing import List, Union
+from typing import Dict, List, Optional, Union
 
-from .compilation_context import ResourceDefinition, ResourceProperty
-from .eiko_types import EikoBaseType, EikoBool, EikoFloat, EikoInt, EikoStr
+from .definitions.base_types import (
+    EikoBaseType,
+    EikoBool,
+    EikoFloat,
+    EikoInt,
+    EikoStr,
+)
+from .definitions.context import CompilerContext, StorableTypes
+from .definitions.function import FunctionDefinition
+from .definitions.resource import ResourceDefinition, ResourceProperty
 from .errors import EikoCompilationError, EikoInternalError
 from .ops import BINOP_MATRIX, BinOP
 from .token import Token, TokenType
@@ -14,13 +22,16 @@ class ExprAST:
 
     token: Token
 
-    def compile(self) -> EikoBaseType:
+    def compile(self, _: CompilerContext) -> Optional[StorableTypes]:
         raise NotImplementedError
 
 
 @dataclass
-class EOFExprAST(ExprAST):  # pylint: disable=abstract-method
+class EOFExprAST(ExprAST):
     """This ExprAST marks end of parsing."""
+
+    def compile(self, _: CompilerContext) -> None:
+        raise NotImplementedError
 
 
 @dataclass
@@ -30,7 +41,7 @@ class IntExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.value = int(self.token.content)
 
-    def compile(self) -> EikoInt:
+    def compile(self, _: CompilerContext) -> EikoInt:
         return EikoInt(self.value)
 
 
@@ -41,7 +52,7 @@ class FloatExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.value = float(self.token.content)
 
-    def compile(self) -> EikoFloat:
+    def compile(self, _: CompilerContext) -> EikoFloat:
         return EikoFloat(self.value)
 
 
@@ -60,7 +71,7 @@ class BoolExprAST(ExprAST):
                 "This is deffinetly a bug, please report it on github."
             )
 
-    def compile(self) -> EikoBool:
+    def compile(self, _: CompilerContext) -> EikoBool:
         return EikoBool(self.value)
 
 
@@ -71,7 +82,7 @@ class StringExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.value = self.token.content
 
-    def compile(self) -> EikoStr:
+    def compile(self, _: CompilerContext) -> EikoStr:
         return EikoStr(self.value)
 
 
@@ -81,6 +92,9 @@ class UnaryNotExprAST(ExprAST):
 
     rhs: ExprAST
 
+    def compile(self, _: CompilerContext) -> EikoBaseType:
+        raise NotImplementedError
+
 
 @dataclass
 class UnaryNegExprAST(ExprAST):
@@ -88,13 +102,20 @@ class UnaryNegExprAST(ExprAST):
 
     rhs: ExprAST
 
-    def compile(self) -> Union[EikoInt, EikoFloat]:
-        rhs = self.rhs.compile()
+    def compile(self, context: CompilerContext) -> Union[EikoInt, EikoFloat]:
+        rhs = self.rhs.compile(context)
         if isinstance(rhs, EikoInt):
             return EikoInt(-rhs.value)
 
         if isinstance(rhs, EikoFloat):
             return EikoFloat(-rhs.value)
+
+        if rhs is None:
+            raise EikoCompilationError(
+                "Unary negative expected value to the right hand side, "
+                "but expression didn't return a usable value.",
+                token=self.token,
+            )
 
         raise EikoCompilationError(
             f"Unable to perform unary negative on object of type {rhs.type}",
@@ -112,9 +133,22 @@ class BinOpExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.bin_op = BinOP.from_str(self.token.content)
 
-    def compile(self) -> EikoBaseType:
-        lhs = self.lhs.compile()
-        rhs = self.rhs.compile()
+    def compile(self, context: CompilerContext) -> EikoBaseType:
+        lhs = self.lhs.compile(context)
+        if lhs is None:
+            raise EikoCompilationError(
+                "Binary operation expected value on left hand side, "
+                "but expression didn't return a usable value.",
+                token=self.token,
+            )
+
+        rhs = self.rhs.compile(context)
+        if rhs is None:
+            raise EikoCompilationError(
+                "Binary operation expected value on right hand side, "
+                "but expression didn't return a usable value.",
+                token=self.token,
+            )
 
         arg_a_matrix = BINOP_MATRIX.get(lhs.type)
         if arg_a_matrix is None:
@@ -144,23 +178,121 @@ class BinOpExprAST(ExprAST):
 
 
 @dataclass
+class VariableAST(ExprAST):
+    def __post_init__(self) -> None:
+        self.identifier = self.token.content
+
+    def compile(self, context: Union[CompilerContext, EikoBaseType]) -> StorableTypes:
+        value = context.get(self.identifier)
+        if value is None:
+            raise EikoCompilationError(
+                f"Variable {self.identifier} was accessed before "
+                "having been assigned a value.",
+                token=self.token,
+            )
+
+        return value
+
+
+@dataclass
+class AssignmentAST(ExprAST):
+    lhs: ExprAST
+    rhs: ExprAST
+
+    def compile(self, context: CompilerContext) -> StorableTypes:
+        assignment_val = self.rhs.compile(context)
+        if assignment_val is None:
+            raise EikoCompilationError(
+                "Assignment operation expected value on right hand side, "
+                "but expression didn't return a usable value.",
+                token=self.rhs.token,
+            )
+
+        if not isinstance(self.lhs, VariableAST):
+            raise EikoCompilationError(
+                "Assignment operation expected assignable variable on left hand side",
+                token=self.token,
+            )
+
+        context.set(self.lhs.token.content, assignment_val, self.token)
+        return assignment_val
+
+
+@dataclass
+class DotExprAST(ExprAST):
+    lhs: ExprAST
+    rhs: ExprAST
+
+    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+        lhs = self.lhs.compile(context)
+        if isinstance(self.rhs, VariableAST) and isinstance(lhs, EikoBaseType):
+            return self.rhs.compile(lhs)
+
+        elif isinstance(self.rhs, CallExprAst) and isinstance(lhs, ResourceDefinition):
+            return self.rhs.compile(lhs)
+
+        raise EikoCompilationError(
+            "Unable to perform dit expression on given token.",
+            token=self.lhs.token,
+        )
+
+
+@dataclass
+class CallExprAst(ExprAST):
+    def __post_init__(self) -> None:
+        self.identifier = self.token.content
+        self.args: List[ExprAST] = []
+
+    def add_arg(self, expr: ExprAST) -> None:
+        self.args.append(expr)
+
+    def compile(
+        self, context: Union[CompilerContext, EikoBaseType]
+    ) -> Optional[EikoBaseType]:
+        eiko_callable = context.get(self.identifier)
+        if isinstance(context, EikoBaseType):
+            raise EikoInternalError(
+                "Something went wrong, an EikoBaseType was passed to "
+                "CallExprAST.compile instead of a CompilerContext. "
+                "Please report this.",
+            )
+
+        if isinstance(eiko_callable, FunctionDefinition):
+            func_context = CompilerContext(f"func-{self.identifier}", context)
+            for arg in self.args:
+                value = arg.compile(func_context)
+            eiko_callable.execute(func_context)
+
+        if eiko_callable is None:
+            raise EikoCompilationError(
+                f"No callable {self.identifier}.",
+                token=self.token,
+            )
+
+        raise EikoCompilationError(
+            f"{self.identifier} is not a callable.",
+            token=self.token,
+        )
+
+
+@dataclass
 class ResourceDefinitionAST(ExprAST):
     name: str
 
     def __post_init__(self) -> None:
-        self.properties: List[ResourceProperty] = []
+        self.properties: Dict[str, ResourceProperty] = {}
 
     def add_property(self, new_property: ResourceProperty, token: Token) -> None:
-        for existing_property in self.properties:
-            if new_property.name == existing_property.name:
-                raise EikoCompilationError(
-                    f"Redefining property {new_property.name} "
-                    f"for Resource type {self.name}, ",
-                    "this is not allowed.",
-                    token=token,
-                )
+        existing_property = self.properties.get(new_property.name)
+        if existing_property is not None:
+            raise EikoCompilationError(
+                f"Redefining property {new_property.name} "
+                f"for Resource type {self.name}. ",
+                "Reassigning of property values is not allowed.",
+                token=token,
+            )
 
-        self.properties.append(new_property)
+        self.properties[new_property.name] = new_property
 
-    def compile(self) -> ResourceDefinition:
-        return ResourceDefinition(self.name, self.properties)
+    def compile(self, _: CompilerContext) -> ResourceDefinition:
+        return ResourceDefinition(self.name, self.properties, self.token)

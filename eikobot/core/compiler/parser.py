@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Tuple, Union
 
 from . import ast
-from .compilation_context import ResourceProperty
+from .definitions.resource import ResourceProperty
 from .errors import EikoCompilationError, EikoParserError, EikoSyntaxError
 from .lexer import Lexer
 from .token import Token, TokenType
@@ -130,7 +130,10 @@ class Parser:
         if self._current.type == TokenType.LEFT_PAREN:
             return self._parse_parens()
 
-        raise EikoSyntaxError(f"Unexpected token {self._current.type}.")
+        if self._current.type == TokenType.IDENTIFIER:
+            return self._parse_identifier()
+
+        raise EikoSyntaxError(f"Unexpected token {self._current.type.name}.")
 
     def _parse_unary_op(self) -> Union[ast.UnaryNegExprAST, ast.UnaryNotExprAST]:
         token = self._current
@@ -173,7 +176,40 @@ class Parser:
             if expr_precedence < next_op_precedence:
                 rhs = self._parse_bin_op_rhs(current_predecedence + 1, rhs)
 
-            lhs = ast.BinOpExprAST(bin_op_token, lhs, rhs)
+            if bin_op_token.type == TokenType.ASSIGNMENT_OP:
+                lhs = ast.AssignmentAST(bin_op_token, lhs, rhs)
+            elif bin_op_token.type == TokenType.DOT:
+                lhs = ast.DotExprAST(bin_op_token, lhs, rhs)
+            else:
+                lhs = ast.BinOpExprAST(bin_op_token, lhs, rhs)
+
+    def _parse_identifier(self) -> Union[ast.VariableAST, ast.CallExprAst]:
+        token = self._current
+        self._advance()
+        if self._current.type == TokenType.LEFT_PAREN:
+            self._advance()
+            return self._parse_call_expr(token)
+
+        return ast.VariableAST(token)
+
+    def _parse_call_expr(self, name_token: Token) -> ast.CallExprAst:
+        call_ast = ast.CallExprAst(name_token)
+        while True:
+            expr = self._parse_expression()
+            call_ast.add_arg(expr)
+            if self._current.type == TokenType.RIGHT_PAREN:
+                break
+
+            if self._current.type != TokenType.COMMA:
+                raise EikoCompilationError(
+                    "Unexpected token. Expected a comma or right parenthesis.",
+                    token=self._current,
+                )
+            self._advance()
+            if self._current.type == TokenType.RIGHT_PAREN:
+                break
+
+        return call_ast
 
     def _parse_resource_definition(self) -> ast.ResourceDefinitionAST:
         if self._next.type != TokenType.IDENTIFIER:
