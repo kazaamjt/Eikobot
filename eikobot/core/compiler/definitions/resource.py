@@ -10,7 +10,8 @@ from .function import FunctionDefinition
 class ResourceProperty:
     name: str
     type: str
-    default_value: Optional[EikoBaseType]
+    default_value: Optional[EikoBaseType] = None
+    token: Optional[Token] = None
 
 
 class ResourceDefinition(EikoBaseType):
@@ -22,6 +23,3 @@ class ResourceDefinition(EikoBaseType):
         self.name = name
         self.properties: Dict[str, ResourceProperty] = properties
         self.constructors: Dict[str, FunctionDefinition] = {}
-
-    def create_default_constructor(self) -> None:
-        pass

@@ -5,8 +5,8 @@
 from pathlib import Path
 
 import pytest
-from eikobot.core.compiler.ast import StringExprAST
 
+from eikobot.core.compiler.ast import StringExprAST
 from eikobot.core.compiler.definitions.resource import ResourceProperty
 from eikobot.core.compiler.parser import Parser, ast
 

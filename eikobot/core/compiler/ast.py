@@ -6,10 +6,11 @@ from .definitions.base_types import (
     EikoBool,
     EikoFloat,
     EikoInt,
+    EikoResource,
     EikoStr,
 )
 from .definitions.context import CompilerContext, StorableTypes
-from .definitions.function import FunctionDefinition
+from .definitions.function import FunctionArg, FunctionDefinition
 from .definitions.resource import ResourceDefinition, ResourceProperty
 from .errors import EikoCompilationError, EikoInternalError
 from .ops import BINOP_MATRIX, BinOP
@@ -208,14 +209,17 @@ class AssignmentAST(ExprAST):
                 token=self.rhs.token,
             )
 
-        if not isinstance(self.lhs, VariableAST):
-            raise EikoCompilationError(
-                "Assignment operation expected assignable variable on left hand side",
-                token=self.token,
-            )
+        if isinstance(self.lhs, VariableAST):
+            context.set(self.lhs.token.content, assignment_val, self.token)
+            return assignment_val
 
-        context.set(self.lhs.token.content, assignment_val, self.token)
-        return assignment_val
+        if isinstance(self.lhs, DotExprAST):
+            return self.lhs.assign(assignment_val, context)
+
+        raise EikoCompilationError(
+            "Assignment operation expected assignable variable on left hand side",
+            token=self.token,
+        )
 
 
 @dataclass
@@ -233,6 +237,24 @@ class DotExprAST(ExprAST):
 
         raise EikoCompilationError(
             "Unable to perform dit expression on given token.",
+            token=self.lhs.token,
+        )
+
+    def assign(self, value: StorableTypes, context: CompilerContext) -> StorableTypes:
+        lhs = self.lhs.compile(context)
+        if isinstance(lhs, EikoResource):
+            if isinstance(self.rhs, VariableAST):
+                lhs.set(self.rhs.identifier, value, self.rhs.token)
+                return value
+
+            raise EikoCompilationError(
+                f"Tried to assign value to {self.lhs.token.content}."
+                f"{self.rhs.token.content}, but this is not a valid expression.",
+                token=self.rhs.token,
+            )
+        raise EikoCompilationError(
+            f"Tried to assign value to {self.lhs.token.content}."
+            f"{self.rhs.token.content}, but this is not a valid expression.",
             token=self.lhs.token,
         )
 
@@ -259,9 +281,16 @@ class CallExprAst(ExprAST):
 
         if isinstance(eiko_callable, FunctionDefinition):
             func_context = CompilerContext(f"func-{self.identifier}", context)
-            for arg in self.args:
-                value = arg.compile(func_context)
+            self_arg = eiko_callable.args[0]
+            resource = EikoResource(self_arg.type)
+            func_context.set(self_arg.name, resource)
+            for passed_arg, arg_definition in zip(self.args, eiko_callable.args[1:]):
+                value = passed_arg.compile(func_context)
+                if value.type != arg_definition.type:
+                    raise EikoCompilationError("")
+                func_context.set(arg_definition.name, value)
             eiko_callable.execute(func_context)
+            return resource
 
         if eiko_callable is None:
             raise EikoCompilationError(
@@ -282,17 +311,40 @@ class ResourceDefinitionAST(ExprAST):
     def __post_init__(self) -> None:
         self.properties: Dict[str, ResourceProperty] = {}
 
-    def add_property(self, new_property: ResourceProperty, token: Token) -> None:
+    def add_property(self, new_property: ResourceProperty) -> None:
         existing_property = self.properties.get(new_property.name)
         if existing_property is not None:
             raise EikoCompilationError(
                 f"Redefining property {new_property.name} "
                 f"for Resource type {self.name}. ",
                 "Reassigning of property values is not allowed.",
-                token=token,
+                token=new_property.token,
             )
 
         self.properties[new_property.name] = new_property
 
-    def compile(self, _: CompilerContext) -> ResourceDefinition:
+    def compile(self, context: CompilerContext) -> ResourceDefinition:
+        default_constructor = FunctionDefinition()
+        default_constructor.add_arg(FunctionArg("self", self.name))
+        for prop in self.properties.values():
+            default_constructor.add_arg(
+                FunctionArg(prop.name, prop.type, prop.default_value)
+            )
+            token = prop.token
+            if token is None:
+                token = Token(TokenType.IDENTIFIER, prop.name, self.token.index)
+            default_constructor.add_body_expr(
+                AssignmentAST(
+                    self.token,
+                    DotExprAST(
+                        Token(TokenType.DOT, ".", token.index),
+                        VariableAST(Token(TokenType.IDENTIFIER, "self", token.index)),
+                        VariableAST(token),
+                    ),
+                    VariableAST(token),
+                ),
+            )
+
+        context.set(self.name, default_constructor, self.token)
+
         return ResourceDefinition(self.name, self.properties, self.token)

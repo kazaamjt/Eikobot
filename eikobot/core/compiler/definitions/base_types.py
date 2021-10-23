@@ -1,6 +1,10 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, TYPE_CHECKING, Union
 
 from ..errors import EikoCompilationError
+from ..token import Token
+
+if TYPE_CHECKING:
+    from .context import StorableTypes
 
 
 class EikoBaseType:
@@ -41,9 +45,26 @@ class EikoStr(EikoBaseType):
 
 
 class EikoResource(EikoBaseType):
-    def __init__(self, eiko_type: str, properties: Dict[str, EikoBaseType]) -> None:
+    def __init__(self, eiko_type: str) -> None:
         super().__init__(eiko_type)
-        self.properties = properties
+        self.properties: Dict[str, EikoBaseType] = {}
 
     def get(self, name: str) -> Optional[EikoBaseType]:
         return self.properties.get(name)
+
+    def set(self, name: str, value: "StorableTypes", token: Token) -> None:
+        if not isinstance(value, EikoBaseType):
+            raise EikoCompilationError(
+                f"Unable to assign property {name} of class {self.type} "
+                f"cannot be assigned given vlaue.",
+                token=token,
+            )
+
+        prop = self.properties.get(name)
+        if prop is not None:
+            raise EikoCompilationError(
+                "Attempted to reassign value to a variable that was already assigned.",
+                token=token,
+            )
+
+        self.properties[name] = value

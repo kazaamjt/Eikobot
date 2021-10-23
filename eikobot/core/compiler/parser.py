@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Iterator, List, Tuple, Union
+from typing import Dict, Iterator, List, Union
 
 from . import ast
 from .definitions.resource import ResourceProperty
@@ -198,6 +198,7 @@ class Parser:
             expr = self._parse_expression()
             call_ast.add_arg(expr)
             if self._current.type == TokenType.RIGHT_PAREN:
+                self._advance()
                 break
 
             if self._current.type != TokenType.COMMA:
@@ -248,12 +249,12 @@ class Parser:
                     token=self._current,
                 )
             self._advance()
-            token, prop = self._parse_resource_property()
-            rd_ast.add_property(prop, token)
+            prop = self._parse_resource_property()
+            rd_ast.add_property(prop)
 
         return rd_ast
 
-    def _parse_resource_property(self) -> Tuple[Token, ResourceProperty]:
+    def _parse_resource_property(self) -> ResourceProperty:
         if self._current.type != TokenType.IDENTIFIER:
             raise EikoCompilationError(
                 "Unexpected token. Expected a property identifier.",
@@ -281,4 +282,4 @@ class Parser:
                 token=self._current,
             )
 
-        return token, ResourceProperty(name, prop_type, default_value)
+        return ResourceProperty(name, prop_type, default_value, token)
