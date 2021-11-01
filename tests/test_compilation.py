@@ -4,9 +4,9 @@
 # pylint: disable=too-many-statements
 from pathlib import Path
 
-from eikobot.core.compiler.definitions.base_types import EikoInt, EikoStr
-from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler import Compiler
+from eikobot.core.compiler.definitions.base_types import EikoInt, EikoStr, EikoResource
+from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler.parser import Parser
 
 
@@ -47,4 +47,17 @@ def test_basic_ops(eiko_basic_ops_file: Path) -> None:
 def test_basic_compiler(eiko_file_3: Path) -> None:
     compiler = Compiler()
     compiler.compile(eiko_file_3)
-    print(compiler.context)
+    test_1 = compiler.context.get("test_1")
+    assert isinstance(test_1, EikoResource)
+
+    _ip = test_1.properties["ip"]
+    assert isinstance(_ip, EikoStr)
+    assert _ip.value == "192.168.0.1"
+
+    ip_2 = test_1.properties["ip_2"]
+    assert isinstance(ip_2, EikoStr)
+    assert ip_2.value == "192.168.1.1"
+
+    ip_1 = compiler.context.get("ip_1")
+    assert isinstance(ip_1, EikoStr)
+    assert ip_1.value == "192.168.0.1"

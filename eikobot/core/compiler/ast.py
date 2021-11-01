@@ -269,14 +269,20 @@ class CallExprAst(ExprAST):
         self.args.append(expr)
 
     def compile(
-        self, context: Union[CompilerContext, EikoBaseType]
+        self, context: Union[CompilerContext, EikoBaseType, ResourceDefinition]
     ) -> Optional[EikoBaseType]:
-        eiko_callable = context.get(self.identifier)
+        eiko_callable: Optional[StorableTypes] = None
+        if isinstance(context, CompilerContext):
+            resource_definition = context.get(self.identifier)
+            if isinstance(resource_definition, ResourceDefinition):
+                eiko_callable = resource_definition.get(self.identifier)
+        else:
+            eiko_callable = context.get(self.identifier)
         if isinstance(context, EikoBaseType):
             raise EikoInternalError(
                 "Something went wrong, an EikoBaseType was passed to "
                 "CallExprAST.compile instead of a CompilerContext. "
-                "Please report this.",
+                "Please report this."
             )
 
         if isinstance(eiko_callable, FunctionDefinition):
@@ -286,8 +292,18 @@ class CallExprAst(ExprAST):
             func_context.set(self_arg.name, resource)
             for passed_arg, arg_definition in zip(self.args, eiko_callable.args[1:]):
                 value = passed_arg.compile(func_context)
+                if value is None:
+                    raise EikoInternalError(
+                        "Encountered bad value during compilation. "
+                        "This is most likely a bug.\n"
+                        "Please report this. (Value of parameter was Python None).\n"
+                        f"Related token: {passed_arg.token}."
+                    )
                 if value.type != arg_definition.type:
-                    raise EikoCompilationError("")
+                    raise EikoCompilationError(
+                        "Bad value was passed. Expected ",
+                        token=passed_arg.token,
+                    )
                 func_context.set(arg_definition.name, value)
             eiko_callable.execute(func_context)
             return resource
@@ -324,6 +340,8 @@ class ResourceDefinitionAST(ExprAST):
         self.properties[new_property.name] = new_property
 
     def compile(self, context: CompilerContext) -> ResourceDefinition:
+        resource_definition = ResourceDefinition(self.name, self.properties, self.token)
+
         default_constructor = FunctionDefinition()
         default_constructor.add_arg(FunctionArg("self", self.name))
         for prop in self.properties.values():
@@ -345,6 +363,7 @@ class ResourceDefinitionAST(ExprAST):
                 ),
             )
 
-        context.set(self.name, default_constructor, self.token)
+        resource_definition.add_constructor(self.name, default_constructor)
+        context.set(self.name, resource_definition, self.token)
 
-        return ResourceDefinition(self.name, self.properties, self.token)
+        return resource_definition
