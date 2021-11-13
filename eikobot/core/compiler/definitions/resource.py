@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-from ..token import Token
 from ..errors import EikoCompilationError
+from ..token import Token
 from .base_types import EikoBaseType
 from .function import FunctionDefinition
 

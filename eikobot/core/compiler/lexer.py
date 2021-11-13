@@ -9,6 +9,7 @@ KEYWORDS = {
     "implement": TokenType.IMPLEMENT,
     "True": TokenType.TRUE,
     "False": TokenType.FALSE,
+    "import": TokenType.IMPORT,
 }
 
 SPECIAL_CHARS = {

@@ -5,7 +5,11 @@
 from pathlib import Path
 
 from eikobot.core.compiler import Compiler
-from eikobot.core.compiler.definitions.base_types import EikoInt, EikoStr, EikoResource
+from eikobot.core.compiler.definitions.base_types import (
+    EikoInt,
+    EikoResource,
+    EikoStr,
+)
 from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler.parser import Parser
 

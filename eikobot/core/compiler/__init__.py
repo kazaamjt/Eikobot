@@ -16,6 +16,6 @@ class Compiler:
         )
 
     def compile(self, file: Path) -> None:
-        parser = Parser(file)
-        for expr in parser.parse():
-            expr.compile(self.context)
+        results = []
+        for expr in Parser(file).parse():
+            results.append(expr.compile(self.context))

@@ -1,4 +1,4 @@
-from typing import Dict, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token

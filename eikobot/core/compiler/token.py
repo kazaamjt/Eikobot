@@ -15,6 +15,7 @@ class TokenType(Enum):
 
     RESOURCE = auto()
     IMPLEMENT = auto()
+    IMPORT = auto()
     IDENTIFIER = auto()
 
     LEFT_PAREN = auto()

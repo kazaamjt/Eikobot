@@ -1,0 +1,3 @@
+import std
+
+test_resource = std.CompileTestResource("test")
