@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, List, Optional
 from .base_types import EikoBaseType
 
 if TYPE_CHECKING:
-    from ..ast import ExprAST
+    from ..parser import ExprAST
     from .context import CompilerContext
 
 

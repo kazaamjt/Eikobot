@@ -237,13 +237,9 @@ class DotExprAST(ExprAST):
 
     def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
         lhs = self.lhs.compile(context)
-        if isinstance(self.rhs, VariableAST) and isinstance(lhs, EikoBaseType):
-            return self.rhs.compile(lhs)
-
-        elif isinstance(self.rhs, CallExprAst) and isinstance(lhs, ResourceDefinition):
-            return self.rhs.compile(lhs)
-
-        elif isinstance(self.rhs, CallExprAst) and isinstance(lhs, CompilerContext):
+        if isinstance(self.rhs, (VariableAST, CallExprAst, DotExprAST)) and isinstance(
+            lhs, (EikoBaseType, ResourceDefinition, CompilerContext)
+        ):
             return self.rhs.compile(lhs)
 
         raise EikoCompilationError(
@@ -351,34 +347,64 @@ class CallExprAst(ExprAST):
 
 
 @dataclass
+class ResourcePropertyAST:
+    token: Token
+    type_expr: Union[VariableAST, DotExprAST]
+    default_value: Optional[ExprAST] = None
+
+    def __post_init__(self) -> None:
+        self.name = self.token.content
+
+    def compile(self, context: CompilerContext, resource_name: str) -> ResourceProperty:
+        _type = self.type_expr.compile(context)
+        if type(_type) in (EikoBaseType, CompilerContext) or _type is None:
+            raise EikoCompilationError(
+                f"{resource_name}.{self.name} was given an invalid type expression.",
+                token=self.type_expr.token,
+            )
+
+        if self.default_value is not None:
+            default_value = self.default_value.compile(context)
+            if not isinstance(default_value, EikoBaseType) or default_value is None:
+                raise EikoCompilationError(
+                    f"{resource_name}.{self.name} was given an invalid default value.",
+                    token=self.default_value.token,
+                )
+
+            if default_value.type != _type.type:
+                raise EikoCompilationError(
+                    f"Property {resource_name}.{self.name} has type {_type.type}, "
+                    f"but default value is of type {default_value.type}",
+                    token=self.default_value.token,
+                )
+        else:
+            default_value = None
+
+        return ResourceProperty(self.name, _type.name, default_value)
+
+
+@dataclass
 class ResourceDefinitionAST(ExprAST):
     name: str
 
     def __post_init__(self) -> None:
-        self.properties: Dict[str, ResourceProperty] = {}
+        self.properties: List[ResourcePropertyAST] = []
 
-    def add_property(self, new_property: ResourceProperty) -> None:
-        existing_property = self.properties.get(new_property.name)
-        if existing_property is not None:
-            raise EikoCompilationError(
-                f"Redefining property {new_property.name} "
-                f"for Resource type {self.name}. ",
-                "Reassigning of property values is not allowed.",
-                token=new_property.token,
-            )
-
-        self.properties[new_property.name] = new_property
+    def add_property(self, new_property: ResourcePropertyAST) -> None:
+        self.properties.append(new_property)
 
     def compile(self, context: CompilerContext) -> ResourceDefinition:
-        resource_definition = ResourceDefinition(self.name, self.properties, self.token)
+        resource_definition = ResourceDefinition(self.name, self.token)
 
         default_constructor = FunctionDefinition()
         default_constructor.add_arg(FunctionArg("self", self.name))
-        for prop in self.properties.values():
+        for property_ast in self.properties:
+            prop = property_ast.compile(context, self.name)
+            resource_definition.add_property(prop)
             default_constructor.add_arg(
                 FunctionArg(prop.name, prop.type, prop.default_value)
             )
-            token = prop.token
+            token = property_ast.token
             if token is None:
                 token = Token(TokenType.IDENTIFIER, prop.name, self.token.index)
             default_constructor.add_body_expr(
@@ -672,35 +698,37 @@ class Parser:
 
         return rd_ast
 
-    def _parse_resource_property(self) -> ResourceProperty:
+    def _parse_resource_property(self) -> ResourcePropertyAST:
         if self._current.type != TokenType.IDENTIFIER:
-            raise EikoCompilationError(
+            raise EikoParserError(
                 "Unexpected token. Expected a property identifier.",
                 token=self._current,
             )
 
         token = self._current
-        name = self._current.content
         default_value = None
 
         self._advance()
-        if self._current.content == ":":
-            self._advance()
-            if self._current.type != TokenType.IDENTIFIER:
-                raise EikoCompilationError(
-                    "Unexpected token. Expected a type identifier.",
-                    token=self._current,
-                )
-            prop_type = self._current.content
-            self._advance()
-
-        else:
-            raise EikoCompilationError(
-                "Unexpected token. Expected a type identifier.",
+        if not self._current.content == ":":
+            raise EikoParserError(
+                "Unexpected token. "
+                "Expected a colon seperating the identifier from it's type.",
                 token=self._current,
             )
 
-        return ResourceProperty(name, prop_type, default_value, token)
+        self._advance()
+        type_expr = self._parse_expression()
+        if isinstance(type_expr, AssignmentAST):
+            default_value = type_expr.rhs
+            type_expr = type_expr.lhs
+
+        if not isinstance(type_expr, (DotExprAST, VariableAST)):
+            raise EikoCompilationError(
+                "Invalid expression. Expected a type expression.",
+                token=type_expr.token,
+            )
+
+        return ResourcePropertyAST(token, type_expr, default_value)
 
     def _parse_import(self) -> ImportExprAST:
         token = self._current

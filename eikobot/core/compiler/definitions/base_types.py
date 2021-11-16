@@ -8,6 +8,9 @@ if TYPE_CHECKING:
 
 
 class EikoBaseType:
+
+    name = "EikoObject"
+
     def __init__(self, eiko_type: str) -> None:
         self.type = eiko_type
 
@@ -18,14 +21,20 @@ class EikoBaseType:
 
 
 class EikoInt(EikoBaseType):
+
+    name = "int"
+
     def __init__(self, value: int) -> None:
-        super().__init__("int")
+        super().__init__(self.name)
         self.value = value
 
 
 class EikoFloat(EikoBaseType):
+
+    name = "float"
+
     def __init__(self, value: float) -> None:
-        super().__init__("float")
+        super().__init__(self.name)
         self.value = value
 
 
@@ -33,14 +42,20 @@ EikoNumber = Union[EikoInt, EikoFloat]
 
 
 class EikoBool(EikoBaseType):
+
+    name = "bool"
+
     def __init__(self, value: bool) -> None:
-        super().__init__("bool")
+        super().__init__(self.name)
         self.value = value
 
 
 class EikoStr(EikoBaseType):
+
+    name = "str"
+
     def __init__(self, value: str) -> None:
-        super().__init__("str")
+        super().__init__(self.name)
         self.value = value
 
 

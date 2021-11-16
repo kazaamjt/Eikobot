@@ -12,18 +12,18 @@ class ResourceProperty:
     name: str
     type: str
     default_value: Optional[EikoBaseType] = None
-    token: Optional[Token] = None
 
 
 class ResourceDefinition(EikoBaseType):
-    def __init__(
-        self, name: str, properties: Dict[str, ResourceProperty], token: Token
-    ) -> None:
-        super().__init__("resource")
+    def __init__(self, name: str, token: Token) -> None:
+        super().__init__(name)
         self.token = token
         self.name = name
-        self.properties: Dict[str, ResourceProperty] = properties
+        self.properties: Dict[str, ResourceProperty] = {}
         self.constructors: Dict[str, FunctionDefinition] = {}
+
+    def add_property(self, prop: ResourceProperty) -> None:
+        self.properties[prop.name] = prop
 
     def add_constructor(self, name: str, func_def: FunctionDefinition) -> None:
         self.constructors[name] = func_def

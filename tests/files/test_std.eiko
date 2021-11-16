@@ -1,3 +1,8 @@
 import std
 
 test_resource = std.CompileTestResource("test")
+
+resource Test_2:
+    test: std.CompileTestResource
+
+test_2 = Test_2(test_resource)
