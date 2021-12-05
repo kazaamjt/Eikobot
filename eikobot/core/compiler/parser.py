@@ -232,10 +232,12 @@ class AssignmentAST(ExprAST):
 
 @dataclass
 class DotExprAST(ExprAST):
-    lhs: ExprAST
+    lhs: VariableAST
     rhs: ExprAST
 
-    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+    def compile(
+        self, context: Union[CompilerContext, EikoBaseType, ResourceDefinition]
+    ) -> Optional[StorableTypes]:
         lhs = self.lhs.compile(context)
         if isinstance(self.rhs, (VariableAST, CallExprAst, DotExprAST)) and isinstance(
             lhs, (EikoBaseType, ResourceDefinition, CompilerContext)
@@ -388,17 +390,17 @@ class ResourceDefinitionAST(ExprAST):
     name: str
 
     def __post_init__(self) -> None:
-        self.properties: List[ResourcePropertyAST] = []
+        self.properties: Dict[str, ResourcePropertyAST] = {}
 
     def add_property(self, new_property: ResourcePropertyAST) -> None:
-        self.properties.append(new_property)
+        self.properties[new_property.name] = new_property
 
     def compile(self, context: CompilerContext) -> ResourceDefinition:
         resource_definition = ResourceDefinition(self.name, self.token)
 
         default_constructor = FunctionDefinition()
         default_constructor.add_arg(FunctionArg("self", self.name))
-        for property_ast in self.properties:
+        for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
             resource_definition.add_property(prop)
             default_constructor.add_arg(
@@ -623,7 +625,14 @@ class Parser:
             if bin_op_token.type == TokenType.ASSIGNMENT_OP:
                 lhs = AssignmentAST(bin_op_token, lhs, rhs)
             elif bin_op_token.type == TokenType.DOT:
-                lhs = DotExprAST(bin_op_token, lhs, rhs)
+                if isinstance(lhs, VariableAST):
+                    lhs = DotExprAST(bin_op_token, lhs, rhs)
+                else:
+                    raise EikoParserError(
+                        "Unexpected token. "
+                        "Expected an identifier on the left side of the dot expression.",
+                        token=lhs.token,
+                    )
             else:
                 lhs = BinOpExprAST(bin_op_token, lhs, rhs)
 
@@ -709,7 +718,7 @@ class Parser:
         default_value = None
 
         self._advance()
-        if not self._current.content == ":":
+        if self._current.content != ":":
             raise EikoParserError(
                 "Unexpected token. "
                 "Expected a colon seperating the identifier from it's type.",

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from eikobot.core.compiler.definitions.resource import ResourceProperty
 from eikobot.core.compiler.parser import (
     AssignmentAST,
     BinOP,
@@ -15,6 +14,7 @@ from eikobot.core.compiler.parser import (
     IntExprAST,
     Parser,
     ResourceDefinitionAST,
+    ResourcePropertyAST,
     StringExprAST,
     UnaryNegExprAST,
     VariableAST,
@@ -143,13 +143,15 @@ def test_parse_resource(eiko_file_1: Path) -> None:
     assert isinstance(expr_1, ResourceDefinitionAST)
     assert len(expr_1.properties) == 2
     prop_1 = expr_1.properties["ip"]
-    assert isinstance(prop_1, ResourceProperty)
+    assert isinstance(prop_1, ResourcePropertyAST)
     assert prop_1.name == "ip"
-    assert prop_1.type == "str"
+    assert isinstance(prop_1.type_expr, VariableAST)
+    assert prop_1.type_expr.identifier == "str"
     prop_2 = expr_1.properties["ip_2"]
-    assert isinstance(prop_2, ResourceProperty)
+    assert isinstance(prop_2, ResourcePropertyAST)
     assert prop_2.name == "ip_2"
-    assert prop_2.type == "str"
+    assert isinstance(prop_2.type_expr, VariableAST)
+    assert prop_2.type_expr.identifier == "str"
 
     var_1 = next(parse_iter)
     assert isinstance(var_1, AssignmentAST)
