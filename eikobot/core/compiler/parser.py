@@ -232,7 +232,7 @@ class AssignmentAST(ExprAST):
 
 @dataclass
 class DotExprAST(ExprAST):
-    lhs: VariableAST
+    lhs: Union["DotExprAST", VariableAST]
     rhs: ExprAST
 
     def compile(
@@ -625,7 +625,7 @@ class Parser:
             if bin_op_token.type == TokenType.ASSIGNMENT_OP:
                 lhs = AssignmentAST(bin_op_token, lhs, rhs)
             elif bin_op_token.type == TokenType.DOT:
-                if isinstance(lhs, VariableAST):
+                if isinstance(lhs, (VariableAST, DotExprAST)):
                     lhs = DotExprAST(bin_op_token, lhs, rhs)
                 else:
                     raise EikoParserError(

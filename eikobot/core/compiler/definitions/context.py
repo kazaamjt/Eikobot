@@ -2,7 +2,7 @@ from typing import Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token
-from .base_types import EikoBaseType, EikoBool, EikoFloat, EikoInt, EikoStr
+from .base_types import EikoBaseType, EikoBool, EikoFloat, EikoInt, EikoResource, EikoStr
 from .resource import ResourceDefinition
 
 _StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType]]
@@ -23,6 +23,7 @@ class CompilerContext:
         }
         self.type = "ModuleContext"
         self.super = super_scope
+        self.assigned: Dict[str, EikoResource] = {}
 
     def __repr__(self, indent: str = "") -> str:
         return_str = indent + "{\n"
@@ -55,6 +56,9 @@ class CompilerContext:
                 f"Illegal operation: Tried to reassign {name}.",
                 token=token,
             )
+
+        if isinstance(value, EikoResource):
+            self.assigned[name] = value
 
         self.storage[name] = value
 

@@ -1,2 +1,0 @@
-resource CompileTestResource:
-    test: str

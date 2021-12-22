@@ -32,4 +32,9 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires=">=3.10",
     install_requires=requires,
+    entry_points={
+        "console_scripts": [
+            "eikobot=eikobot.__main__:cli"
+        ]
+    },
 )

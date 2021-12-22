@@ -1,8 +1,8 @@
-import std
+import std.test
 
-test_resource = std.CompileTestResource("test")
+test_resource = std.test.CompileTestResource("test")
 
 resource Test_2:
-    test: std.CompileTestResource
+    test: std.test.CompileTestResource
 
 test_2 = Test_2(test_resource)
