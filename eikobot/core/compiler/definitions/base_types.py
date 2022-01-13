@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
-from ..errors import EikoCompilationError
+from ..errors import EikoCompilationError, EikoInternalError
 from ..token import Token
 
 if TYPE_CHECKING:
@@ -19,6 +19,9 @@ class EikoBaseType:
             f"Object of type {self.type} has no property {name}."
         )
 
+    def printable(self) -> Dict:
+        raise NotImplementedError
+
 
 class EikoInt(EikoBaseType):
 
@@ -28,6 +31,9 @@ class EikoInt(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
+    def printable(self) -> Dict:
+        return {self.type: self.value}
+
 
 class EikoFloat(EikoBaseType):
 
@@ -36,6 +42,9 @@ class EikoFloat(EikoBaseType):
     def __init__(self, value: float) -> None:
         super().__init__(self.name)
         self.value = value
+
+    def printable(self) -> Dict:
+        return {self.type: self.value}
 
 
 EikoNumber = Union[EikoInt, EikoFloat]
@@ -49,6 +58,9 @@ class EikoBool(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
+    def printable(self) -> Dict:
+        return {self.type: self.value}
+
 
 class EikoStr(EikoBaseType):
 
@@ -57,6 +69,9 @@ class EikoStr(EikoBaseType):
     def __init__(self, value: str) -> None:
         super().__init__(self.name)
         self.value = value
+
+    def printable(self) -> Dict:
+        return {self.type: self.value}
 
 
 class EikoResource(EikoBaseType):
@@ -83,3 +98,9 @@ class EikoResource(EikoBaseType):
             )
 
         self.properties[name] = value
+
+    def printable(self) -> Dict:
+        return {
+            f"{name} [{val.type}]": val.printable()
+            for name, val in self.properties.items()
+        }

@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -24,7 +25,12 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
 
     logging.info(f"Compiling {file_path}")
     compiler.compile(file_path)
-    print(compiler.context.assigned)
+
+    print_dict = {}
+    for var, eiko_obj in compiler.context.assigned.items():
+        print_dict[f"{var} [{eiko_obj.type}]"] = eiko_obj.printable()
+
+    print("model =", json.dumps(print_dict, indent=2))
 
 
 if __name__ == "__main__":

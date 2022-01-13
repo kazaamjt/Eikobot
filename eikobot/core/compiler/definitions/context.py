@@ -2,7 +2,14 @@ from typing import Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token
-from .base_types import EikoBaseType, EikoBool, EikoFloat, EikoInt, EikoResource, EikoStr
+from .base_types import (
+    EikoBaseType,
+    EikoBool,
+    EikoFloat,
+    EikoInt,
+    EikoResource,
+    EikoStr,
+)
 from .resource import ResourceDefinition
 
 _StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType]]

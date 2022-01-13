@@ -16,6 +16,12 @@ def test_import_std() -> None:
 def test_std(eiko_std_file: Path) -> None:
     compiler = Compiler()
     compiler.compile(eiko_std_file)
+
     test_resource = compiler.context.get("test_resource")
     assert isinstance(test_resource, EikoResource)
     assert test_resource.type == "CompileTestResource"
+
+    test_2 = compiler.context.get("test_2")
+    assert isinstance(test_2, EikoResource)
+    assert test_2.type == "Test_2"
+    assert test_2.properties.get("test") == test_resource
