@@ -1,0 +1,4 @@
+import std.re
+
+typedef str string_alias
+typedef str IPv4Address std.re.match(r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$", self)

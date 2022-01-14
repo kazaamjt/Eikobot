@@ -3,6 +3,6 @@ import std.test
 test_resource = std.test.CompileTestResource("test")
 
 resource Test_2:
-    test: std.test.CompileTestResource
+	test: std.test.CompileTestResource
 
 test_2 = Test_2(test_resource)

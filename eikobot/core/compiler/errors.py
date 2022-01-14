@@ -1,5 +1,6 @@
 from typing import Optional
 
+from .misc import Index
 from .token import Token
 
 
@@ -9,6 +10,7 @@ class EikoError(Exception):
     def __init__(self, *args: object, token: Optional[Token] = None) -> None:
         super().__init__(*args)
         self.token = token
+        self.index = None if token is None else token.index
 
 
 class EikoInternalError(EikoError):
@@ -22,6 +24,10 @@ class EikoSyntaxError(EikoError):
     """
     A syntax error that either confused the parser or the lexer.
     """
+
+    def __init__(self, *args: object, index: Optional[Index] = None) -> None:
+        super().__init__(*args)
+        self.index = index
 
 
 class EikoParserError(EikoError):

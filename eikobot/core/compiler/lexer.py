@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 from .errors import EikoSyntaxError
 from .misc import Index
@@ -10,6 +11,7 @@ KEYWORDS = {
     "True": TokenType.TRUE,
     "False": TokenType.FALSE,
     "import": TokenType.IMPORT,
+    "typedef": TokenType.TYPEDEF,
 }
 
 SPECIAL_CHARS = {
@@ -91,6 +93,14 @@ class Lexer:
             return Token(TokenType.EOF, "EOF", self._current_index())
 
         if self._current.isalpha() or self._current == "_":
+            if self._current == "r":
+                index = self._current_index()
+                self._next()
+                if self._current == '"':
+                    return self._scan_raw_string(index)
+                else:
+                    return self._scan_identifier("r", index)
+
             return self._scan_identifier()
 
         if self._current.isnumeric():
@@ -113,9 +123,9 @@ class Lexer:
 
         return Token(TokenType.INDENT, indent_str, index)
 
-    def _scan_identifier(self) -> Token:
-        identifier = ""
-        index = self._current_index()
+    def _scan_identifier(self, identifier: str = "", index: Optional[Index] = None) -> Token:
+        if index is None:
+            index = self._current_index()
 
         while self._current.isalnum() or self._current == "_":
             identifier += self._current
@@ -159,6 +169,23 @@ class Lexer:
             encoding="unicode_escape"
         )
         return Token(TokenType.STRING, escaped_string, index)
+
+    def _scan_raw_string(self, index: Index) -> Token:
+        _string = ""
+        self._next()
+        while self._current != '"':
+            _string += self._current
+            self._next()
+            if self._current == "\n":
+                raise EikoSyntaxError(
+                    "EOL while scanning string literal", index=self._current_index()
+                )
+
+        self._next()
+        raw_string = bytes(_string, encoding="utf-8").decode(
+            encoding="raw_unicode_escape"
+        )
+        return Token(TokenType.STRING, raw_string, index)
 
     def _scan_other(self) -> Token:  # pylint: disable=too-many-return-statements
         index = self._current_index()
