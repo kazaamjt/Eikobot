@@ -6,4 +6,4 @@ __pycache__/
 .pytest_cache
 
 # Test files
-./test.eiko
+/test.eiko
