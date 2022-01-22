@@ -19,7 +19,7 @@ class EikoBaseType:
             f"Object of type {self.type} has no property {name}."
         )
 
-    def printable(self) -> Dict:
+    def printable(self) -> Union[Dict, int, str]:
         raise NotImplementedError
 
 
@@ -31,8 +31,8 @@ class EikoInt(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> Dict:
-        return {self.type: self.value}
+    def printable(self) -> int:
+        return self.value
 
 
 class EikoFloat(EikoBaseType):
@@ -43,8 +43,8 @@ class EikoFloat(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> Dict:
-        return {self.type: self.value}
+    def printable(self) -> str:
+        return str(self.value)
 
 
 EikoNumber = Union[EikoInt, EikoFloat]
@@ -58,8 +58,8 @@ class EikoBool(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> Dict:
-        return {self.type: self.value}
+    def printable(self) -> str:
+        return str(self.value)
 
 
 class EikoStr(EikoBaseType):
@@ -70,8 +70,8 @@ class EikoStr(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> Dict:
-        return {self.type: self.value}
+    def printable(self) -> str:
+        return self.value
 
 
 class EikoResource(EikoBaseType):
@@ -101,6 +101,6 @@ class EikoResource(EikoBaseType):
 
     def printable(self) -> Dict:
         return {
-            f"{name} [{val.type}]": val.printable()
+            f"[{val.type}] {name}": val.printable()
             for name, val in self.properties.items()
         }

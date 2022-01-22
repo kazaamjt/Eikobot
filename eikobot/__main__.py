@@ -28,7 +28,7 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
 
     print_dict = {}
     for var, eiko_obj in compiler.context.assigned.items():
-        print_dict[f"{var} [{eiko_obj.type}]"] = eiko_obj.printable()
+        print_dict[f"[{eiko_obj.type}] {var}"] = eiko_obj.printable()
 
     print("model =", json.dumps(print_dict, indent=2))
 

@@ -12,6 +12,9 @@ KEYWORDS = {
     "False": TokenType.FALSE,
     "import": TokenType.IMPORT,
     "typedef": TokenType.TYPEDEF,
+    "if": TokenType.IF,
+    "elif": TokenType.ELIF,
+    "else": TokenType.ELSE,
 }
 
 SPECIAL_CHARS = {

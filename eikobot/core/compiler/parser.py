@@ -594,6 +594,8 @@ class Parser:
     def _parse_parens(self) -> ExprAST:
         self._advance(skip_indentation=True)
         next_expr = self._parse_expression()
+        if self._current.type == TokenType.INDENT:
+            self._advance(skip_indentation=True)
         if self._current.type != TokenType.RIGHT_PAREN:
             raise EikoParserError("Unexpected token.", token=self._current)
 
