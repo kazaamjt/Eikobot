@@ -1,3 +1,7 @@
+"""
+Base types are used by the compiler internally to represent Objects,
+strings, integers, floats, and booleans, in a way that makes sense to the compiler.
+"""
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from ..errors import EikoCompilationError
@@ -8,6 +12,10 @@ if TYPE_CHECKING:
 
 
 class EikoBaseType:
+    """
+    The base type represents all types, it is inherited from by all other types.
+    It shouldn't show up naturally anywhere though and is purely virtual.
+    """
 
     name = "EikoObject"
 
@@ -24,6 +32,9 @@ class EikoBaseType:
 
 
 class EikoInt(EikoBaseType):
+    """
+    Represents an integer in the Eiko language.
+    """
 
     name = "int"
 
@@ -36,6 +47,9 @@ class EikoInt(EikoBaseType):
 
 
 class EikoFloat(EikoBaseType):
+    """
+    Represents a float in the Eiko language.
+    """
 
     name = "float"
 
@@ -51,6 +65,9 @@ EikoNumber = Union[EikoInt, EikoFloat]
 
 
 class EikoBool(EikoBaseType):
+    """
+    Represents a boolean in the Eiko language.
+    """
 
     name = "bool"
 
@@ -63,6 +80,9 @@ class EikoBool(EikoBaseType):
 
 
 class EikoStr(EikoBaseType):
+    """
+    Represents a string in the Eiko language.
+    """
 
     name = "str"
 
@@ -75,6 +95,10 @@ class EikoStr(EikoBaseType):
 
 
 class EikoResource(EikoBaseType):
+    """
+    Represents a custom resource in the Eiko language.
+    """
+
     def __init__(self, eiko_type: str) -> None:
         super().__init__(eiko_type)
         self.properties: Dict[str, EikoBaseType] = {}
@@ -83,6 +107,7 @@ class EikoResource(EikoBaseType):
         return self.properties.get(name)
 
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
+        """Set the value of a property, if the value wasn't already assigned."""
         if not isinstance(value, EikoBaseType):
             raise EikoCompilationError(
                 f"Unable to assign property {name} of class {self.type} "
@@ -93,7 +118,7 @@ class EikoResource(EikoBaseType):
         prop = self.properties.get(name)
         if prop is not None:
             raise EikoCompilationError(
-                "Attempted to reassign value to a variable that was already assigned.",
+                "Attempted to reassign a property that was already assigned.",
                 token=token,
             )
 

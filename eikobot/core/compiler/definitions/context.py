@@ -1,3 +1,7 @@
+"""
+Context hold variables, classes and more.
+Used both by files/modules and fucntions.
+"""
 from typing import Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
@@ -16,9 +20,15 @@ _StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType]]
 
 
 class CompilerContext:
+    """
+    Context hold variables, classes and more.
+    Used both by files/modules and fucntions.
+    """
+
     def __init__(
         self,
         name: str,
+        super_scope: Optional["CompilerContext"] = None,
     ) -> None:
         self.name = name
         self.storage: Dict[str, Union[_StorableTypes, "CompilerContext", None]] = {
@@ -28,6 +38,7 @@ class CompilerContext:
             "str": EikoStr,
         }
         self.type = "ModuleContext"
+        self.super = super_scope
         self.assigned: Dict[str, EikoResource] = {}
 
     def __repr__(self, indent: str = "") -> str:
@@ -43,7 +54,10 @@ class CompilerContext:
         return return_str
 
     def get(self, name: str) -> Union[_StorableTypes, "CompilerContext", None]:
+        """Get a value from this context or a super context."""
         value = self.storage.get(name)
+        if value is None and self.super is not None:
+            value = self.super.get(name)
 
         return value
 
@@ -53,6 +67,7 @@ class CompilerContext:
         value: Union[_StorableTypes, "CompilerContext"],
         token: Optional[Token] = None,
     ) -> None:
+        """Set a value. Throws an error if it's already set."""
         prev_value = self.get(name)
         if prev_value is not None:
             raise EikoCompilationError(
@@ -68,10 +83,14 @@ class CompilerContext:
     def get_or_set_context(
         self, name: str, token: Optional[Token]
     ) -> "CompilerContext":
+        """
+        Either retrieve a context or create it if it doesn't exist.
+        """
         context = self.get(name)
         if isinstance(context, CompilerContext):
             return context
-        elif context is None:
+
+        if context is None:
             new_context = CompilerContext(name)
             self.set(name, new_context)
             return new_context

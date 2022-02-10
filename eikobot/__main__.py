@@ -1,3 +1,7 @@
+"""
+The entrypoint to the client application.
+Schould only contain things related to the client cli.
+"""
 import json
 import sys
 from pathlib import Path
@@ -16,6 +20,9 @@ def cli() -> None:
 @cli.command()
 @click.option("-f", "--file", prompt="File", help="Path to entrypoint file.")
 def compile(file: str) -> None:  # pylint: disable=redefined-builtin
+    """
+    Compile an eikobot file.
+    """
     compiler = Compiler()
 
     file_path = Path(file)

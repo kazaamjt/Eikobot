@@ -1,4 +1,3 @@
-# pylint: disable=global-statement
 """
 The logging module is used to log messages in a consistent and unified way.
 It gives access to print helper functions and custom progress bars.
@@ -26,8 +25,8 @@ _LOG_LEVEL_SET = False
 
 def init(log_level: LogLevel = LogLevel.INFO) -> None:
     """Initialize the console submodule"""
-    global LOG_LEVEL
-    global _LOG_LEVEL_SET
+    global LOG_LEVEL  # pylint: disable=global-statement
+    global _LOG_LEVEL_SET  # pylint: disable=global-statement
     if _LOG_LEVEL_SET:
         warning("eikobot.logger.init was already called before.")
 
@@ -50,7 +49,7 @@ def info(*args: str, **kwargs: Any) -> None:
 
 def warning(*args: str, **kwargs: Any) -> None:
     """Print a warning."""
-    global WARNINGS
+    global WARNINGS  # pylint: disable=global-statement
     WARNINGS += 1
     if LOG_LEVEL.value <= LogLevel.WARNING.value:
         print(Fore.YELLOW + "WARNING" + Fore.RESET, *args, **kwargs)

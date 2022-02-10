@@ -1,3 +1,7 @@
+"""
+While real functions don't exist in the eiko language,
+constructors and plugins do, and they need some kind of representation.
+"""
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
@@ -20,6 +24,9 @@ class FunctionDefinition(EikoBaseType):
         super().__init__("function")
         self.args: List[FunctionArg] = []
         self.body: List["ExprAST"] = []
+
+    def printable(self) -> str:
+        raise NotImplementedError
 
     def add_arg(self, arg: FunctionArg) -> None:
         self.args.append(arg)
