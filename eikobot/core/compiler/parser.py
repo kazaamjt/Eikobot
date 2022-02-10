@@ -451,6 +451,37 @@ class ImportExprAST(ExprAST):
             expr.compile(import_context)
 
 
+@dataclass
+class FromImportExprAST(ExprAST):
+    lhs: Union["DotExprAST", VariableAST]
+    rhs: Union["DotExprAST", VariableAST]
+
+    def compile(self, context: CompilerContext) -> None:
+        import_list: List[str] = []
+        from_import_list: List[str] = []
+        if isinstance(self.lhs, VariableAST):
+            import_list.append(self.lhs.identifier)
+            from_import_list.append(self.lhs.identifier)
+        else:
+            self.lhs.to_import_traversable_list(import_list)
+            self.lhs.to_import_traversable_list(from_import_list)
+
+        if isinstance(self.rhs, VariableAST):
+            import_list.append(self.rhs.identifier)
+        else:
+            self.rhs.to_import_traversable_list(import_list)
+
+        resolve_result = resolve_import(import_list, context)
+        if resolve_result is None:
+            resolve_result = resolve_import(import_list[:-1], context)
+
+        if resolve_result is None:
+            raise EikoCompilationError(
+                f"Failed to import {'.'.join(import_list)}.",
+                token=self.token,
+            )
+
+
 class Parser:
     """
     Parses tokens 1 by 1, and turns them in to Expressions.
@@ -543,6 +574,9 @@ class Parser:
         if self._current.type == TokenType.IMPORT:
             return self._parse_import()
 
+        if self._current.type == TokenType.FROM:
+            return self._parse_from_import()
+
         return self._parse_expression()
 
     def _parse_expression(self, precedence: int = 0) -> ExprAST:
@@ -611,6 +645,8 @@ class Parser:
                 TokenType.INDENT,
                 TokenType.RIGHT_PAREN,
                 TokenType.COMMA,
+                TokenType.IMPORT,
+                TokenType.EOF,
             ]:
                 return lhs
 
@@ -753,3 +789,24 @@ class Parser:
             "Unable to import given expression.",
             token=token,
         )
+
+    def _parse_from_import(self) -> FromImportExprAST:
+        token = self._current
+        self._advance()
+        lhs = self._parse_expression()
+        if not isinstance(lhs, (DotExprAST, VariableAST)):
+            raise EikoCompilationError(
+                "Invalid expression in import statement.",
+                token=lhs.token,
+            )
+
+        # import_token = self._current
+        self._advance()
+        rhs = self._parse_expression()
+        if not isinstance(rhs, (DotExprAST, VariableAST)):
+            raise EikoCompilationError(
+                "Invalid expression in import statement.",
+                token=lhs.token,
+            )
+
+        return FromImportExprAST(token, lhs, rhs)

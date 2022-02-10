@@ -25,3 +25,12 @@ def test_std(eiko_std_file: Path) -> None:
     assert isinstance(test_2, EikoResource)
     assert test_2.type == "Test_2"
     assert test_2.properties.get("test") == test_resource
+
+
+def test_from_import(tmp_path: Path) -> None:
+    test_file_path = tmp_path / "test_from.eiko"
+    with open(test_file_path, "w") as test_file:
+        test_file.write("from std.test import CompileTestResource")
+
+    compiler = Compiler()
+    compiler.compile(test_file_path)

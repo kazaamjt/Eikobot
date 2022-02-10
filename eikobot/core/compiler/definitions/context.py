@@ -19,7 +19,6 @@ class CompilerContext:
     def __init__(
         self,
         name: str,
-        super_scope: Optional["CompilerContext"] = None,
     ) -> None:
         self.name = name
         self.storage: Dict[str, Union[_StorableTypes, "CompilerContext", None]] = {
@@ -29,7 +28,6 @@ class CompilerContext:
             "str": EikoStr,
         }
         self.type = "ModuleContext"
-        self.super = super_scope
         self.assigned: Dict[str, EikoResource] = {}
 
     def __repr__(self, indent: str = "") -> str:
@@ -46,8 +44,6 @@ class CompilerContext:
 
     def get(self, name: str) -> Union[_StorableTypes, "CompilerContext", None]:
         value = self.storage.get(name)
-        if value is None and self.super is not None:
-            value = self.super.get(name)
 
         return value
 
@@ -60,7 +56,7 @@ class CompilerContext:
         prev_value = self.get(name)
         if prev_value is not None:
             raise EikoCompilationError(
-                f"Illegal operation: Tried to reassign {name}.",
+                f'Illegal operation: Tried to reassign "{name}".',
                 token=token,
             )
 
@@ -68,6 +64,22 @@ class CompilerContext:
             self.assigned[name] = value
 
         self.storage[name] = value
+
+    def get_or_set_context(
+        self, name: str, token: Optional[Token]
+    ) -> "CompilerContext":
+        context = self.get(name)
+        if isinstance(context, CompilerContext):
+            return context
+        elif context is None:
+            new_context = CompilerContext(name)
+            self.set(name, new_context)
+            return new_context
+
+        raise EikoCompilationError(
+            f'Illegal operation: Tried to reassign "{name}".',
+            token=token,
+        )
 
 
 StorableTypes = Union[_StorableTypes, "CompilerContext"]

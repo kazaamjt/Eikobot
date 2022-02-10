@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
-from ..errors import EikoCompilationError, EikoInternalError
+from ..errors import EikoCompilationError
 from ..token import Token
 
 if TYPE_CHECKING:
