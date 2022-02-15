@@ -3,7 +3,7 @@ While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from .base_types import EikoBaseType
 
@@ -25,7 +25,7 @@ class FunctionDefinition(EikoBaseType):
         self.args: List[FunctionArg] = []
         self.body: List["ExprAST"] = []
 
-    def printable(self) -> str:
+    def printable(self) -> Union[Dict, int, str]:
         raise NotImplementedError
 
     def add_arg(self, arg: FunctionArg) -> None:
