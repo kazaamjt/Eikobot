@@ -3,7 +3,7 @@ While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
 
 from .base_types import EikoBaseType
 
@@ -40,13 +40,17 @@ class FunctionDefinition(EikoBaseType):
 
 
 class PluginDefinition(EikoBaseType):
-    def __init__(self, body: Callable) -> None:
+    def __init__(self, body: Callable, return_type: Type[EikoBaseType]) -> None:
         super().__init__("plugin")
         self.body = body
+        self.return_type = return_type
         self.args: List[FunctionArg] = []
 
     def printable(self) -> Union[Dict, int, str]:
         raise NotImplementedError
+
+    def add_arg(self, arg: FunctionArg) -> None:
+        self.args.append(arg)
 
     def execute(self, contex: "CompilerContext") -> Optional[EikoBaseType]:
         pass

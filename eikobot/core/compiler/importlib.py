@@ -101,8 +101,8 @@ def import_python_code(
             name = member[0]
             _obj = member[1]
             if isfunction(_obj) and hasattr(_obj, "eiko_plugin"):
-                plugin_definition = PluginDefinition(_obj)
                 definition = getfullargspec(_obj).annotations
+                plugin_definition = PluginDefinition(_obj, )
 
                 context.set(name, plugin_definition)
 
@@ -115,3 +115,7 @@ def load_python_code(module_name: str, file_path: Path) -> ModuleType:
         return py_module
 
     raise EikoCompilationError(f"Failed to import python module {module_name} ")
+
+
+def _load_plugin() -> None:
+    pass
