@@ -19,7 +19,7 @@ from .errors import (
     EikoParserError,
     EikoSyntaxError,
 )
-from .importlib import resolve_import, resolve_from_import
+from .importlib import import_python_code, resolve_from_import, resolve_import
 from .lexer import Lexer
 from .ops import BINOP_MATRIX, BinOP
 from .token import Token, TokenType
@@ -310,7 +310,7 @@ class CallExprAst(ExprAST):
             raise EikoInternalError(
                 "Something went wrong, an EikoBaseType was passed to "
                 "CallExprAST.compile instead of a CompilerContext. "
-                "Please report this."
+                "Please report this on github."
             )
 
         if isinstance(eiko_callable, FunctionDefinition):
@@ -329,7 +329,7 @@ class CallExprAst(ExprAST):
                     )
                 if value.type != arg_definition.type:
                     raise EikoCompilationError(
-                        "Bad value was passed. Expected ",
+                        f"Bad value was passed. Expected {arg_definition.type}, but got {value.type}.",
                         token=passed_arg.token,
                     )
                 func_context.set(arg_definition.name, value)
@@ -447,6 +447,7 @@ class ImportExprAST(ExprAST):
 
         import_path, import_context = resolve_result
 
+        import_python_code(import_list, import_path, import_context)
         parser = Parser(import_path)
         for expr in parser.parse():
             expr.compile(import_context)
@@ -482,6 +483,8 @@ class FromImportExprAST(ExprAST):
             )
 
         import_path, import_context = resolve_result
+
+        import_python_code(import_module, import_path, import_context)
         parser = Parser(import_path)
         for expr in parser.parse():
             expr.compile(import_context)
@@ -494,7 +497,7 @@ class FromImportExprAST(ExprAST):
                 context.set(self.rhs.identifier, imported_item)
             else:
                 raise EikoInternalError(
-                    "Something went horribly wrong during a from import. "
+                    "Something went horribly wrong during a from ... import. "
                     "Please submit a bug report on github."
                 )
 
@@ -633,7 +636,9 @@ class Parser:
         if self._current.type == TokenType.IDENTIFIER:
             return self._parse_identifier()
 
-        raise EikoSyntaxError(f"Unexpected token {self._current.type.name}.", index=self._current.index)
+        raise EikoSyntaxError(
+            f"Unexpected token {self._current.type.name}.", index=self._current.index
+        )
 
     def _parse_unary_op(self) -> Union[UnaryNegExprAST, UnaryNotExprAST]:
         token = self._current

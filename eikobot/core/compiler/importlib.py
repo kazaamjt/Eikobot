@@ -1,7 +1,12 @@
+import importlib.util
+from inspect import getmembers, isfunction, getfullargspec
 from pathlib import Path
+from types import ModuleType
 from typing import List, Optional, Tuple
 
 from .definitions.context import CompilerContext
+from .definitions.function import PluginDefinition
+from .errors import EikoCompilationError
 
 INTERNAL_LIB_PATH = Path(__file__).parent.resolve() / "lib"
 
@@ -84,3 +89,29 @@ def _resolve_from_import(
             return file_path, new_context
 
     return None
+
+
+def import_python_code(
+    module_path: List[str], eiko_file_path: Path, context: CompilerContext
+) -> None:
+    file_path = eiko_file_path.with_suffix(".py")
+    if file_path.exists():
+        py_module = load_python_code(".".join(module_path), file_path)
+        for member in getmembers(py_module):
+            name = member[0]
+            _obj = member[1]
+            if isfunction(_obj) and hasattr(_obj, "eiko_plugin"):
+                plugin_definition = PluginDefinition(_obj)
+                definition = getfullargspec(_obj).annotations
+
+                context.set(name, plugin_definition)
+
+
+def load_python_code(module_name: str, file_path: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is not None:
+        py_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(py_module)  # type: ignore
+        return py_module
+
+    raise EikoCompilationError(f"Failed to import python module {module_name} ")
