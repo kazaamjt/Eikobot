@@ -19,7 +19,7 @@ from .errors import (
     EikoParserError,
     EikoSyntaxError,
 )
-from .importer import resolve_import
+from .importlib import resolve_import, resolve_from_import
 from .lexer import Lexer
 from .ops import BINOP_MATRIX, BinOP
 from .token import Token, TokenType
@@ -441,7 +441,8 @@ class ImportExprAST(ExprAST):
         resolve_result = resolve_import(import_list, context)
         if resolve_result is None:
             raise EikoCompilationError(
-                "Failed to import module, module not found.", token=self.token
+                f"Failed to import module, module {'.'.join(import_list)} not found.",
+                token=self.token,
             )
 
         import_path, import_context = resolve_result
@@ -449,6 +450,53 @@ class ImportExprAST(ExprAST):
         parser = Parser(import_path)
         for expr in parser.parse():
             expr.compile(import_context)
+
+
+@dataclass
+class FromImportExprAST(ExprAST):
+    lhs: Union["DotExprAST", VariableAST]
+    rhs: VariableAST
+
+    def compile(self, context: CompilerContext) -> None:
+        import_list: List[str] = []
+        from_import_list: List[str] = []
+        if isinstance(self.lhs, VariableAST):
+            import_list.append(self.lhs.identifier)
+            from_import_list.append(self.lhs.identifier)
+        else:
+            self.lhs.to_import_traversable_list(import_list)
+            self.lhs.to_import_traversable_list(from_import_list)
+
+        import_list.append(self.rhs.identifier)
+
+        import_module = import_list
+        resolve_result = resolve_from_import(import_module)
+        if resolve_result is None:
+            import_module = import_list[:-1]
+            resolve_result = resolve_from_import(import_module)
+
+        if resolve_result is None:
+            raise EikoCompilationError(
+                f"Failed to import module, module {'.'.join(import_list)} not found.",
+                token=self.token,
+            )
+
+        import_path, import_context = resolve_result
+        parser = Parser(import_path)
+        for expr in parser.parse():
+            expr.compile(import_context)
+
+        if self.rhs.identifier in import_module:
+            context.set(self.rhs.identifier, import_context)
+        else:
+            imported_item = import_context.get(self.rhs.identifier)
+            if isinstance(imported_item, (EikoBaseType, ResourceDefinition)):
+                context.set(self.rhs.identifier, imported_item)
+            else:
+                raise EikoInternalError(
+                    "Something went horribly wrong during a from import. "
+                    "Please submit a bug report on github."
+                )
 
 
 class Parser:
@@ -528,7 +576,10 @@ class Parser:
             self._advance()
 
     def _parse_top_level(self) -> ExprAST:
-        if self._current.type != TokenType.INDENT or self._current.content != "":
+        if not (
+            self._current.type in [TokenType.INDENT, TokenType.EOF]
+            or self._current.content == ""
+        ):
             raise EikoParserError(
                 f"Unexpected token: {self._current.content}.", token=self._current
             )
@@ -542,6 +593,9 @@ class Parser:
 
         if self._current.type == TokenType.IMPORT:
             return self._parse_import()
+
+        if self._current.type == TokenType.FROM:
+            return self._parse_from_import()
 
         return self._parse_expression()
 
@@ -579,7 +633,7 @@ class Parser:
         if self._current.type == TokenType.IDENTIFIER:
             return self._parse_identifier()
 
-        raise EikoSyntaxError(f"Unexpected token {self._current.type.name}.")
+        raise EikoSyntaxError(f"Unexpected token {self._current.type.name}.", index=self._current.index)
 
     def _parse_unary_op(self) -> Union[UnaryNegExprAST, UnaryNotExprAST]:
         token = self._current
@@ -611,6 +665,8 @@ class Parser:
                 TokenType.INDENT,
                 TokenType.RIGHT_PAREN,
                 TokenType.COMMA,
+                TokenType.IMPORT,
+                TokenType.EOF,
             ]:
                 return lhs
 
@@ -753,3 +809,23 @@ class Parser:
             "Unable to import given expression.",
             token=token,
         )
+
+    def _parse_from_import(self) -> FromImportExprAST:
+        import_token = self._current
+        self._advance()
+        lhs = self._parse_expression()
+        if not isinstance(lhs, (DotExprAST, VariableAST)):
+            raise EikoCompilationError(
+                "Invalid expression in import statement.",
+                token=lhs.token,
+            )
+
+        self._advance()
+        rhs = self._parse_expression()
+        if not isinstance(rhs, VariableAST):
+            raise EikoCompilationError(
+                "Invalid expression in import statement.",
+                token=lhs.token,
+            )
+
+        return FromImportExprAST(import_token, lhs, rhs)

@@ -15,6 +15,7 @@ KEYWORDS = {
     "if": TokenType.IF,
     "elif": TokenType.ELIF,
     "else": TokenType.ELSE,
+    "from": TokenType.FROM,
 }
 
 SPECIAL_CHARS = {
@@ -126,13 +127,17 @@ class Lexer:
 
         return Token(TokenType.INDENT, indent_str, index)
 
-    def _scan_identifier(self, identifier: str = "", index: Optional[Index] = None) -> Token:
+    def _scan_identifier(
+        self, identifier: str = "", index: Optional[Index] = None
+    ) -> Token:
         if index is None:
             index = self._current_index()
 
         while self._current.isalnum() or self._current == "_":
             identifier += self._current
             self._next()
+            if self._current == "EOF":
+                break
 
         kw_type = KEYWORDS.get(identifier)
         if kw_type is not None:

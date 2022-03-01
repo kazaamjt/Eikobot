@@ -30,12 +30,49 @@ def _resolve_import(
         init_file = current_dir / "__init__.eiko"
         if init_file.exists():
             if len(import_path) == 0:
+                new_context = context.get_or_set_context(current)
+                return init_file, new_context
+
+            new_context = context.get_or_set_context(current)
+            return _resolve_import(import_path, current_dir, new_context)
+
+        return None
+
+    if len(import_path) == 0:
+        file_path = parent / (current + ".eiko")
+        if file_path.exists():
+            new_context = context.get_or_set_context(current)
+            return file_path, new_context
+
+    return None
+
+
+def resolve_from_import(
+    import_path: List[str],
+) -> Optional[Tuple[Path, CompilerContext]]:
+    for _path in PATHS:
+        file_path = _resolve_from_import(import_path.copy(), _path)
+        if file_path is not None:
+            return file_path
+
+    return None
+
+
+def _resolve_from_import(
+    import_path: List[str], parent: Path
+) -> Optional[Tuple[Path, CompilerContext]]:
+    current = import_path[0]
+    import_path.remove(current)
+
+    current_dir = parent / current
+    if current_dir.exists() and current_dir.is_dir():
+        init_file = current_dir / "__init__.eiko"
+        if init_file.exists():
+            if len(import_path) == 0:
                 new_context = CompilerContext(current)
-                context.set(current, new_context)
                 return init_file, new_context
 
             new_context = CompilerContext(current)
-            context.set(current, new_context)
             return _resolve_import(import_path, current_dir, new_context)
 
         return None
@@ -44,7 +81,6 @@ def _resolve_import(
         file_path = parent / (current + ".eiko")
         if file_path.exists():
             new_context = CompilerContext(current)
-            context.set(current, new_context)
             return file_path, new_context
 
     return None

@@ -1,0 +1,9 @@
+from std.test import CompileTestResource
+
+test_resource = CompileTestResource("test")
+
+resource Test_2:
+    test: CompileTestResource
+
+test_2 = Test_2(test_resource)
+test_3 = Test_2(test_resource)
