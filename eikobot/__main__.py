@@ -2,7 +2,6 @@
 The entrypoint to the client application.
 Schould only contain things related to the client cli.
 """
-import json
 import sys
 from pathlib import Path
 
@@ -10,6 +9,7 @@ import click
 
 from .core import logging
 from .core.compiler import Compiler
+from .core.compiler.errors import EikoError
 
 
 @click.group()
@@ -31,13 +31,18 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
         sys.exit(1)
 
     logging.info(f"Compiling {file_path}")
-    compiler.compile(file_path)
-
-    print_dict = {}
-    for var, eiko_obj in compiler.context.assigned.items():
-        print_dict[f"[{eiko_obj.type}] {var}"] = eiko_obj.printable()
-
-    print("model =", json.dumps(print_dict, indent=2))
+    try:
+        compiler.compile(file_path)
+    except EikoError as e:
+        logging.error(str(e))
+        if e.index is not None:
+            print(f"    File {e.index.file.absolute()}, line {e.index.line}")
+            with open(e.index.file, "r", encoding="utf-8") as f:
+                line = f.readlines()[e.index.line]
+                clean_line = line.lstrip()
+                diff = len(line) - len(clean_line)
+                print(" " * 8 + clean_line.strip("\n"))
+                print(" " * 8 + (e.index.col - diff) * " " + "^")
 
 
 if __name__ == "__main__":

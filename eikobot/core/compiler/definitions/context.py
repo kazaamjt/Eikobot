@@ -81,7 +81,7 @@ class CompilerContext:
         self.storage[name] = value
 
     def get_or_set_context(
-        self, name: str, token: Optional[Token]
+        self, name: str, token: Optional[Token] = None
     ) -> "CompilerContext":
         """
         Either retrieve a context or create it if it doesn't exist.

@@ -60,3 +60,9 @@ def eiko_basic_ops_file() -> Iterable[Path]:
 def eiko_std_file() -> Iterable[Path]:
     tmp_file = get_file("test_std.eiko")
     yield tmp_file
+
+
+@pytest.fixture
+def eiko_from_import_file() -> Iterable[Path]:
+    tmp_file = get_file("test_from_import.eiko")
+    yield tmp_file
