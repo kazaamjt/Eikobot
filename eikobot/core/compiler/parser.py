@@ -11,7 +11,7 @@ from .definitions.base_types import (
     EikoStr,
 )
 from .definitions.context import CompilerContext, StorableTypes
-from .definitions.function import FunctionArg, FunctionDefinition
+from .definitions.function import FunctionArg, FunctionDefinition, PluginDefinition
 from .definitions.resource import ResourceDefinition, ResourceProperty
 from .errors import (
     EikoCompilationError,
@@ -301,9 +301,11 @@ class CallExprAst(ExprAST):
     ) -> Optional[EikoBaseType]:
         eiko_callable: Optional[StorableTypes] = None
         if isinstance(context, CompilerContext):
-            resource_definition = context.get(self.identifier)
-            if isinstance(resource_definition, ResourceDefinition):
-                eiko_callable = resource_definition.get(self.identifier)
+            _obj = context.get(self.identifier)
+            if isinstance(_obj, ResourceDefinition):
+                eiko_callable = _obj.get(self.identifier)
+            elif isinstance(_obj, PluginDefinition):
+                eiko_callable = _obj
         else:
             eiko_callable = context.get(self.identifier)
         if isinstance(context, EikoBaseType):
@@ -335,6 +337,9 @@ class CallExprAst(ExprAST):
                 func_context.set(arg_definition.name, value)
             eiko_callable.execute(func_context)
             return resource
+
+        if isinstance(eiko_callable, PluginDefinition):
+            eiko_callable.execute()
 
         if eiko_callable is None:
             raise EikoCompilationError(
@@ -478,7 +483,7 @@ class FromImportExprAST(ExprAST):
 
         if resolve_result is None:
             raise EikoCompilationError(
-                f"Failed to import module, module {'.'.join(import_list)} not found.",
+                f"Module '{'.'.join(from_import_list)}' not found.",
                 token=self.token,
             )
 
@@ -495,6 +500,11 @@ class FromImportExprAST(ExprAST):
             imported_item = import_context.get(self.rhs.identifier)
             if isinstance(imported_item, (EikoBaseType, ResourceDefinition)):
                 context.set(self.rhs.identifier, imported_item)
+            elif imported_item is None:
+                raise EikoCompilationError(
+                    f"Failed to import name '{self.rhs.identifier}' from '{'.'.join(from_import_list)}'.",
+                    token=self.rhs.token
+                )
             else:
                 raise EikoInternalError(
                     "Something went horribly wrong during a from ... import. "

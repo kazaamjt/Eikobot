@@ -1,11 +1,11 @@
 import importlib.util
-from inspect import getmembers, isfunction, getfullargspec
+from inspect import getfullargspec, getmembers, isfunction
 from pathlib import Path
-from types import ModuleType
+from types import FunctionType, ModuleType
 from typing import List, Optional, Tuple
 
 from .definitions.context import CompilerContext
-from .definitions.function import PluginDefinition
+from .definitions.function import PluginDefinition, PluginArg
 from .errors import EikoCompilationError
 
 INTERNAL_LIB_PATH = Path(__file__).parent.resolve() / "lib"
@@ -96,15 +96,13 @@ def import_python_code(
 ) -> None:
     file_path = eiko_file_path.with_suffix(".py")
     if file_path.exists():
-        py_module = load_python_code(".".join(module_path), file_path)
+        module_name = ".".join(module_path)
+        py_module = load_python_code(module_name, file_path)
         for member in getmembers(py_module):
             name = member[0]
             _obj = member[1]
             if isfunction(_obj) and hasattr(_obj, "eiko_plugin"):
-                definition = getfullargspec(_obj).annotations
-                plugin_definition = PluginDefinition(_obj, )
-
-                context.set(name, plugin_definition)
+                context.set(name, _load_plugin(module_name, name, _obj))
 
 
 def load_python_code(module_name: str, file_path: Path) -> ModuleType:
@@ -117,5 +115,29 @@ def load_python_code(module_name: str, file_path: Path) -> ModuleType:
     raise EikoCompilationError(f"Failed to import python module {module_name} ")
 
 
-def _load_plugin() -> None:
-    pass
+def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefinition:
+    fullargspec = getfullargspec(function)
+    annotations = fullargspec.annotations
+    return_type = annotations.get("return", None)
+    if return_type is None:
+        raise EikoCompilationError(
+            f"Plugin {module}.{name} return type annotation is missing."
+        )
+    plugin_definition = PluginDefinition(function, annotations["return"])
+
+    for arg_name in fullargspec.args:
+        arg_annotation = annotations.get(arg_name)
+        if arg_annotation is None:
+            raise EikoCompilationError(
+                f"Plugin '{module}.{name}' has no type annotation for argument '{arg_name}'."
+            )
+
+        plugin_definition.add_arg(
+            PluginArg(
+                arg_name,
+                "",
+                arg_annotation,
+            )
+        )
+
+    return plugin_definition

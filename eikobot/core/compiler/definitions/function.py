@@ -39,17 +39,24 @@ class FunctionDefinition(EikoBaseType):
             expr.compile(contex)
 
 
+@dataclass
+class PluginArg:
+    name: str
+    type: str
+    py_type: Type
+
+
 class PluginDefinition(EikoBaseType):
     def __init__(self, body: Callable, return_type: Type[EikoBaseType]) -> None:
         super().__init__("plugin")
         self.body = body
         self.return_type = return_type
-        self.args: List[FunctionArg] = []
+        self.args: List[PluginArg] = []
 
     def printable(self) -> Union[Dict, int, str]:
         raise NotImplementedError
 
-    def add_arg(self, arg: FunctionArg) -> None:
+    def add_arg(self, arg: PluginArg) -> None:
         self.args.append(arg)
 
     def execute(self, contex: "CompilerContext") -> Optional[EikoBaseType]:
