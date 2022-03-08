@@ -42,7 +42,6 @@ class FunctionDefinition(EikoBaseType):
 @dataclass
 class PluginArg:
     name: str
-    type: str
     py_type: Type
 
 

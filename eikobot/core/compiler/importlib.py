@@ -135,7 +135,6 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
         plugin_definition.add_arg(
             PluginArg(
                 arg_name,
-                "",
                 arg_annotation,
             )
         )
