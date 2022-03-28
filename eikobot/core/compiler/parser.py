@@ -11,7 +11,11 @@ from .definitions.base_types import (
     EikoStr,
 )
 from .definitions.context import CompilerContext, StorableTypes
-from .definitions.function import FunctionArg, FunctionDefinition, PluginDefinition
+from .definitions.function import (
+    FunctionArg,
+    FunctionDefinition,
+    PluginDefinition,
+)
 from .definitions.resource import ResourceDefinition, ResourceProperty
 from .errors import (
     EikoCompilationError,

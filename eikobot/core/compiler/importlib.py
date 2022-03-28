@@ -5,12 +5,12 @@ from types import FunctionType, ModuleType
 from typing import List, Optional, Tuple
 
 from .definitions.context import CompilerContext
-from .definitions.function import PluginDefinition, PluginArg
+from .definitions.function import PluginArg, PluginDefinition
 from .errors import EikoCompilationError
 
 INTERNAL_LIB_PATH = Path(__file__).parent.resolve() / "lib"
 
-PATHS: List[Path] = [INTERNAL_LIB_PATH]
+PATHS: List[Path] = [INTERNAL_LIB_PATH, Path(".")]
 
 
 def resolve_import(

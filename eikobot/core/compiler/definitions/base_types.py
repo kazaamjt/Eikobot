@@ -18,6 +18,7 @@ class EikoBaseType:
     """
 
     name = "EikoObject"
+    type = "EikoObject"
 
     def __init__(self, eiko_type: str) -> None:
         self.type = eiko_type
@@ -37,6 +38,7 @@ class EikoInt(EikoBaseType):
     """
 
     name = "int"
+    type = "int"
 
     def __init__(self, value: int) -> None:
         super().__init__(self.name)
@@ -52,6 +54,7 @@ class EikoFloat(EikoBaseType):
     """
 
     name = "float"
+    type = "float"
 
     def __init__(self, value: float) -> None:
         super().__init__(self.name)
@@ -70,6 +73,7 @@ class EikoBool(EikoBaseType):
     """
 
     name = "bool"
+    type = "bool"
 
     def __init__(self, value: bool) -> None:
         super().__init__(self.name)
@@ -85,6 +89,7 @@ class EikoStr(EikoBaseType):
     """
 
     name = "str"
+    type = "str"
 
     def __init__(self, value: str) -> None:
         super().__init__(self.name)
@@ -98,6 +103,8 @@ class EikoResource(EikoBaseType):
     """
     Represents a custom resource in the Eiko language.
     """
+
+    type = "EikoResource"
 
     def __init__(self, eiko_type: str) -> None:
         super().__init__(eiko_type)
