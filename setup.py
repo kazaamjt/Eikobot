@@ -1,7 +1,7 @@
 # type: ignore
 # flake8: noqa
-from pathlib import Path
 import setuptools
+from pathlib import Path
 
 this_directory = Path(__file__).parent
 with open(this_directory / "README.md", encoding="utf-8") as f:
@@ -11,8 +11,6 @@ with open(this_directory / "requirements.txt", encoding="utf-8") as f:
     lines = f.read().splitlines(keepends=False)
     requires = []
     for line in lines:
-        if line == "# Dev dependencies":
-            break
         requires.append(line)
 
 setuptools.setup(

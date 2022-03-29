@@ -4,12 +4,13 @@ from pathlib import Path
 from types import FunctionType, ModuleType
 from typing import List, Optional, Tuple
 
+from .. import logger
+from .definitions.base_types import EikoBaseType
 from .definitions.context import CompilerContext
 from .definitions.function import PluginArg, PluginDefinition
 from .errors import EikoCompilationError
 
 INTERNAL_LIB_PATH = Path(__file__).parent.resolve() / "lib"
-
 PATHS: List[Path] = [INTERNAL_LIB_PATH, Path(".")]
 
 
@@ -96,12 +97,14 @@ def import_python_code(
 ) -> None:
     file_path = eiko_file_path.with_suffix(".py")
     if file_path.exists():
+        logger.debug(f"Found python plugins for eiko module: {eiko_file_path}")
         module_name = ".".join(module_path)
         py_module = load_python_code(module_name, file_path)
         for member in getmembers(py_module):
             name = member[0]
             _obj = member[1]
             if isfunction(_obj) and hasattr(_obj, "eiko_plugin"):
+                logger.debug(f"Importing plugin {_obj.__name__} from {file_path}")
                 context.set(name, _load_plugin(module_name, name, _obj))
 
 
@@ -123,13 +126,17 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
         raise EikoCompilationError(
             f"Plugin {module}.{name} return type annotation is missing."
         )
-    plugin_definition = PluginDefinition(function, annotations["return"])
+    plugin_definition = PluginDefinition(function, annotations["return"], module, name)
 
     for arg_name in fullargspec.args:
         arg_annotation = annotations.get(arg_name)
         if arg_annotation is None:
             raise EikoCompilationError(
                 f"Plugin '{module}.{name}' has no type annotation for argument '{arg_name}'."
+            )
+        if not issubclass(arg_annotation, EikoBaseType):
+            raise EikoCompilationError(
+                f"Plugin '{module}.{name}' type annotation for argument '{arg_name}' must be an eiko type."
             )
 
         plugin_definition.add_arg(

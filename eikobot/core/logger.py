@@ -19,8 +19,8 @@ class LogLevel(Enum):
 
 
 LOG_LEVEL = LogLevel.INFO
-WARNINGS = 0
 _LOG_LEVEL_SET = False
+WARNINGS = 0
 
 
 def init(log_level: LogLevel = LogLevel.INFO) -> None:

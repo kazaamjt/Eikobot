@@ -7,14 +7,18 @@ from pathlib import Path
 
 import click
 
-from .core import logging
+from .core import logger
 from .core.compiler import Compiler
 from .core.compiler.errors import EikoError
 
 
 @click.group()
-def cli() -> None:
-    logging.init()
+@click.option("--debug", is_flag=True)
+def cli(debug: bool = False) -> None:
+    log_level = logger.LOG_LEVEL.INFO
+    if debug:
+        log_level = logger.LOG_LEVEL.DEBUG
+    logger.init(log_level=log_level)  # type: ignore
 
 
 @cli.command()
@@ -27,14 +31,14 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
 
     file_path = Path(file)
     if not file_path.exists():
-        logging.error(f"No such file: {file_path}")
+        logger.error(f"No such file: {file_path}")
         sys.exit(1)
 
-    logging.info(f"Compiling {file_path}")
+    logger.info(f"Compiling {file_path}")
     try:
         compiler.compile(file_path)
     except EikoError as e:
-        logging.error(str(e))
+        logger.error(str(e))
         if e.index is not None:
             print(f"    File {e.index.file.absolute()}, line {e.index.line}")
             with open(e.index.file, "r", encoding="utf-8") as f:
@@ -44,7 +48,8 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
                 print(" " * 8 + clean_line.strip("\n"))
                 print(" " * 8 + (e.index.col - diff) * " " + "^")
 
-    print(compiler.context.storage)
+    # logger.info("Model result:")
+    # print(compiler.context)
 
 
 if __name__ == "__main__":

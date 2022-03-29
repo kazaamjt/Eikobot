@@ -2,7 +2,7 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token
@@ -136,3 +136,22 @@ class EikoResource(EikoBaseType):
             f"[{val.type}] {name}": val.printable()
             for name, val in self.properties.items()
         }
+
+
+def to_eiko_type(cls: Type) -> Type[EikoBaseType]:
+    if issubclass(cls, EikoBaseType):
+        return cls
+
+    if cls == bool:
+        return EikoBool
+
+    if cls == float:
+        return EikoFloat
+
+    if cls == int:
+        return EikoInt
+
+    if cls == str:
+        return EikoStr
+
+    raise ValueError

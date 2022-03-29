@@ -343,7 +343,8 @@ class CallExprAst(ExprAST):
             return resource
 
         if isinstance(eiko_callable, PluginDefinition):
-            eiko_callable.execute()
+            dummy_context = CompilerContext(f"{self.identifier}-plugin-call-context")
+            eiko_callable.execute(self.args, dummy_context)
 
         if eiko_callable is None:
             raise EikoCompilationError(
@@ -352,7 +353,7 @@ class CallExprAst(ExprAST):
             )
 
         raise EikoCompilationError(
-            f"{self.identifier} is not a callable.",
+            f"{self.identifier} is not callable.",
             token=self.token,
         )
 
@@ -507,7 +508,7 @@ class FromImportExprAST(ExprAST):
             elif imported_item is None:
                 raise EikoCompilationError(
                     f"Failed to import name '{self.rhs.identifier}' from '{'.'.join(from_import_list)}'.",
-                    token=self.rhs.token
+                    token=self.rhs.token,
                 )
             else:
                 raise EikoInternalError(
