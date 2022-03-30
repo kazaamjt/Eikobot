@@ -2,7 +2,7 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
-from typing import TYPE_CHECKING, Dict, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token
@@ -153,5 +153,31 @@ def to_eiko_type(cls: Type) -> Type[EikoBaseType]:
 
     if cls == str:
         return EikoStr
+
+    raise ValueError
+
+
+def to_eiko(value: Any) -> EikoBaseType:
+    if isinstance(value, bool):
+        return EikoBool(value)
+
+    if isinstance(value, float):
+        return EikoFloat(value)
+
+    if isinstance(value, int):
+        return EikoInt(value)
+
+    if isinstance(value, str):
+        return EikoStr(value)
+
+    if isinstance(value, EikoBaseType):
+        return value
+
+    raise ValueError
+
+
+def to_py(value: Any) -> Union[bool, float, int, str]:
+    if isinstance(value, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+        return value.value
 
     raise ValueError

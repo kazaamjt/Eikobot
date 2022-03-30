@@ -48,8 +48,8 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
                 print(" " * 8 + clean_line.strip("\n"))
                 print(" " * 8 + (e.index.col - diff) * " " + "^")
 
-    # logger.info("Model result:")
-    # print(compiler.context)
+    logger.info("Model result:")
+    print(compiler.context)
 
 
 if __name__ == "__main__":

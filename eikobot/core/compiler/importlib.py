@@ -126,7 +126,7 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
         raise EikoCompilationError(
             f"Plugin {module}.{name} return type annotation is missing."
         )
-    plugin_definition = PluginDefinition(function, annotations["return"], module, name)
+    plugin_definition = PluginDefinition(function, annotations["return"], name, module)
 
     for arg_name in fullargspec.args:
         arg_annotation = annotations.get(arg_name)
@@ -134,9 +134,10 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
             raise EikoCompilationError(
                 f"Plugin '{module}.{name}' has no type annotation for argument '{arg_name}'."
             )
-        if not issubclass(arg_annotation, EikoBaseType):
+        if not issubclass(arg_annotation, (EikoBaseType, bool, float, int, str)):
             raise EikoCompilationError(
-                f"Plugin '{module}.{name}' type annotation for argument '{arg_name}' must be an eiko type."
+                f"Plugin '{module}.{name}' type annotation for argument '{arg_name}' must be "
+                "'bool', 'float', 'int', 'str' or an eiko type.",
             )
 
         plugin_definition.add_arg(

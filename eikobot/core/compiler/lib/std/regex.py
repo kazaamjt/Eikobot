@@ -1,12 +1,11 @@
 import re
 
 from eikobot.core.plugin import eiko_plugin
-from eikobot.core.types import EikoBool, EikoStr
 
 
 @eiko_plugin
-def match(regex: EikoStr, string: EikoStr) -> EikoBool:
-    if re.match(regex.value, string.value) is not None:
-        return EikoBool(True)
+def match(regex: str, string: str) -> bool:
+    if re.match(regex, string) is not None:
+        return True
 
-    return EikoBool(False)
+    return False

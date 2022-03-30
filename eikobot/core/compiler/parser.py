@@ -344,7 +344,7 @@ class CallExprAst(ExprAST):
 
         if isinstance(eiko_callable, PluginDefinition):
             dummy_context = CompilerContext(f"{self.identifier}-plugin-call-context")
-            eiko_callable.execute(self.args, dummy_context)
+            return eiko_callable.execute(self.args, dummy_context)
 
         if eiko_callable is None:
             raise EikoCompilationError(
