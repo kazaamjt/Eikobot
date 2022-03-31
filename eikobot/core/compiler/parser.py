@@ -11,7 +11,11 @@ from .definitions.base_types import (
     EikoStr,
 )
 from .definitions.context import CompilerContext, StorableTypes
-from .definitions.function import FunctionArg, FunctionDefinition
+from .definitions.function import (
+    FunctionArg,
+    FunctionDefinition,
+    PluginDefinition,
+)
 from .definitions.resource import ResourceDefinition, ResourceProperty
 from .errors import (
     EikoCompilationError,
@@ -19,7 +23,7 @@ from .errors import (
     EikoParserError,
     EikoSyntaxError,
 )
-from .importlib import resolve_import, resolve_from_import
+from .importlib import import_python_code, resolve_from_import, resolve_import
 from .lexer import Lexer
 from .ops import BINOP_MATRIX, BinOP
 from .token import Token, TokenType
@@ -301,16 +305,18 @@ class CallExprAst(ExprAST):
     ) -> Optional[EikoBaseType]:
         eiko_callable: Optional[StorableTypes] = None
         if isinstance(context, CompilerContext):
-            resource_definition = context.get(self.identifier)
-            if isinstance(resource_definition, ResourceDefinition):
-                eiko_callable = resource_definition.get(self.identifier)
+            _obj = context.get(self.identifier)
+            if isinstance(_obj, ResourceDefinition):
+                eiko_callable = _obj.get(self.identifier)
+            elif isinstance(_obj, PluginDefinition):
+                eiko_callable = _obj
         else:
             eiko_callable = context.get(self.identifier)
         if isinstance(context, EikoBaseType):
             raise EikoInternalError(
                 "Something went wrong, an EikoBaseType was passed to "
                 "CallExprAST.compile instead of a CompilerContext. "
-                "Please report this."
+                "Please report this on github."
             )
 
         if isinstance(eiko_callable, FunctionDefinition):
@@ -329,12 +335,16 @@ class CallExprAst(ExprAST):
                     )
                 if value.type != arg_definition.type:
                     raise EikoCompilationError(
-                        "Bad value was passed. Expected ",
+                        f"Bad value was passed. Expected {arg_definition.type}, but got {value.type}.",
                         token=passed_arg.token,
                     )
                 func_context.set(arg_definition.name, value)
             eiko_callable.execute(func_context)
             return resource
+
+        if isinstance(eiko_callable, PluginDefinition):
+            dummy_context = CompilerContext(f"{self.identifier}-plugin-call-context")
+            return eiko_callable.execute(self.args, dummy_context)
 
         if eiko_callable is None:
             raise EikoCompilationError(
@@ -343,7 +353,7 @@ class CallExprAst(ExprAST):
             )
 
         raise EikoCompilationError(
-            f"{self.identifier} is not a callable.",
+            f"{self.identifier} is not callable.",
             token=self.token,
         )
 
@@ -447,6 +457,7 @@ class ImportExprAST(ExprAST):
 
         import_path, import_context = resolve_result
 
+        import_python_code(import_list, import_path, import_context)
         parser = Parser(import_path)
         for expr in parser.parse():
             expr.compile(import_context)
@@ -477,11 +488,13 @@ class FromImportExprAST(ExprAST):
 
         if resolve_result is None:
             raise EikoCompilationError(
-                f"Failed to import module, module {'.'.join(import_list)} not found.",
+                f"Module '{'.'.join(from_import_list)}' not found.",
                 token=self.token,
             )
 
         import_path, import_context = resolve_result
+
+        import_python_code(import_module, import_path, import_context)
         parser = Parser(import_path)
         for expr in parser.parse():
             expr.compile(import_context)
@@ -492,9 +505,14 @@ class FromImportExprAST(ExprAST):
             imported_item = import_context.get(self.rhs.identifier)
             if isinstance(imported_item, (EikoBaseType, ResourceDefinition)):
                 context.set(self.rhs.identifier, imported_item)
+            elif imported_item is None:
+                raise EikoCompilationError(
+                    f"Failed to import name '{self.rhs.identifier}' from '{'.'.join(from_import_list)}'.",
+                    token=self.rhs.token,
+                )
             else:
                 raise EikoInternalError(
-                    "Something went horribly wrong during a from import. "
+                    "Something went horribly wrong during a from ... import. "
                     "Please submit a bug report on github."
                 )
 
@@ -633,7 +651,9 @@ class Parser:
         if self._current.type == TokenType.IDENTIFIER:
             return self._parse_identifier()
 
-        raise EikoSyntaxError(f"Unexpected token {self._current.type.name}.", index=self._current.index)
+        raise EikoSyntaxError(
+            f"Unexpected token {self._current.type.name}.", index=self._current.index
+        )
 
     def _parse_unary_op(self) -> Union[UnaryNegExprAST, UnaryNotExprAST]:
         token = self._current

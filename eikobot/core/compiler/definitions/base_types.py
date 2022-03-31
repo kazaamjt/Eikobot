@@ -2,7 +2,7 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token
@@ -18,6 +18,7 @@ class EikoBaseType:
     """
 
     name = "EikoObject"
+    type = "EikoObject"
 
     def __init__(self, eiko_type: str) -> None:
         self.type = eiko_type
@@ -37,6 +38,7 @@ class EikoInt(EikoBaseType):
     """
 
     name = "int"
+    type = "int"
 
     def __init__(self, value: int) -> None:
         super().__init__(self.name)
@@ -52,6 +54,7 @@ class EikoFloat(EikoBaseType):
     """
 
     name = "float"
+    type = "float"
 
     def __init__(self, value: float) -> None:
         super().__init__(self.name)
@@ -70,6 +73,7 @@ class EikoBool(EikoBaseType):
     """
 
     name = "bool"
+    type = "bool"
 
     def __init__(self, value: bool) -> None:
         super().__init__(self.name)
@@ -85,6 +89,7 @@ class EikoStr(EikoBaseType):
     """
 
     name = "str"
+    type = "str"
 
     def __init__(self, value: str) -> None:
         super().__init__(self.name)
@@ -98,6 +103,8 @@ class EikoResource(EikoBaseType):
     """
     Represents a custom resource in the Eiko language.
     """
+
+    type = "EikoResource"
 
     def __init__(self, eiko_type: str) -> None:
         super().__init__(eiko_type)
@@ -129,3 +136,48 @@ class EikoResource(EikoBaseType):
             f"[{val.type}] {name}": val.printable()
             for name, val in self.properties.items()
         }
+
+
+def to_eiko_type(cls: Type) -> Type[EikoBaseType]:
+    if issubclass(cls, EikoBaseType):
+        return cls
+
+    if cls == bool:
+        return EikoBool
+
+    if cls == float:
+        return EikoFloat
+
+    if cls == int:
+        return EikoInt
+
+    if cls == str:
+        return EikoStr
+
+    raise ValueError
+
+
+def to_eiko(value: Any) -> EikoBaseType:
+    if isinstance(value, bool):
+        return EikoBool(value)
+
+    if isinstance(value, float):
+        return EikoFloat(value)
+
+    if isinstance(value, int):
+        return EikoInt(value)
+
+    if isinstance(value, str):
+        return EikoStr(value)
+
+    if isinstance(value, EikoBaseType):
+        return value
+
+    raise ValueError
+
+
+def to_py(value: Any) -> Union[bool, float, int, str]:
+    if isinstance(value, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+        return value.value
+
+    raise ValueError

@@ -47,6 +47,8 @@ class CompilerContext:
         for key, value in self.storage.items():
             if isinstance(value, CompilerContext):
                 return_str += value.__repr__(extra_indent)
+            elif isinstance(value, EikoBaseType):
+                return_str += f"{extra_indent}{key}: {value.printable()}\n"
             else:
                 return_str += f"{extra_indent}{key}: {value}\n"
 
