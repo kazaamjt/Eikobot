@@ -17,6 +17,12 @@ from .base_types import (
 from .resource import ResourceDefinition
 
 _StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType]]
+_builtins = {
+    "int": EikoInt,
+    "float": EikoFloat,
+    "bool": EikoBool,
+    "str": EikoStr,
+}
 
 
 class CompilerContext:
@@ -31,12 +37,7 @@ class CompilerContext:
         super_scope: Optional["CompilerContext"] = None,
     ) -> None:
         self.name = name
-        self.storage: Dict[str, Union[_StorableTypes, "CompilerContext", None]] = {
-            "int": EikoInt,
-            "float": EikoFloat,
-            "bool": EikoBool,
-            "str": EikoStr,
-        }
+        self.storage: Dict[str, Union[_StorableTypes, "CompilerContext", None]] = {}
         self.type = "ModuleContext"
         self.super = super_scope
         self.assigned: Dict[str, EikoResource] = {}
@@ -60,6 +61,9 @@ class CompilerContext:
         value = self.storage.get(name)
         if value is None and self.super is not None:
             value = self.super.get(name)
+
+        if value is None:
+            value = _builtins.get(name)
 
         return value
 
