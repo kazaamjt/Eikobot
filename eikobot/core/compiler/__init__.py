@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from .definitions.context import CompilerContext
+from .importlib import import_python_code
 from .parser import Parser
 
 
@@ -17,5 +18,7 @@ class Compiler:
 
     def compile(self, file: Path) -> None:
         results = []
+        import_python_code(["__main__"], file, self.context)
+
         for expr in Parser(file).parse():
             results.append(expr.compile(self.context))
