@@ -97,7 +97,15 @@ class Lexer:
             return Token(TokenType.EOF, "EOF", self._current_index())
 
         if self._current.isalpha() or self._current == "_":
-            if self._current == "r":
+            if self._current == "f":
+                index = self._current_index()
+                self._next()
+                if self._current == '"':
+                    return self._scan_f_string(index)
+                else:
+                    return self._scan_identifier("f", index)
+
+            elif self._current == "r":
                 index = self._current_index()
                 self._next()
                 if self._current == '"':
@@ -194,6 +202,12 @@ class Lexer:
             encoding="raw_unicode_escape"
         )
         return Token(TokenType.STRING, raw_string, index)
+
+    def _scan_f_string(self, index: Index) -> Token:
+        string_token = self._scan_string()
+        string_token.index = index
+        string_token.type = TokenType.F_STRING
+        return string_token
 
     def _scan_other(self) -> Token:  # pylint: disable=too-many-return-statements
         index = self._current_index()
