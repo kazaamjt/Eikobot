@@ -99,6 +99,115 @@ class StringExprAST(ExprAST):
         return EikoStr(self.value)
 
 
+class FStringLexer(Lexer):
+    def __init__(self, token: Token) -> None:
+        self._str_token = token
+        self._content = token.content
+        self._index = token.index
+        self.file_path = token.index.file
+
+        self._lexing_f_tokens = False
+        self.expressions: List[str] = []
+
+        self._char_index = 0
+        self._line = 0
+        self._col = 0
+        self._current_line = 0
+        self._current = ""
+
+    def _record_expression(self) -> None:
+        expression = self._current
+        char_index = self._char_index - 1
+        while True:
+            char_index -= 1
+            prev_char = self._content[char_index]
+            expression = self._content[char_index] + expression
+            if prev_char == "{":
+                break
+
+        self.expressions.append(expression)
+
+    def next_token(self) -> Token:
+        if self._current == "\\" and not self._lexing_f_tokens:
+            self._next()
+            if self._current == "{":
+                self._next()
+
+        if self._current == "{":
+            self._next()
+            self._lexing_f_tokens = True
+            return Token(TokenType.INDENT, "", self._current_index())
+
+        if self._lexing_f_tokens:
+            if self._current == "}":
+                self._record_expression()
+                self._next()
+                self._lexing_f_tokens = False
+            else:
+                if self._current == "EOF":
+                    raise EikoParserError(
+                        "Reached end of f-string while parsing expression.",
+                        token=self._str_token,
+                    )
+                return super().next_token()
+
+        if not self._lexing_f_tokens:
+            if self._current == "EOF":
+                return super().next_token()
+
+            self._next()
+            return self.next_token()
+
+        self._str_token.index = self._current_index()
+        raise EikoParserError(
+            "Failed to parse f-string.",
+            token=self._str_token,
+        )
+
+
+
+@dataclass
+class FStringExprAST(ExprAST):
+    """
+    An f-string expression is a string that contains sub-expressions.
+    These expressions are seperated out at parse time and
+    filled in at compile time.
+    """
+
+    def __post_init__(self) -> None:
+        self.string = self.token.content
+        self.expressions: Dict[str, ExprAST] = {}
+
+        # Find a way to not read the whole file again.
+        parser = Parser(self.token.index.file)
+        parser.lexer = FStringLexer(self.token)
+        parser._current = parser.lexer.next_token()
+        parser._next = parser.lexer.next_token()
+        for index, expr in enumerate(parser.parse()):
+            self.expressions[parser.lexer.expressions[index]] = expr
+
+    def compile(self, context: CompilerContext) -> EikoStr:
+        string = EikoStr(self.token.content)
+        for raw_expr, expr in self.expressions.items():
+            result = expr.compile(context)
+            if result is None:
+                raise EikoCompilationError(
+                    "Tried to interpolate string, but expression did not result in a value",
+                    token=self.token,
+                )
+
+            if not isinstance(result, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+                raise EikoCompilationError(
+                    f"Unable to convert object of type {result.type} to a string "
+                    "and interpolate it with an f-string. (Only bool, int, float and str are allowed.)",
+                    token=self.token,
+                )
+
+            string.value = string.value.replace(raw_expr, str(result.value))
+
+        return string
+
+
 @dataclass
 class UnaryNotExprAST(ExprAST):
     """AST representing a unary not operation."""
@@ -644,6 +753,11 @@ class Parser:
             token = self._current
             self._advance()
             return StringExprAST(token)
+
+        if self._current.type == TokenType.F_STRING:
+            token = self._current
+            self._advance()
+            return FStringExprAST(token)
 
         if self._current.type == TokenType.LEFT_PAREN:
             return self._parse_parens()

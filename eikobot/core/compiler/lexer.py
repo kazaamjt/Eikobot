@@ -102,16 +102,16 @@ class Lexer:
                 self._next()
                 if self._current == '"':
                     return self._scan_f_string(index)
-                else:
-                    return self._scan_identifier("f", index)
 
-            elif self._current == "r":
+                return self._scan_identifier("f", index)
+
+            if self._current == "r":
                 index = self._current_index()
                 self._next()
                 if self._current == '"':
                     return self._scan_raw_string(index)
-                else:
-                    return self._scan_identifier("r", index)
+
+                return self._scan_identifier("r", index)
 
             return self._scan_identifier()
 

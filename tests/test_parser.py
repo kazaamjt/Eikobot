@@ -3,14 +3,19 @@
 # pylint: disable=protected-access
 # pylint: disable=too-many-statements
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import pytest
+from eikobot.core.compiler.definitions.context import CompilerContext
+from eikobot.core.compiler.errors import EikoParserError
 
 from eikobot.core.compiler.parser import (
     AssignmentAST,
     BinOP,
     BinOpExprAST,
     CallExprAst,
+    FStringExprAST,
+    FStringLexer,
     IntExprAST,
     Parser,
     ResourceDefinitionAST,
@@ -19,6 +24,7 @@ from eikobot.core.compiler.parser import (
     UnaryNegExprAST,
     VariableAST,
 )
+from eikobot.core.compiler.token import Index, Token, TokenType
 
 
 def test_basic_ops(eiko_basic_ops_file: Path) -> None:
@@ -164,3 +170,56 @@ def test_parse_resource(eiko_file_1: Path) -> None:
     assert var_1.rhs.args[0].value == "192.168.0.1"
     assert isinstance(var_1.rhs.args[1], StringExprAST)
     assert var_1.rhs.args[1].value == "192.168.1.1"
+
+
+def test_f_string_lexer() -> None:
+    lexer = FStringLexer(
+        Token(
+            TokenType.F_STRING,
+            "This is an f-string test: {3 + 3}",
+            Index(0, 0, Path("test_parser.py")),
+        )
+    )
+    token_0 = lexer.next_token()
+    assert token_0 == Token(TokenType.INDENT, "", Index(0, 27, lexer.file_path))
+    token_1 = lexer.next_token()
+    assert token_1 == Token(TokenType.INTEGER, "3", Index(0, 27, lexer.file_path))
+    token_2 = lexer.next_token()
+    assert token_2 == Token(TokenType.ARITHMETIC_OP, "+", Index(0, 29, lexer.file_path))
+    token_3 = lexer.next_token()
+    assert token_3 == Token(TokenType.INTEGER, "3", Index(0, 31, lexer.file_path))
+    token_4 = lexer.next_token()
+    assert token_4 == Token(TokenType.EOF, "EOF", Index(1, 0, lexer.file_path))
+
+    lexer = FStringLexer(
+        Token(
+            TokenType.F_STRING,
+            "This is an f-string test: {3",
+            Index(0, 0, Path("test_parser.py")),
+        )
+    )
+
+    token_0 = lexer.next_token()
+    assert token_0 == Token(TokenType.INDENT, "", Index(0, 27, lexer.file_path))
+    token_1 = lexer.next_token()
+    assert token_1 == Token(TokenType.INTEGER, "3", Index(0, 27, lexer.file_path))
+
+    with pytest.raises(EikoParserError):
+        token_2 = lexer.next_token()
+
+
+def test_f_string_parser(eiko_f_string_file: Path) -> None:
+    f_string_expr = FStringExprAST(
+        Token(
+            TokenType.F_STRING,
+            "This is an f-string test: {3 + 3}, {4 + 4}",
+            Index(0, 0, eiko_f_string_file),
+        )
+    )
+    expr_1 = f_string_expr.expressions.get("{3 + 3}")
+    assert isinstance(expr_1, BinOpExprAST)
+    expr_2 = f_string_expr.expressions.get("{3 + 3}")
+    assert isinstance(expr_2, BinOpExprAST)
+
+    compiled_f_string = f_string_expr.compile(CompilerContext("f-string-test"))
+    assert compiled_f_string.value == f"This is an f-string test: {3 + 3}, {4 + 4}"
