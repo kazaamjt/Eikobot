@@ -75,9 +75,9 @@ class Lexer:
     def _next(self) -> None:
         self._current = self._next_char()
 
-    # NOTE: every return has to be preceded by a
-    # call to self._next()
-    def next_token(self) -> Token:  # pylint: disable=too-many-return-statements
+    # NOTE: every return has to be preceded by a call to self._next()
+    # pylint: disable=too-many-return-statements,too-many-branches
+    def next_token(self) -> Token:
         """
         Returns the next gramatical token.
         """

@@ -67,6 +67,7 @@ def eiko_from_import_file() -> Iterable[Path]:
     tmp_file = get_file("test_from_import.eiko")
     yield tmp_file
 
+
 @pytest.fixture
 def eiko_f_string_file() -> Iterable[Path]:
     tmp_file = get_file("test_f_string.eiko")

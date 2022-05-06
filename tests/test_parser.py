@@ -3,12 +3,11 @@
 # pylint: disable=protected-access
 # pylint: disable=too-many-statements
 from pathlib import Path
-from urllib.parse import parse_qs
 
 import pytest
+
 from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler.errors import EikoParserError
-
 from eikobot.core.compiler.parser import (
     AssignmentAST,
     BinOP,
