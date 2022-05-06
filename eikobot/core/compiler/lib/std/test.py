@@ -1,3 +1,6 @@
+"""
+This module is used for eikobot testing.
+"""
 from eikobot.core.plugin import eiko_plugin
 
 

@@ -15,6 +15,7 @@ from .core.compiler.errors import EikoError
 @click.group()
 @click.option("--debug", is_flag=True)
 def cli(debug: bool = False) -> None:
+    """Directly call the Eikobot compiler."""
     log_level = logger.LOG_LEVEL.INFO
     if debug:
         log_level = logger.LOG_LEVEL.DEBUG

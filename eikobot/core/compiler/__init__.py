@@ -1,3 +1,8 @@
+"""
+The entrypoint of the Eikobot Compiler.
+The compiler takes output from lexers/parsers
+and uses the resulting asts to create a model.
+"""
 from pathlib import Path
 
 from .definitions.context import CompilerContext
@@ -12,11 +17,10 @@ class Compiler:
     """
 
     def __init__(self) -> None:
-        self.context = CompilerContext(
-            "__main__",
-        )
+        self.context = CompilerContext("__main__")
 
     def compile(self, file: Path) -> None:
+        """Compiles an Eikobot file given a path."""
         results = []
         import_python_code(["__main__"], file, self.context)
 

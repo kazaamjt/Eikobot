@@ -1,3 +1,6 @@
+"""
+Error types raised by the Eikobot compiler.
+"""
 from typing import Optional
 
 from .misc import Index

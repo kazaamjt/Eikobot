@@ -13,12 +13,16 @@ from .function import FunctionDefinition
 
 @dataclass
 class ResourceProperty:
+    """Internal representation of a resource property for constructors."""
+
     name: str
     type: str
     default_value: Optional[EikoBaseType] = None
 
 
 class ResourceDefinition(EikoBaseType):
+    """Internal representation of a constructor."""
+
     def __init__(self, name: str, token: Token) -> None:
         super().__init__(name)
         self.token = token

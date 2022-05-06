@@ -1,3 +1,7 @@
+"""
+The importlib allows for importing
+of both Eiko and Python code.
+"""
 import importlib.util
 from inspect import getfullargspec, getmembers, isfunction
 from pathlib import Path
@@ -17,10 +21,13 @@ PATHS: List[Path] = [INTERNAL_LIB_PATH, Path(".")]
 def resolve_import(
     import_path: List[str], main_context: CompilerContext
 ) -> Optional[Tuple[Path, CompilerContext]]:
+    """
+    Tries to import a given path.
+    """
     for _path in PATHS:
-        file_path = _resolve_import(import_path.copy(), _path, main_context)
-        if file_path is not None:
-            return file_path
+        result = _resolve_import(import_path.copy(), _path, main_context)
+        if result is not None:
+            return result
 
     return None
 
@@ -56,6 +63,9 @@ def _resolve_import(
 def resolve_from_import(
     import_path: List[str],
 ) -> Optional[Tuple[Path, CompilerContext]]:
+    """
+    Tries to from import a given path list.
+    """
     for _path in PATHS:
         file_path = _resolve_from_import(import_path.copy(), _path)
         if file_path is not None:
@@ -95,6 +105,9 @@ def _resolve_from_import(
 def import_python_code(
     module_path: List[str], eiko_file_path: Path, context: CompilerContext
 ) -> None:
+    """
+    Resolves and exposes python code that is tagged as eiko-plugins.
+    """
     file_path = eiko_file_path.with_suffix(".py")
     if file_path.exists():
         logger.debug(f"Found python plugins for eiko file: {eiko_file_path}")
@@ -111,6 +124,9 @@ def import_python_code(
 
 
 def load_python_code(module_name: str, file_path: Path) -> ModuleType:
+    """
+    Loads Python code from a given path.
+    """
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     if spec is not None:
         py_module = importlib.util.module_from_spec(spec)

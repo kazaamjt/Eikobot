@@ -5,9 +5,8 @@ constructors and plugins do, and they need some kind of representation.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
 
-
 from ..errors import EikoCompilationError
-from .base_types import EikoBaseType, to_eiko_type, to_eiko, to_py
+from .base_types import EikoBaseType, to_eiko, to_eiko_type, to_py
 
 if TYPE_CHECKING:
     from ..parser import ExprAST
@@ -16,12 +15,16 @@ if TYPE_CHECKING:
 
 @dataclass
 class FunctionArg:
+    """Representation of a required FunctionArg."""
+
     name: str
     type: str
     default_value: Optional[EikoBaseType] = None
 
 
 class FunctionDefinition(EikoBaseType):
+    """Internal representation of an Eikobot function."""
+
     def __init__(self) -> None:
         super().__init__("function")
         self.args: List[FunctionArg] = []
@@ -48,9 +51,14 @@ class PluginArg:
 
 
 class PluginDefinition(EikoBaseType):
+    """
+    Internal representation of a python plugin
+    that can be called from the Eikobot language.
+    """
+
     def __init__(
         self,
-        body: Callable,
+        body: Callable[..., Union[None, bool, float, int, str, EikoBaseType]],
         return_type: Type[EikoBaseType],
         identifier: str,
         module: str,
@@ -72,14 +80,13 @@ class PluginDefinition(EikoBaseType):
     def execute(
         self, args: List["ExprAST"], dummy_context: "CompilerContext"
     ) -> Optional[EikoBaseType]:
+        """Execute the stored function and coerce types."""
 
         stable_args = []
         for i, arg in enumerate(args):
             stable_args.append(self._handle_arg(arg, dummy_context, self.args[i]))
 
         val = self.body(*stable_args)
-        if self.return_type == self._body_return_type:
-            return val
 
         return to_eiko(val)
 
@@ -111,4 +118,4 @@ class PluginDefinition(EikoBaseType):
                 token=arg.token,
             )
 
-        return converted_arg
+        return converted_arg  # type: ignore

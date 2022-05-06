@@ -139,6 +139,10 @@ class EikoResource(EikoBaseType):
 
 
 def to_eiko_type(cls: Type) -> Type[EikoBaseType]:
+    """
+    Takes a python type and returns it's eikobot compatible type.
+    If said type exists.
+    """
     if issubclass(cls, EikoBaseType):
         return cls
 
@@ -158,6 +162,7 @@ def to_eiko_type(cls: Type) -> Type[EikoBaseType]:
 
 
 def to_eiko(value: Any) -> EikoBaseType:
+    """Takes a python value and tries to coerce it to an Eikobot type."""
     if isinstance(value, bool):
         return EikoBool(value)
 
@@ -177,6 +182,7 @@ def to_eiko(value: Any) -> EikoBaseType:
 
 
 def to_py(value: Any) -> Union[bool, float, int, str]:
+    """Takes an Eikobot type and tries to coerce it to a python type."""
     if isinstance(value, (EikoBool, EikoFloat, EikoInt, EikoStr)):
         return value.value
 

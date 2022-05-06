@@ -1,3 +1,8 @@
+"""
+Eikobot binary operations,
+allowing the addition, multiplication, division, etc...
+of Eikobot builtin types.
+"""
 from enum import Enum, auto
 from typing import Callable, Dict, Union
 
