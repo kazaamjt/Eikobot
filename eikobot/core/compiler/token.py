@@ -23,6 +23,7 @@ class TokenType(Enum):
     ELSE = auto()
 
     IDENTIFIER = auto()
+    F_STRING = auto()
 
     LEFT_PAREN = auto()
     RIGHT_PAREN = auto()

@@ -230,10 +230,17 @@ def test_base_types(eiko_base_type_file: Path) -> None:
     )
 
     assert lexer.next_token() == Token(
-        TokenType.INDENT, "", Index(6, 0, eiko_base_type_file)
+        TokenType.INDENT, "", Index(5, 0, eiko_base_type_file)
     )
     assert lexer.next_token() == Token(
-        TokenType.EOF, "EOF", Index(6, 0, eiko_base_type_file)
+        TokenType.F_STRING, "Hello, {name}", Index(5, 0, eiko_base_type_file)
+    )
+
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(7, 0, eiko_base_type_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.EOF, "EOF", Index(7, 0, eiko_base_type_file)
     )
 
 
