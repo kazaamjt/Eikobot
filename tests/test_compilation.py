@@ -65,3 +65,10 @@ def test_basic_compiler(eiko_file_3: Path) -> None:
     ip_1 = compiler.context.get("ip_1")
     assert isinstance(ip_1, EikoStr)
     assert ip_1.value == "192.168.0.1"
+
+
+def test_nested_properties(nested_properties_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(nested_properties_file)
+    var_b = compiler.context.get("b")
+    assert isinstance(var_b, EikoStr)

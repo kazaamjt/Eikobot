@@ -3,7 +3,7 @@ Resource and ResourceProperty class definitions.
 Resource is the base building block of the eiko language model.
 """
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
 from ..errors import EikoCompilationError
 from ..token import Token
@@ -30,8 +30,8 @@ class ResourceDefinition(EikoBaseType):
         self.properties: Dict[str, ResourceProperty] = {}
         self.constructors: Dict[str, FunctionDefinition] = {}
 
-    def printable(self) -> Union[Dict, int, str]:
-        raise NotImplementedError
+    def printable(self, _: str = "") -> str:
+        return f"Resource Definition '{self.name}'"
 
     def add_property(self, prop: ResourceProperty) -> None:
         self.properties[prop.name] = prop

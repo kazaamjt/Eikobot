@@ -72,3 +72,9 @@ def eiko_from_import_file() -> Iterable[Path]:
 def eiko_f_string_file() -> Iterable[Path]:
     tmp_file = get_file("test_f_string.eiko")
     yield tmp_file
+
+
+@pytest.fixture
+def nested_properties_file() -> Iterable[Path]:
+    tmp_file = get_file("test_nested_properties.eiko")
+    yield tmp_file

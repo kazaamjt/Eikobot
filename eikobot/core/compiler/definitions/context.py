@@ -49,7 +49,7 @@ class CompilerContext:
             if isinstance(value, CompilerContext):
                 return_str += value.__repr__(extra_indent)
             elif isinstance(value, EikoBaseType):
-                return_str += f"{extra_indent}{key}: {value.printable()}\n"
+                return_str += f"{extra_indent}{value.type} {key}: {value.printable(extra_indent)}\n"
             else:
                 return_str += f"{extra_indent}{key}: {value}\n"
 
@@ -67,6 +67,18 @@ class CompilerContext:
 
         return value
 
+    def shallow_get(self, name: str) -> Union[_StorableTypes, "CompilerContext", None]:
+        """
+        Shallow get only gets builtins and values local to the current scope.
+        It is primarily for use by 'Set'.
+        """
+        value = self.storage.get(name)
+
+        if value is None:
+            value = _builtins.get(name)
+
+        return value
+
     def set(
         self,
         name: str,
@@ -74,7 +86,7 @@ class CompilerContext:
         token: Optional[Token] = None,
     ) -> None:
         """Set a value. Throws an error if it's already set."""
-        prev_value = self.get(name)
+        prev_value = self.shallow_get(name)
         if prev_value is not None:
             raise EikoCompilationError(
                 f'Illegal operation: Tried to reassign "{name}".',

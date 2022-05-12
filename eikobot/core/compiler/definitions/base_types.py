@@ -28,7 +28,7 @@ class EikoBaseType:
             f"Object of type {self.type} has no property {name}."
         )
 
-    def printable(self) -> Union[Dict, int, str]:
+    def printable(self, indent: str = "") -> str:
         raise NotImplementedError
 
 
@@ -44,8 +44,8 @@ class EikoInt(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> int:
-        return self.value
+    def printable(self, _: str = "") -> str:
+        return f"int '{self.value}'"
 
 
 class EikoFloat(EikoBaseType):
@@ -60,8 +60,8 @@ class EikoFloat(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> str:
-        return str(self.value)
+    def printable(self, _: str = "") -> str:
+        return f"float '{self.value}'"
 
 
 EikoNumber = Union[EikoInt, EikoFloat]
@@ -79,8 +79,8 @@ class EikoBool(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> str:
-        return str(self.value)
+    def printable(self, _: str = "") -> str:
+        return f"bool '{self.value}'"
 
 
 class EikoStr(EikoBaseType):
@@ -95,8 +95,8 @@ class EikoStr(EikoBaseType):
         super().__init__(self.name)
         self.value = value
 
-    def printable(self) -> str:
-        return self.value
+    def printable(self, _: str = "") -> str:
+        return f"str '{self.value}'"
 
 
 class EikoResource(EikoBaseType):
@@ -131,11 +131,17 @@ class EikoResource(EikoBaseType):
 
         self.properties[name] = value
 
-    def printable(self) -> Dict:
-        return {
-            f"[{val.type}] {name}": val.printable()
-            for name, val in self.properties.items()
-        }
+    def printable(self, indent: str = "") -> str:
+        extra_indent = indent + "    "
+        _repr = "{\n"
+        for name, val in self.properties.items():
+            _repr += extra_indent
+            _repr += f"{val.type} '{name}': "
+            _repr += val.printable(extra_indent)
+
+        _repr += "\n" + indent + "}"
+
+        return _repr
 
 
 def to_eiko_type(cls: Type) -> Type[EikoBaseType]:

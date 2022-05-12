@@ -49,6 +49,10 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
                 print(" " * 8 + clean_line.strip("\n"))
                 print(" " * 8 + (e.index.col - diff) * " " + "^")
 
+    except NotImplementedError:
+        logger.error("Something went horribly wrong inside the compiler.")
+        logger.error("Please report this error on https://github.com/kazaamjt/Eikobot")
+
     logger.info("Model result:")
     print(compiler.context)
 

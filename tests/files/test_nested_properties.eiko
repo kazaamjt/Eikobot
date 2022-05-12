@@ -1,0 +1,10 @@
+resource Res_1:
+    prop_1: str
+
+
+resource Res_2:
+    res_1: Res_1
+
+
+a = Res_2(Res_1("res_1_prop_1"))
+b = a.res_1.prop_1

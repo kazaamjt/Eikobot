@@ -1,7 +1,8 @@
 # type: ignore
 # flake8: noqa
-import setuptools
 from pathlib import Path
+
+import setuptools
 
 this_directory = Path(__file__).parent
 with open(this_directory / "README.md", encoding="utf-8") as f:
