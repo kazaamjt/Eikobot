@@ -10,6 +10,8 @@ import click
 from .core import logger
 from .core.compiler import Compiler
 from .core.compiler.errors import EikoError
+from .core.compiler.lexer import Token
+from .core.compiler.misc import Index
 
 
 @click.group()
@@ -20,6 +22,17 @@ def cli(debug: bool = False) -> None:
     if debug:
         log_level = logger.LOG_LEVEL.DEBUG
     logger.init(log_level=log_level)  # type: ignore
+
+
+def print_error_trace(index: Index) -> None:
+    """Using a given index, creates a nice CLI trace."""
+    print(f"    File {index.file.absolute()}, line {index.line}")
+    with open(index.file, "r", encoding="utf-8") as f:
+        line = f.readlines()[index.line]
+        clean_line = line.lstrip()
+        diff = len(line) - len(clean_line)
+        print(" " * 8 + clean_line.strip("\n"))
+        print(" " * 8 + (index.col - diff) * " " + "^")
 
 
 @cli.command()
@@ -41,20 +54,22 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
     except EikoError as e:
         logger.error(str(e))
         if e.index is not None:
-            print(f"    File {e.index.file.absolute()}, line {e.index.line}")
-            with open(e.index.file, "r", encoding="utf-8") as f:
-                line = f.readlines()[e.index.line]
-                clean_line = line.lstrip()
-                diff = len(line) - len(clean_line)
-                print(" " * 8 + clean_line.strip("\n"))
-                print(" " * 8 + (e.index.col - diff) * " " + "^")
+            print_error_trace(e.index)
 
-    except NotImplementedError:
+    except NotImplementedError as e:
         logger.error("Something went horribly wrong inside the compiler.")
         logger.error("Please report this error on https://github.com/kazaamjt/Eikobot")
-
-    logger.info("Model result:")
-    print(compiler.context)
+        try:
+            token = e.args[0]
+        except ValueError:
+            pass
+        else:
+            if isinstance(token, Token):
+                logger.error("Got stuck here:")
+                print_error_trace(token.index)
+    else:
+        logger.info("Model result:")
+        print(compiler.context)
 
 
 if __name__ == "__main__":

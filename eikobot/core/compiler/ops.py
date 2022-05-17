@@ -8,12 +8,15 @@ from typing import Callable, Dict, Union
 
 from .definitions.base_types import (
     EikoBaseType,
+    EikoBool,
     EikoFloat,
     EikoInt,
     EikoNumber,
+    EikoResource,
     EikoStr,
 )
-from .errors import EikoInternalError
+from .errors import EikoCompilationError, EikoInternalError
+from .lexer import Token
 
 
 class BinOP(Enum):
@@ -27,7 +30,7 @@ class BinOP(Enum):
     EXPONENTIATION = auto()
 
     @staticmethod
-    def from_str(op: str) -> "BinOP":
+    def from_str(op: str, token: Token) -> "BinOP":
         """Turns a string in to a bin_op"""
         if op == "+":
             return BinOP.ADD
@@ -50,6 +53,7 @@ class BinOP(Enum):
         raise EikoInternalError(
             "Issue occured trying to parse binop. "
             "This is deffinetly a bug, please report it on github.",
+            token=token,
         )
 
     def __str__(self) -> str:
@@ -161,3 +165,144 @@ BINOP_MATRIX: Dict[str, Dict[str, BinOpMatrix]] = {
         },
     },
 }
+
+
+class ComparisonOP(Enum):
+    """Eiko supported binary operations"""
+
+    LESS_THEN = auto()
+    GREATHER_THEN = auto()
+    EQUALS = auto()
+    EQ_OR_GT = auto()
+    EQ_OR_LT = auto()
+
+    @staticmethod
+    def from_str(token: Token) -> "ComparisonOP":
+        """Turns a string in to a bin_op"""
+        if token.content == "<":
+            return ComparisonOP.LESS_THEN
+
+        if token.content == ">":
+            return ComparisonOP.GREATHER_THEN
+
+        if token.content == "==":
+            return ComparisonOP.EQUALS
+
+        if token.content == ">=":
+            return ComparisonOP.EQ_OR_GT
+
+        if token.content == "<=":
+            return ComparisonOP.EQ_OR_LT
+
+        raise EikoInternalError(
+            "Issue occured trying to parse binop. "
+            "This is deffinetly a bug, please report it on github.",
+            token=token,
+        )
+
+    def __str__(self) -> str:
+        if self == ComparisonOP.LESS_THEN:
+            return "<"
+
+        if self == ComparisonOP.GREATHER_THEN:
+            return ">"
+
+        if self == ComparisonOP.EQUALS:
+            return "=="
+
+        if self == ComparisonOP.EQ_OR_GT:
+            return ">="
+
+        if self == ComparisonOP.EQ_OR_LT:
+            return "<="
+
+        raise EikoInternalError(
+            "Ran in to a bug. Somehow this happened. "
+            "It shouldn't be possible for this bug to happen, yet here we are."
+        )
+
+
+def _number_compare(a: EikoNumber, b: EikoNumber, op: ComparisonOP) -> EikoBool:
+    if op == ComparisonOP.EQ_OR_GT:
+        return EikoBool(a.value >= b.value)
+
+    if op == ComparisonOP.EQ_OR_LT:
+        return EikoBool(a.value <= b.value)
+
+    if op == ComparisonOP.GREATHER_THEN:
+        return EikoBool(a.value > b.value)
+
+    if op == ComparisonOP.LESS_THEN:
+        return EikoBool(a.value < b.value)
+
+    raise EikoInternalError(
+        "Ran in to a bug. Somehow this happened. "
+        "It shouldn't be possible for this bug to happen, yet here we are."
+    )
+
+
+def _str_compare(a: EikoStr, b: EikoStr, op: ComparisonOP) -> EikoBool:
+    if op == ComparisonOP.EQ_OR_GT:
+        return EikoBool(a.value >= b.value)
+
+    if op == ComparisonOP.EQ_OR_LT:
+        return EikoBool(a.value <= b.value)
+
+    if op == ComparisonOP.GREATHER_THEN:
+        return EikoBool(a.value > b.value)
+
+    if op == ComparisonOP.LESS_THEN:
+        return EikoBool(a.value < b.value)
+
+    raise EikoInternalError(
+        "Ran in to a bug. Somehow this happened. "
+        "It shouldn't be possible for this bug to happen, yet here we are."
+    )
+
+
+def _eq_compare(
+    a: EikoBaseType, b: EikoBaseType, op: ComparisonOP, b_token: Token
+) -> EikoBool:
+    if isinstance(a, (EikoInt, EikoFloat)) and isinstance(b, (EikoInt, EikoFloat)):
+        return EikoBool(a.value == b.value)
+
+    if not a.type == b.type:
+        return EikoBool(False)
+
+    if isinstance(a, EikoStr) and isinstance(b, EikoStr):
+        return EikoBool(a.value == b.value)
+
+    if isinstance(a, EikoBool) and isinstance(b, EikoBool):
+        return EikoBool(a.value == b.value)
+
+    if isinstance(a, EikoResource) and isinstance(b, EikoResource):
+        for name, prop_a in a.properties.items():
+            prop_b = b.properties.get(name)
+            if prop_b is None:
+                return EikoBool(False)
+
+            if not compare(prop_a, prop_b, op, b_token):
+                return EikoBool(False)
+
+        return EikoBool(True)
+
+    return EikoBool(False)
+
+
+def compare(
+    a: EikoBaseType, b: EikoBaseType, op: ComparisonOP, b_token: Token
+) -> EikoBool:
+    "Given 2 eiko objects and a comparison operator, performs a comparison."
+    if op == ComparisonOP.EQUALS:
+        return _eq_compare(a, b, op, b_token)
+
+    if isinstance(a, (EikoInt, EikoFloat)) and isinstance(b, (EikoInt, EikoFloat)):
+        return _number_compare(a, b, op)
+
+    if isinstance(a, EikoStr) and isinstance(b, EikoStr):
+        return _str_compare(a, b, op)
+
+    raise EikoCompilationError(
+        f"Cannot perform operation '{op}' for '{a.type}' and '{b.type}'.",
+        token=b_token,
+    )

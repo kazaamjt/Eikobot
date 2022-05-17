@@ -105,7 +105,7 @@ class Lexer:
             if self._current == "f":
                 index = self._current_index()
                 self._next()
-                if self._current == '"':
+                if self._current in ['"', "'"]:
                     return self._scan_f_string(index)
 
                 return self._scan_identifier("f", index)
@@ -113,7 +113,7 @@ class Lexer:
             if self._current == "r":
                 index = self._current_index()
                 self._next()
-                if self._current == '"':
+                if self._current in ['"', "'"]:
                     return self._scan_raw_string(index)
 
                 return self._scan_identifier("r", index)
@@ -123,7 +123,7 @@ class Lexer:
         if self._current.isnumeric():
             return self._scan_number()
 
-        if self._current == '"':
+        if self._current in ['"', "'"]:
             return self._scan_string()
 
         if self._current != "\n":
@@ -175,9 +175,10 @@ class Lexer:
 
     def _scan_string(self) -> Token:
         _string = ""
+        delimiter = self._current
         index = self._current_index()
         self._next()
-        while self._current != '"':
+        while self._current != delimiter:
             _string += self._current
             self._next()
             if self._current == "\n":
@@ -193,8 +194,9 @@ class Lexer:
 
     def _scan_raw_string(self, index: Index) -> Token:
         _string = ""
+        delimiter = self._current
         self._next()
-        while self._current != '"':
+        while self._current != delimiter:
             _string += self._current
             self._next()
             if self._current == "\n":
@@ -223,6 +225,9 @@ class Lexer:
 
         if self._current == "=":
             self._next()
+            if self._current == "=":
+                self._next()
+                return Token(TokenType.COMPARISON_OP, "==", index)
             return Token(TokenType.ASSIGNMENT_OP, "=", index)
 
         if self._current == ":":
@@ -256,6 +261,27 @@ class Lexer:
                 return Token(TokenType.ARITHMETIC_OP, "//", index)
 
             return Token(TokenType.ARITHMETIC_OP, "/", index)
+
+        if self._current == "<":
+            self._next()
+            if self._current == "=":
+                self._next()
+                return Token(TokenType.COMPARISON_OP, "<=", index)
+            return Token(TokenType.COMPARISON_OP, "<", index)
+
+        if self._current == ">":
+            self._next()
+            if self._current == "=":
+                self._next()
+                return Token(TokenType.COMPARISON_OP, ">=", index)
+            return Token(TokenType.COMPARISON_OP, ">", index)
+
+        if self._current == "!":
+            self._next()
+            if self._current == "=":
+                self._next()
+                return Token(TokenType.COMPARISON_OP, "!=", index)
+            return Token(TokenType.UNKNOWN, "!", index)
 
         _current = self._current
         self._next()

@@ -1,0 +1,9 @@
+a = 3
+b = 4
+
+if a == b:
+    c = 1
+elif a > b:
+    c = 2
+else:
+    c = 3

@@ -31,6 +31,9 @@ class EikoBaseType:
     def printable(self, indent: str = "") -> str:
         raise NotImplementedError
 
+    def truthiness(self) -> bool:
+        raise NotImplementedError
+
 
 class EikoInt(EikoBaseType):
     """
@@ -45,7 +48,10 @@ class EikoInt(EikoBaseType):
         self.value = value
 
     def printable(self, _: str = "") -> str:
-        return f"int '{self.value}'"
+        return f"int {self.value}"
+
+    def truthiness(self) -> bool:
+        return bool(self.value)
 
 
 class EikoFloat(EikoBaseType):
@@ -61,7 +67,10 @@ class EikoFloat(EikoBaseType):
         self.value = value
 
     def printable(self, _: str = "") -> str:
-        return f"float '{self.value}'"
+        return f"float {self.value}"
+
+    def truthiness(self) -> bool:
+        return bool(self.value)
 
 
 EikoNumber = Union[EikoInt, EikoFloat]
@@ -80,7 +89,10 @@ class EikoBool(EikoBaseType):
         self.value = value
 
     def printable(self, _: str = "") -> str:
-        return f"bool '{self.value}'"
+        return f"bool {self.value}"
+
+    def truthiness(self) -> bool:
+        return self.value
 
 
 class EikoStr(EikoBaseType):
@@ -96,7 +108,10 @@ class EikoStr(EikoBaseType):
         self.value = value
 
     def printable(self, _: str = "") -> str:
-        return f"str '{self.value}'"
+        return f"str \"{self.value}\""
+
+    def truthiness(self) -> bool:
+        return bool(self.value)
 
 
 class EikoResource(EikoBaseType):
@@ -142,6 +157,12 @@ class EikoResource(EikoBaseType):
         _repr += "\n" + indent + "}"
 
         return _repr
+
+    def truthiness(self) -> bool:
+        return True
+
+
+BUiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
 
 
 def to_eiko_type(cls: Type) -> Type[EikoBaseType]:

@@ -35,6 +35,7 @@ class TokenType(Enum):
     DOUBLE_COLON = auto()
     ASSIGNMENT_OP = auto()
     ARITHMETIC_OP = auto()
+    COMPARISON_OP = auto()
 
     # Base types
     INTEGER = auto()

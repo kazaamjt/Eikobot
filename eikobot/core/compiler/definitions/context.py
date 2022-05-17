@@ -49,7 +49,9 @@ class CompilerContext:
             if isinstance(value, CompilerContext):
                 return_str += value.__repr__(extra_indent)
             elif isinstance(value, EikoBaseType):
-                return_str += f"{extra_indent}{value.type} {key}: {value.printable(extra_indent)}\n"
+                return_str += (
+                    f"{extra_indent}var {key}: {value.printable(extra_indent)}\n"
+                )
             else:
                 return_str += f"{extra_indent}{key}: {value}\n"
 

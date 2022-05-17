@@ -26,3 +26,7 @@ class Compiler:
 
         for expr in Parser(file).parse():
             results.append(expr.compile(self.context))
+
+    def reset(self) -> None:
+        """Resets the compiler context for reuse."""
+        self.context = CompilerContext("__main__")

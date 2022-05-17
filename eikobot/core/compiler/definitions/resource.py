@@ -47,3 +47,6 @@ class ResourceDefinition(EikoBaseType):
             )
 
         return constructor
+
+    def truthiness(self) -> bool:
+        raise NotImplementedError

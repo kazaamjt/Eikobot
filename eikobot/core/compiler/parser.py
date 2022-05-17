@@ -35,7 +35,7 @@ from .errors import (
 )
 from .importlib import import_python_code, resolve_from_import, resolve_import
 from .lexer import Lexer
-from .ops import BINOP_MATRIX, BinOP
+from .ops import BINOP_MATRIX, BinOP, ComparisonOP, compare
 from .token import Token, TokenType
 
 
@@ -46,7 +46,7 @@ class ExprAST:
     token: Token
 
     def compile(self, _: CompilerContext) -> Optional[StorableTypes]:
-        raise NotImplementedError
+        raise NotImplementedError(self.token)
 
 
 @dataclass
@@ -268,22 +268,14 @@ class BinOpExprAST(ExprAST):
     rhs: ExprAST
 
     def __post_init__(self) -> None:
-        self.bin_op = BinOP.from_str(self.token.content)
+        self.bin_op = BinOP.from_str(self.token.content, self.token)
 
     def compile(self, context: CompilerContext) -> EikoBaseType:
         lhs = self.lhs.compile(context)
-        if lhs is None:
-            raise EikoCompilationError(
-                "Binary operation expected value on left hand side, "
-                "but expression didn't return a usable value.",
-                token=self.token,
-            )
-
         rhs = self.rhs.compile(context)
-        if rhs is None:
+        if lhs is None or rhs is None:
             raise EikoCompilationError(
-                "Binary operation expected value on right hand side, "
-                "but expression didn't return a usable value.",
+                "Binary operation expected value but expression didn't return a value.",
                 token=self.token,
             )
 
@@ -311,7 +303,38 @@ class BinOpExprAST(ExprAST):
                 token=self.token,
             )
 
+        # This needs to be cleaned up at some point, in some way,
+        # but due to the way we retrieve 'op' from dictionaries,
+        # mypy doesn't seem to know if this is valid.
         return op(lhs, rhs)  # type: ignore
+
+
+@dataclass
+class ComparisonAST(ExprAST):
+    """An AST expressing a comparison."""
+
+    lhs: ExprAST
+    rhs: ExprAST
+
+    def __post_init__(self) -> None:
+        self.bin_op = ComparisonOP.from_str(self.token)
+
+    def compile(self, context: CompilerContext) -> EikoBool:
+        lhs = self.lhs.compile(context)
+        rhs = self.rhs.compile(context)
+        if lhs is None or rhs is None:
+            raise EikoCompilationError(
+                "Binary operation expected value but expression didn't return a value.",
+                token=self.token,
+            )
+
+        if isinstance(lhs, (type, CompilerContext)):
+            raise EikoInternalError(token=self.lhs.token)
+
+        if isinstance(rhs, (type, CompilerContext)):
+            raise EikoInternalError(token=self.rhs.token)
+
+        return compare(lhs, rhs, self.bin_op, self.rhs.token)
 
 
 @dataclass
@@ -872,6 +895,8 @@ class Parser:
                         "Expected an identifier on the left side of the dot expression.",
                         token=lhs.token,
                     )
+            elif bin_op_token.type == TokenType.COMPARISON_OP:
+                lhs = ComparisonAST(bin_op_token, lhs, rhs)
             else:
                 lhs = BinOpExprAST(bin_op_token, lhs, rhs)
 

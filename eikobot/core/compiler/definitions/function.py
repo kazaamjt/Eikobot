@@ -119,3 +119,6 @@ class PluginDefinition(EikoBaseType):
             )
 
         return converted_arg  # type: ignore
+
+    def truthiness(self) -> bool:
+        raise NotImplementedError
