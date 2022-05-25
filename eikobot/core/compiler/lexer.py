@@ -21,6 +21,8 @@ KEYWORDS = {
     "elif": TokenType.ELIF,
     "else": TokenType.ELSE,
     "from": TokenType.FROM,
+    "and": TokenType.AND,
+    "or": TokenType.OR,
 }
 
 SPECIAL_CHARS = {

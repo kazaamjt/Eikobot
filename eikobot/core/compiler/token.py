@@ -21,6 +21,8 @@ class TokenType(Enum):
     IF = auto()
     ELIF = auto()
     ELSE = auto()
+    AND = auto()
+    OR = auto()
 
     IDENTIFIER = auto()
     F_STRING = auto()

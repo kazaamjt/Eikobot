@@ -35,9 +35,14 @@ def print_error_trace(index: Index) -> None:
         print(" " * 8 + (index.col - diff) * " " + "^")
 
 
-@cli.command()
+@cli.command(name="compile")
 @click.option("-f", "--file", prompt="File", help="Path to entrypoint file.")
-def compile(file: str) -> None:  # pylint: disable=redefined-builtin
+@click.option(
+    "--output-model",
+    is_flag=True,
+    help="Outputs a human readable version of compiler context.",
+)
+def compile_cmd(file: str, output_model: bool = False) -> None:
     """
     Compile an eikobot file.
     """
@@ -57,7 +62,7 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
             print_error_trace(e.index)
 
     except NotImplementedError as e:
-        logger.error("Something went horribly wrong inside the compiler.")
+        logger.error("Congratz, you made something unexpected and terrible happen!")
         logger.error("Please report this error on https://github.com/kazaamjt/Eikobot")
         try:
             token = e.args[0]
@@ -67,9 +72,11 @@ def compile(file: str) -> None:  # pylint: disable=redefined-builtin
             if isinstance(token, Token):
                 logger.error("Got stuck here:")
                 print_error_trace(token.index)
+
     else:
-        logger.info("Model result:")
-        print(compiler.context)
+        if output_model:
+            logger.info("Model result:")
+            print(compiler.context)
 
 
 if __name__ == "__main__":

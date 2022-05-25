@@ -229,8 +229,15 @@ class UnaryNotExprAST(ExprAST):
 
     rhs: ExprAST
 
-    def compile(self, _: CompilerContext) -> EikoBaseType:
-        raise NotImplementedError
+    def compile(self, context: CompilerContext) -> EikoBaseType:
+        rhs = self.rhs.compile(context)
+        if isinstance(rhs, EikoBaseType):
+            return EikoBool((not rhs.truthiness()))
+
+        raise EikoCompilationError(
+            "Bad value given to not operator.",
+            token=self.rhs.token,
+        )
 
 
 @dataclass
@@ -247,16 +254,9 @@ class UnaryNegExprAST(ExprAST):
         if isinstance(rhs, EikoFloat):
             return EikoFloat(-rhs.value)
 
-        if rhs is None:
-            raise EikoCompilationError(
-                "Unary negative expected value to the right hand side, "
-                "but expression didn't return a usable value.",
-                token=self.token,
-            )
-
         raise EikoCompilationError(
-            f"Unable to perform unary negative on object of type {rhs.type}",
-            token=self.token,
+            "Bad value given to unary negative exression.",
+            token=self.rhs.token,
         )
 
 
@@ -310,7 +310,7 @@ class BinOpExprAST(ExprAST):
 
 
 @dataclass
-class ComparisonAST(ExprAST):
+class ComparisonExprAST(ExprAST):
     """An AST expressing a comparison."""
 
     lhs: ExprAST
@@ -344,6 +344,58 @@ class ComparisonAST(ExprAST):
 
 
 @dataclass
+class OrExprAST(ExprAST):
+    """Expresses an OR operator."""
+
+    lhs: ExprAST
+    rhs: ExprAST
+
+    def compile(self, context: CompilerContext) -> EikoBool:
+        lhs = self.lhs.compile(context)
+
+        if isinstance(lhs, EikoBaseType):
+            rhs = self.rhs.compile(context)
+            if isinstance(rhs, EikoBaseType):
+                return EikoBool(lhs.truthiness() or rhs.truthiness())
+
+            raise EikoCompilationError(
+                "Expression did not result in a value usable by 'OR' operator",
+                token=self.rhs.token,
+            )
+
+        raise EikoCompilationError(
+            "Expression did not result in a value usable by 'OR' operator",
+            token=self.lhs.token,
+        )
+
+
+@dataclass
+class AndExprAST(ExprAST):
+    """Expresses an AND operator."""
+
+    lhs: ExprAST
+    rhs: ExprAST
+
+    def compile(self, context: CompilerContext) -> EikoBool:
+        lhs = self.lhs.compile(context)
+
+        if isinstance(lhs, EikoBaseType):
+            rhs = self.rhs.compile(context)
+            if isinstance(rhs, EikoBaseType):
+                return EikoBool((lhs.truthiness() and rhs.truthiness()))
+
+            raise EikoCompilationError(
+                "Expression did not result in a value usable by 'AND' operator",
+                token=self.rhs.token,
+            )
+
+        raise EikoCompilationError(
+            "Expression did not result in a value usable by 'AND' operator",
+            token=self.lhs.token,
+        )
+
+
+@dataclass
 class VariableAST(ExprAST):
     """An AST expressing a variable of some kind."""
 
@@ -354,8 +406,7 @@ class VariableAST(ExprAST):
         value = context.get(self.identifier)
         if value is None:
             raise EikoCompilationError(
-                f"Variable {self.identifier} was accessed before "
-                "having been assigned a value.",
+                f"Variable '{self.identifier}' was accessed before having been assigned a value.",
                 token=self.token,
             )
 
@@ -736,8 +787,8 @@ class Parser:
     def __init__(self, file: Path) -> None:
         self.lexer = Lexer(file)
         self._current = self.lexer.next_token()
-        self._previous = self._current
         self._next = self.lexer.next_token()
+        self._previous = self._current
         self._current_indent = ""
         self._bin_op_precedence = {
             "=": 10,
@@ -941,7 +992,11 @@ class Parser:
                         token=lhs.token,
                     )
             elif bin_op_token.type == TokenType.COMPARISON_OP:
-                lhs = ComparisonAST(bin_op_token, lhs, rhs)
+                lhs = ComparisonExprAST(bin_op_token, lhs, rhs)
+            elif bin_op_token.type == TokenType.OR:
+                lhs = OrExprAST(bin_op_token, lhs, rhs)
+            elif bin_op_token.type == TokenType.AND:
+                lhs = AndExprAST(bin_op_token, lhs, rhs)
             else:
                 lhs = BinOpExprAST(bin_op_token, lhs, rhs)
 
