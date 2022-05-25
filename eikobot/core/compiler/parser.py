@@ -329,10 +329,16 @@ class ComparisonAST(ExprAST):
             )
 
         if isinstance(lhs, (type, CompilerContext)):
-            raise EikoInternalError(token=self.lhs.token)
+            raise EikoInternalError(
+                "Something went horribly wrong, please submit a bug report.",
+                token=self.lhs.token,
+            )
 
         if isinstance(rhs, (type, CompilerContext)):
-            raise EikoInternalError(token=self.rhs.token)
+            raise EikoInternalError(
+                "Something went horribly wrong, please submit a bug report.",
+                token=self.rhs.token,
+            )
 
         return compare(lhs, rhs, self.bin_op, self.rhs.token)
 
@@ -693,6 +699,35 @@ class FromImportExprAST(ExprAST):
                 )
 
 
+@dataclass
+class IfExprAST(ExprAST):
+    """
+    Represents an if ... else ... construct.
+    """
+
+    if_expr: ExprAST
+    body: List[ExprAST]
+    else_body: Optional[List[ExprAST]]
+
+    def compile(self, context: CompilerContext) -> None:
+        if_res = self.if_expr.compile(context)
+        if isinstance(if_res, EikoBaseType):
+            if if_res.truthiness():
+                for expr in self.body:
+                    expr.compile(context)
+
+            else:
+                if self.else_body is not None:
+                    for expr in self.else_body:
+                        expr.compile(context)
+
+        else:
+            raise EikoCompilationError(
+                "Invalid expression for if statement.",
+                token=self.if_expr.token,
+            )
+
+
 class Parser:
     """
     Parses tokens 1 by 1, and turns them in to Expressions.
@@ -703,10 +738,12 @@ class Parser:
         self._current = self.lexer.next_token()
         self._previous = self._current
         self._next = self.lexer.next_token()
+        self._current_indent = ""
         self._bin_op_precedence = {
             "=": 10,
             "or": 20,
             "and": 30,
+            "unot": 40,
             "==": 50,
             "!=": 50,
             "<": 50,
@@ -720,7 +757,6 @@ class Parser:
             "//": 70,
             "%": 70,
             "u-": 80,
-            "unot": 40,
             "**": 90,
             ".": 100,
         }
@@ -778,10 +814,10 @@ class Parser:
             or self._current.content == ""
         ):
             raise EikoParserError(
-                f"Unexpected token: {self._current.content}.", token=self._current
+                f"Unexpected token: '{self._current.content}'.", token=self._current
             )
 
-        self._advance()
+        self._advance(skip_indentation=True)
         if self._current.type == TokenType.EOF:
             return EOFExprAST(self._current)
 
@@ -809,6 +845,11 @@ class Parser:
         if self._current.content in ["-", "not"]:
             return self._parse_unary_op()
 
+        if self._current.type in [TokenType.TRUE, TokenType.FALSE]:
+            token = self._current
+            self._advance()
+            return BoolExprAST(token)
+
         if self._current.type == TokenType.INTEGER:
             token = self._current
             self._advance()
@@ -834,6 +875,9 @@ class Parser:
 
         if self._current.type == TokenType.IDENTIFIER:
             return self._parse_identifier()
+
+        if self._current.type == TokenType.IF:
+            return self._parse_if()
 
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
@@ -870,6 +914,7 @@ class Parser:
                 TokenType.RIGHT_PAREN,
                 TokenType.COMMA,
                 TokenType.IMPORT,
+                TokenType.COLON,
                 TokenType.EOF,
             ]:
                 return lhs
@@ -919,7 +964,7 @@ class Parser:
                 break
 
             if self._current.type != TokenType.COMMA:
-                raise EikoCompilationError(
+                raise EikoParserError(
                     "Unexpected token. Expected a comma or right parenthesis.",
                     token=self._current,
                 )
@@ -931,7 +976,7 @@ class Parser:
 
     def _parse_resource_definition(self) -> ResourceDefinitionAST:
         if self._next.type != TokenType.IDENTIFIER:
-            raise EikoCompilationError(
+            raise EikoParserError(
                 f"Unexpected token {self._next.content}, "
                 "expected resource identifier.",
                 token=self._next,
@@ -943,14 +988,14 @@ class Parser:
         self._advance()
 
         if self._current.content != ":":
-            raise EikoCompilationError(
+            raise EikoParserError(
                 f"Unexpected token {self._current.content}.",
                 token=self._current,
             )
 
         self._advance()
         if self._current.type != TokenType.INDENT:
-            raise EikoCompilationError(
+            raise EikoParserError(
                 f"Unexpected token {self._current.content}, "
                 "expected indented code block.",
                 token=self._current,
@@ -961,7 +1006,7 @@ class Parser:
             if self._current.content == "":
                 break
             if self._current.content != indent:
-                raise EikoCompilationError(
+                raise EikoParserError(
                     "Unexpected indentation.",
                     token=self._current,
                 )
@@ -1002,7 +1047,7 @@ class Parser:
             type_expr = type_expr.lhs
 
         if not isinstance(type_expr, (DotExprAST, VariableAST)):
-            raise EikoCompilationError(
+            raise EikoParserError(
                 "Invalid expression. Expected a type expression.",
                 token=type_expr.token,
             )
@@ -1017,7 +1062,7 @@ class Parser:
         if isinstance(rhs, (VariableAST, DotExprAST)):
             return ImportExprAST(token, rhs)
 
-        raise EikoCompilationError(
+        raise EikoParserError(
             "Unable to import given expression.",
             token=token,
         )
@@ -1027,7 +1072,7 @@ class Parser:
         self._advance()
         lhs = self._parse_expression()
         if not isinstance(lhs, (DotExprAST, VariableAST)):
-            raise EikoCompilationError(
+            raise EikoParserError(
                 "Invalid expression in import statement.",
                 token=lhs.token,
             )
@@ -1035,9 +1080,92 @@ class Parser:
         self._advance()
         rhs = self._parse_expression()
         if not isinstance(rhs, VariableAST):
-            raise EikoCompilationError(
+            raise EikoParserError(
                 "Invalid expression in import statement.",
                 token=lhs.token,
             )
 
         return FromImportExprAST(import_token, lhs, rhs)
+
+    def _parse_if(self) -> IfExprAST:
+        if_token = self._current
+        self._advance()
+
+        if_expr = self._parse_expression()
+        if not self._current.type == TokenType.COLON:
+            raise EikoParserError(
+                "Expected a ':' token to close IF expression.",
+                token=Token(
+                    TokenType.UNKNOWN,
+                    "",
+                    Index(
+                        self._previous.index.line,
+                        self._previous.index.col + len(self._previous.content),
+                        self._previous.index.file,
+                    ),
+                ),
+            )
+        self._advance()
+
+        if self._current.type == TokenType.INDENT:
+            if_body = self._parse_body()
+        else:
+            if_body = [self._parse_expression()]
+        else_body: Optional[List[ExprAST]] = None
+
+        if (
+            self._current.type == TokenType.INDENT
+            and self._current.content == self._current_indent
+        ):
+            if self._next.type == TokenType.ELIF:
+                self._advance()
+                else_body = [self._parse_if()]
+
+            elif self._next.type == TokenType.ELSE:
+                self._advance()
+                self._advance()
+                if not self._current.type == TokenType.COLON:
+                    raise EikoParserError(
+                        "Expected a ':' after ELSE expression.",
+                        token=Token(
+                            TokenType.UNKNOWN,
+                            "",
+                            Index(
+                                self._previous.index.line,
+                                self._previous.index.col + len(self._previous.content),
+                                self._previous.index.file,
+                            ),
+                        ),
+                    )
+                self._advance()
+                if self._current.type == TokenType.INDENT:
+                    else_body = self._parse_body()
+                else:
+                    else_body = [self._parse_expression()]
+
+        return IfExprAST(if_token, if_expr, if_body, else_body)
+
+    def _parse_body(self) -> List[ExprAST]:
+        if (
+            not self._current.type == TokenType.INDENT
+            or self._current_indent >= self._current.content
+        ):
+            raise EikoParserError("Expected indented code block.", token=self._current)
+
+        prev_indent = self._current_indent
+        self._current_indent = self._current.content
+        self._advance()
+
+        body: List[ExprAST] = []
+        while True:
+            body.append(self._parse_expression())
+            if self._current.type != TokenType.INDENT:
+                raise EikoInternalError(
+                    "Unexpected issue, please report this on github."
+                )
+            if self._current.content != self._current_indent:
+                break
+            self._advance()
+
+        self._current_indent = prev_indent
+        return body

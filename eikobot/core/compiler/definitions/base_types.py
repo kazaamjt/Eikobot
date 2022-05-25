@@ -108,7 +108,7 @@ class EikoStr(EikoBaseType):
         self.value = value
 
     def printable(self, _: str = "") -> str:
-        return f"str \"{self.value}\""
+        return f'str "{self.value}"'
 
     def truthiness(self) -> bool:
         return bool(self.value)

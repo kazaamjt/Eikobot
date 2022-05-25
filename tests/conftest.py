@@ -1,4 +1,3 @@
-# pylint: disable=missing-module-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
 # pylint: disable=too-many-statements
@@ -77,4 +76,10 @@ def eiko_f_string_file() -> Iterable[Path]:
 @pytest.fixture
 def nested_properties_file() -> Iterable[Path]:
     tmp_file = get_file("test_nested_properties.eiko")
+    yield tmp_file
+
+
+@pytest.fixture
+def eiko_if_elif_else_file() -> Iterable[Path]:
+    tmp_file = get_file("test_if_elif_else.eiko")
     yield tmp_file
