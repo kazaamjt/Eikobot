@@ -43,10 +43,10 @@ def _resolve_import(
         init_file = current_dir / "__init__.eiko"
         if init_file.exists():
             if len(import_path) == 0:
-                new_context = context.get_or_set_context(current)
+                new_context = context.get_or_set_context(current + "-module")
                 return init_file, new_context
 
-            new_context = context.get_or_set_context(current)
+            new_context = context.get_or_set_context(current + "-module")
             return _resolve_import(import_path, current_dir, new_context)
 
         return None
@@ -54,7 +54,7 @@ def _resolve_import(
     if len(import_path) == 0:
         file_path = parent / (current + ".eiko")
         if file_path.exists():
-            new_context = context.get_or_set_context(current)
+            new_context = context.get_or_set_context(current + "-module")
             return file_path, new_context
 
     return None
@@ -84,11 +84,10 @@ def _resolve_from_import(
     if current_dir.exists() and current_dir.is_dir():
         init_file = current_dir / "__init__.eiko"
         if init_file.exists():
+            new_context = CompilerContext(current + "-module")
             if len(import_path) == 0:
-                new_context = CompilerContext(current)
                 return init_file, new_context
 
-            new_context = CompilerContext(current)
             return _resolve_import(import_path, current_dir, new_context)
 
         return None
@@ -96,7 +95,7 @@ def _resolve_from_import(
     if len(import_path) == 0:
         file_path = parent / (current + ".eiko")
         if file_path.exists():
-            new_context = CompilerContext(current)
+            new_context = CompilerContext(current + "-module")
             return file_path, new_context
 
     return None
@@ -110,14 +109,14 @@ def import_python_code(
     """
     file_path = eiko_file_path.with_suffix(".py")
     if file_path.exists():
-        logger.debug(f"Found python plugins for eiko file: {eiko_file_path}")
+        logger.debug(f"Found python plugins file for eiko file: {eiko_file_path}")
         module_name = ".".join(module_path)
         py_module = load_python_code(module_name, file_path)
         for member in getmembers(py_module):
             name = member[0]
             _obj = member[1]
             if isfunction(_obj) and hasattr(_obj, "eiko_plugin"):
-                logger.debug(f"Importing plugin {_obj.__name__} from {file_path}")
+                logger.debug(f"Importing plugin '{_obj.__name__}' from {file_path}")
                 context.set(name, _load_plugin(module_name, name, _obj))
     else:
         logger.debug(f"Found no python plugins for eiko file: {eiko_file_path}")
@@ -139,8 +138,8 @@ def load_python_code(module_name: str, file_path: Path) -> ModuleType:
 def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefinition:
     fullargspec = getfullargspec(function)
     annotations = fullargspec.annotations
-    return_type = annotations.get("return", None)
-    if return_type is None:
+    return_type = annotations.get("return", "")
+    if return_type == "":
         raise EikoCompilationError(
             f"Plugin {module}.{name} return type annotation is missing."
         )

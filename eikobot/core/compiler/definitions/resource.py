@@ -7,7 +7,7 @@ from typing import Dict, Optional
 
 from ..errors import EikoCompilationError
 from ..token import Token
-from .base_types import EikoBaseType
+from .base_types import EikoBaseType, EikoType, eiko_base_type
 from .function import FunctionDefinition
 
 
@@ -16,7 +16,7 @@ class ResourceProperty:
     """Internal representation of a resource property for constructors."""
 
     name: str
-    type: str
+    type: EikoType
     default_value: Optional[EikoBaseType] = None
 
 
@@ -24,7 +24,7 @@ class ResourceDefinition(EikoBaseType):
     """Internal representation of a constructor."""
 
     def __init__(self, name: str, token: Token) -> None:
-        super().__init__(name)
+        super().__init__(EikoType(name, eiko_base_type))
         self.token = token
         self.name = name
         self.properties: Dict[str, ResourceProperty] = {}

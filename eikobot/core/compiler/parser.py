@@ -10,8 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Union
 
-from eikobot.core.compiler.misc import Index
-
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -19,6 +17,8 @@ from .definitions.base_types import (
     EikoInt,
     EikoResource,
     EikoStr,
+    EikoType,
+    eiko_base_type,
 )
 from .definitions.context import CompilerContext, StorableTypes
 from .definitions.function import (
@@ -27,6 +27,7 @@ from .definitions.function import (
     PluginDefinition,
 )
 from .definitions.resource import ResourceDefinition, ResourceProperty
+from .definitions.typedef import EikoTypeDef
 from .errors import (
     EikoCompilationError,
     EikoInternalError,
@@ -35,6 +36,7 @@ from .errors import (
 )
 from .importlib import import_python_code, resolve_from_import, resolve_import
 from .lexer import Lexer
+from .misc import Index
 from .ops import BINOP_MATRIX, BinOP, ComparisonOP, compare
 from .token import Token, TokenType
 
@@ -44,6 +46,9 @@ class ExprAST:
     """Base ExprAST. Purely Virtual."""
 
     token: Token
+
+    def __post_init__(self) -> None:
+        self.import_context: Optional[CompilerContext] = None
 
     def compile(self, _: CompilerContext) -> Optional[StorableTypes]:
         raise NotImplementedError(self.token)
@@ -279,7 +284,7 @@ class BinOpExprAST(ExprAST):
                 token=self.token,
             )
 
-        arg_a_matrix = BINOP_MATRIX.get(lhs.type)
+        arg_a_matrix = BINOP_MATRIX.get(lhs.type.get_top_level_type().name)
         if arg_a_matrix is None:
             raise EikoCompilationError(
                 f"No overload of operation {self.bin_op} for arguments"
@@ -287,7 +292,7 @@ class BinOpExprAST(ExprAST):
                 token=self.token,
             )
 
-        arg_b_matrix = arg_a_matrix.get(rhs.type)
+        arg_b_matrix = arg_a_matrix.get(rhs.type.get_top_level_type().name)
         if arg_b_matrix is None:
             raise EikoCompilationError(
                 f"No overload of operation {self.bin_op} for arguments"
@@ -458,10 +463,13 @@ class DotExprAST(ExprAST):
         if isinstance(self.rhs, (VariableAST, CallExprAst, DotExprAST)) and isinstance(
             lhs, (EikoBaseType, ResourceDefinition, CompilerContext)
         ):
+            if isinstance(lhs, CompilerContext) and isinstance(context, CompilerContext):
+                lhs.extra_contexts.append(context)
+
             return self.rhs.compile(lhs)
 
         raise EikoCompilationError(
-            "Unable to perform dot expression on given token.",
+            "Invalid dot expression.",
             token=self.lhs.token,
         )
 
@@ -521,6 +529,7 @@ class CallExprAst(ExprAST):
     def compile(
         self, context: Union[CompilerContext, EikoBaseType, ResourceDefinition]
     ) -> Optional[EikoBaseType]:
+
         eiko_callable: Optional[StorableTypes] = None
         if isinstance(context, CompilerContext):
             _obj = context.get(self.identifier)
@@ -528,9 +537,9 @@ class CallExprAst(ExprAST):
                 eiko_callable = _obj.get(self.identifier)
             elif isinstance(_obj, PluginDefinition):
                 eiko_callable = _obj
+            elif isinstance(_obj, EikoTypeDef):
+                eiko_callable = _obj
         else:
-            eiko_callable = context.get(self.identifier)
-        if isinstance(context, EikoBaseType):
             raise EikoInternalError(
                 "Something went wrong, an EikoBaseType was passed to "
                 "CallExprAST.compile instead of a CompilerContext. "
@@ -544,16 +553,15 @@ class CallExprAst(ExprAST):
             func_context.set(self_arg.name, resource)
             for passed_arg, arg_definition in zip(self.args, eiko_callable.args[1:]):
                 value = passed_arg.compile(func_context)
-                if value is None:
-                    raise EikoInternalError(
-                        "Encountered bad value during compilation. "
-                        "This is most likely a bug.\n"
-                        "Please report this. (Value of parameter was Python None).\n"
-                        f"Related token: {passed_arg.token}."
-                    )
-                if value.type != arg_definition.type:
+                if not isinstance(value, EikoBaseType):
                     raise EikoCompilationError(
-                        f"Bad value was passed. Expected {arg_definition.type}, but got {value.type}.",
+                        "Expression did not return a useable value.",
+                        token=passed_arg.token,
+                    )
+
+                if not value.type_check(arg_definition.type):
+                    raise EikoCompilationError(
+                        f"Expected type '{arg_definition.type}' but got '{value.type}'",
                         token=passed_arg.token,
                     )
                 func_context.set(arg_definition.name, value)
@@ -561,14 +569,22 @@ class CallExprAst(ExprAST):
             return resource
 
         if isinstance(eiko_callable, PluginDefinition):
-            dummy_context = CompilerContext(f"{self.identifier}-plugin-call-context")
-            return eiko_callable.execute(self.args, dummy_context)
+            plugin_context = CompilerContext(f"{self.identifier}-plugin-call-context", context)
+            return eiko_callable.execute(self.args, plugin_context)
 
-        if eiko_callable is None:
-            raise EikoCompilationError(
-                f"No callable {self.identifier}.",
-                token=self.token,
-            )
+        if isinstance(eiko_callable, EikoTypeDef):
+            if len(self.args) != 1:
+                raise EikoCompilationError(
+                    f"{eiko_callable.name} takes exactly 1 argument, because it is a type definition.",
+                    token=self.token,
+                )
+
+            arg = self.args[0]
+            compiled_arg = arg.compile(context)
+            if isinstance(compiled_arg, EikoBaseType):
+                return eiko_callable.execute(compiled_arg, arg.token)
+
+            raise EikoInternalError("")
 
         raise EikoCompilationError(
             f"{self.identifier} is not callable.",
@@ -604,16 +620,16 @@ class ResourcePropertyAST:
                     token=self.default_value.token,
                 )
 
-            if default_value.type != _type.type:
+            if not default_value.type.type_check(_type.type):
                 raise EikoCompilationError(
                     f"Property {resource_name}.{self.name} has type {_type.type}, "
-                    f"but default value is of type {default_value.type}",
+                    f"but default value is of type {default_value.type}.",
                     token=self.default_value.token,
                 )
         else:
             default_value = None
 
-        return ResourceProperty(self.name, _type.name, default_value)
+        return ResourceProperty(self.name, _type.type, default_value)
 
 
 @dataclass
@@ -625,6 +641,7 @@ class ResourceDefinitionAST(ExprAST):
     name: str
 
     def __post_init__(self) -> None:
+        self.type = EikoType(self.name, eiko_base_type)
         self.properties: Dict[str, ResourcePropertyAST] = {}
 
     def add_property(self, new_property: ResourcePropertyAST) -> None:
@@ -634,7 +651,7 @@ class ResourceDefinitionAST(ExprAST):
         resource_definition = ResourceDefinition(self.name, self.token)
 
         default_constructor = FunctionDefinition()
-        default_constructor.add_arg(FunctionArg("self", self.name))
+        default_constructor.add_arg(FunctionArg("self", self.type))
         for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
             resource_definition.add_property(prop)
@@ -730,6 +747,7 @@ class FromImportExprAST(ExprAST):
         import_python_code(import_module, import_path, import_context)
         parser = Parser(import_path)
         for expr in parser.parse():
+            expr.import_context = import_context
             expr.compile(import_context)
 
         if self.rhs.identifier in import_module:
@@ -776,6 +794,29 @@ class IfExprAST(ExprAST):
             raise EikoCompilationError(
                 "Invalid expression for if statement.",
                 token=self.if_expr.token,
+            )
+
+
+@dataclass
+class TypedefExprAST(ExprAST):
+    """A type definition used to alias or restrict types."""
+
+    name: str
+    super_type_token: Token
+    condition: Optional[ExprAST]
+
+    def compile(self, context: CompilerContext) -> None:
+        super_type = context.get(self.super_type_token.content)
+        if isinstance(super_type, type) and issubclass(super_type, EikoBaseType):
+            context.set(
+                self.name,
+                EikoTypeDef(self.name, super_type.type, self.condition, context),
+            )
+
+        else:
+            raise EikoCompilationError(
+                f"Could not find type '{self.super_type_token.content}'.",
+                token=self.super_type_token,
             )
 
 
@@ -929,6 +970,9 @@ class Parser:
 
         if self._current.type == TokenType.IF:
             return self._parse_if()
+
+        if self._current.type == TokenType.TYPEDEF:
+            return self._parse_typedef()
 
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
@@ -1224,3 +1268,30 @@ class Parser:
 
         self._current_indent = prev_indent
         return body
+
+    def _parse_typedef(self) -> TypedefExprAST:
+        typedef_token = self._current
+        self._advance()
+
+        if not self._current.type == TokenType.IDENTIFIER:
+            raise EikoParserError(
+                "Expected identifier after typedef.", token=self._current
+            )
+
+        name = self._current.content
+        self._advance()
+
+        if not self._current.type == TokenType.IDENTIFIER:
+            raise EikoParserError(
+                "Expected basetype after identifier for typedef.", token=self._current
+            )
+
+        base_type = self._current
+        self._advance()
+
+        if_expr = None
+        if self._current.type == TokenType.IF:
+            self._advance()
+            if_expr = self._parse_expression()
+
+        return TypedefExprAST(typedef_token, name, base_type, if_expr)

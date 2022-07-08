@@ -2,7 +2,7 @@
 Context hold variables, classes and more.
 Used both by files/modules and fucntions.
 """
-from typing import Dict, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token
@@ -13,6 +13,7 @@ from .base_types import (
     EikoInt,
     EikoResource,
     EikoStr,
+    EikoType,
 )
 from .resource import ResourceDefinition
 
@@ -38,12 +39,13 @@ class CompilerContext:
     ) -> None:
         self.name = name
         self.storage: Dict[str, Union[_StorableTypes, "CompilerContext", None]] = {}
-        self.type = "ModuleContext"
+        self.type = EikoType("eiko_internal_context")
         self.super = super_scope
         self.assigned: Dict[str, EikoResource] = {}
+        self.extra_contexts: List["CompilerContext"] = []
 
     def __repr__(self, indent: str = "") -> str:
-        return_str = indent + "{\n"
+        return_str = indent + f"Context '{self.name}': " + "{\n"
         extra_indent = indent + "    "
         for key, value in self.storage.items():
             if isinstance(value, CompilerContext):
@@ -66,6 +68,12 @@ class CompilerContext:
 
         if value is None:
             value = _builtins.get(name)
+
+        if value is None and self.extra_contexts:
+            for context in self.extra_contexts:
+                value = context.get(name)
+                if value is not None:
+                    return value
 
         return value
 

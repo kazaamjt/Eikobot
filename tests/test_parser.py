@@ -13,6 +13,8 @@ from eikobot.core.compiler.parser import (
     BinOP,
     BinOpExprAST,
     CallExprAst,
+    DotExprAST,
+    FromImportExprAST,
     FStringExprAST,
     FStringLexer,
     IntExprAST,
@@ -20,6 +22,7 @@ from eikobot.core.compiler.parser import (
     ResourceDefinitionAST,
     ResourcePropertyAST,
     StringExprAST,
+    TypedefExprAST,
     UnaryNegExprAST,
     VariableAST,
 )
@@ -222,3 +225,23 @@ def test_f_string_parser(eiko_f_string_file: Path) -> None:
 
     compiled_f_string = f_string_expr.compile(CompilerContext("f-string-test"))
     assert compiled_f_string.value == f"This is an f-string test: {3 + 3}, {4 + 4}"
+
+
+def test_parse_typedef(eiko_typedef: Path) -> None:
+    parser = Parser(eiko_typedef)
+    parse_iter = parser.parse()
+
+    expr_1 = next(parse_iter)
+    assert isinstance(expr_1, FromImportExprAST)
+
+    expr_2 = next(parse_iter)
+    assert isinstance(expr_2, TypedefExprAST)
+    assert expr_2.name == "string_alias"
+    assert expr_2.super_type_token.content == "str"
+    assert expr_2.condition is None
+
+    expr_3 = next(parse_iter)
+    assert isinstance(expr_3, TypedefExprAST)
+    assert expr_3.name == "IPv4Address"
+    assert expr_3.super_type_token.content == "str"
+    assert isinstance(expr_3.condition, DotExprAST)

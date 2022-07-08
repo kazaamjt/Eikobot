@@ -1,0 +1,6 @@
+from std.regex import match
+
+test_val = "abcdef"
+
+val_1 = match("a", test_val)
+val_2 = match("c", test_val)

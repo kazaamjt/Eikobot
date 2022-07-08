@@ -6,11 +6,20 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, List, Optional, Type, Union
 
 from ..errors import EikoCompilationError
-from .base_types import EikoBaseType, to_eiko, to_eiko_type, to_py
+from .base_types import (
+    EikoBaseType,
+    EikoType,
+    eiko_base_type,
+    to_eiko,
+    to_eiko_type,
+    to_py,
+)
 
 if TYPE_CHECKING:
     from ..parser import ExprAST
     from .context import CompilerContext, StorableTypes
+
+_eiko_function_type = EikoType("function", eiko_base_type)
 
 
 @dataclass
@@ -18,7 +27,7 @@ class FunctionArg:
     """Representation of a required FunctionArg."""
 
     name: str
-    type: str
+    type: EikoType
     default_value: Optional[EikoBaseType] = None
 
 
@@ -26,7 +35,7 @@ class FunctionDefinition(EikoBaseType):
     """Internal representation of an Eikobot function."""
 
     def __init__(self) -> None:
-        super().__init__("function")
+        super().__init__(_eiko_function_type)
         self.args: List[FunctionArg] = []
         self.body: List["ExprAST"] = []
 
@@ -42,6 +51,12 @@ class FunctionDefinition(EikoBaseType):
     def execute(self, contex: "CompilerContext") -> None:
         for expr in self.body:
             expr.compile(contex)
+
+    def truthiness(self) -> bool:
+        raise NotImplementedError
+
+
+_eiko_plugin_type = EikoType("plugin", eiko_base_type)
 
 
 @dataclass
@@ -63,7 +78,7 @@ class PluginDefinition(EikoBaseType):
         identifier: str,
         module: str,
     ) -> None:
-        super().__init__("plugin")
+        super().__init__(_eiko_plugin_type)
         self.body = body
         self.return_type = to_eiko_type(return_type)
         self._body_return_type = return_type
@@ -78,25 +93,25 @@ class PluginDefinition(EikoBaseType):
         self.args.append(arg)
 
     def execute(
-        self, args: List["ExprAST"], dummy_context: "CompilerContext"
+        self, args: List["ExprAST"], context: "CompilerContext"
     ) -> Optional[EikoBaseType]:
-        """Execute the stored function and coerce types."""
+        """Execute the stored function and coerces types."""
 
         stable_args = []
         for i, arg in enumerate(args):
-            stable_args.append(self._handle_arg(arg, dummy_context, self.args[i]))
+            stable_args.append(self._handle_arg(arg, context, self.args[i]))
 
         val = self.body(*stable_args)
 
         return to_eiko(val)
 
     def _handle_arg(
-        self, arg: "ExprAST", dummy_context: "CompilerContext", required_arg: PluginArg
+        self, arg: "ExprAST", context: "CompilerContext", required_arg: PluginArg
     ) -> Union[EikoBaseType, bool, float, int, str]:
-        compiled_arg = arg.compile(dummy_context)
+        compiled_arg = arg.compile(context)
         if compiled_arg is None:
             raise EikoCompilationError(
-                f"Plugin '{self.module}.{self.name}' arg '{required_arg.name}' expects a value "
+                f"Plugin '{self.module}.{self.identifier}' arg '{required_arg.name}' expects a value "
                 f"but expression did not result in a suitable value.",
                 token=arg.token,
             )
@@ -113,7 +128,7 @@ class PluginDefinition(EikoBaseType):
 
         if not isinstance(converted_arg, required_arg.py_type):
             raise EikoCompilationError(
-                f"Plugin '{self.module}.{self.name}' arg '{required_arg.name}' expects an argument "
+                f"Plugin '{self.module}.{self.identifier}' arg '{required_arg.name}' expects an argument "
                 f"of type '{required_arg.py_type.__name__}', but instead got '{compiled_arg.type}'.",
                 token=arg.token,
             )
