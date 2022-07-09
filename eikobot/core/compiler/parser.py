@@ -463,9 +463,6 @@ class DotExprAST(ExprAST):
         if isinstance(self.rhs, (VariableAST, CallExprAst, DotExprAST)) and isinstance(
             lhs, (EikoBaseType, ResourceDefinition, CompilerContext)
         ):
-            if isinstance(lhs, CompilerContext) and isinstance(context, CompilerContext):
-                lhs.extra_contexts.append(context)
-
             return self.rhs.compile(lhs)
 
         raise EikoCompilationError(
