@@ -62,6 +62,9 @@ class EikoBaseType:
             f"Object of type {self.type} has no property {name}."
         )
 
+    def get_value(self) -> Union[bool, float, int, str]:
+        raise NotImplementedError
+
     def printable(self, indent: str = "") -> str:
         raise NotImplementedError
 
@@ -84,6 +87,9 @@ class EikoInt(EikoBaseType):
         super().__init__(eiko_type)
         self.value = value
 
+    def get_value(self) -> int:
+        return self.value
+
     def printable(self, _: str = "") -> str:
         return f"{self.type} {self.value}"
 
@@ -102,6 +108,9 @@ class EikoFloat(EikoBaseType):
     def __init__(self, value: float, eiko_type: EikoType = _eiko_float_type) -> None:
         super().__init__(eiko_type)
         self.value = value
+
+    def get_value(self) -> float:
+        return self.value
 
     def printable(self, _: str = "") -> str:
         return f"{self.type} {self.value}"
@@ -124,6 +133,9 @@ class EikoBool(EikoBaseType):
         super().__init__(eiko_type)
         self.value = value
 
+    def get_value(self) -> bool:
+        return self.value
+
     def printable(self, _: str = "") -> str:
         return f"{self.type} {self.value}"
 
@@ -143,6 +155,9 @@ class EikoStr(EikoBaseType):
         super().__init__(eiko_type)
         self.value = value
 
+    def get_value(self) -> str:
+        return self.value
+
     def printable(self, _: str = "") -> str:
         return f'{self.type} "{self.value}"'
 
@@ -159,6 +174,9 @@ class EikoResource(EikoBaseType):
 
     def get(self, name: str) -> Optional[EikoBaseType]:
         return self.properties.get(name)
+
+    def get_value(self) -> Union[bool, float, int, str]:
+        raise NotImplementedError
 
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
         """Set the value of a property, if the value wasn't already assigned."""

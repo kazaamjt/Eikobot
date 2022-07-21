@@ -59,12 +59,12 @@ class EikoTypeDef(EikoBaseType):
             res = self.condition.compile(condition_context)
             if not isinstance(res, EikoBaseType) or not res.truthiness():
                 raise EikoCompilationError(
-                    f"Value passed used for '{self.name}' did not meet typedef condition."
+                    f"Value '{arg.get_value()}' did not meet typedef condition for '{self.name}'."
                 )
 
         base_type = self.type.get_top_level_type()
         base_constructor = self.context.get(base_type.name)
         if base_constructor in (EikoBool, EikoFloat, EikoInt, EikoStr):
-            return base_constructor(arg.value, self.type)
+            return base_constructor(arg.get_value(), self.type)  # type: ignore
 
         raise NotImplementedError(arg_token)
