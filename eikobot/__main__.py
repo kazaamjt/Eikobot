@@ -66,7 +66,7 @@ def compile_cmd(file: str, output_model: bool = False) -> None:
         logger.error("Please report this error on https://github.com/kazaamjt/Eikobot")
         try:
             token = e.args[0]
-        except ValueError:
+        except IndexError:
             pass
         else:
             if isinstance(token, Token):

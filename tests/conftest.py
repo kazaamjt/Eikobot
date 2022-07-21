@@ -18,6 +18,10 @@ def get_file(name: str) -> Path:
     return Path(__file__).resolve().parent / "files" / name
 
 
+def get_std_file(name: str) -> Path:
+    return Path(__file__).resolve().parent / "std/files" / name
+
+
 @pytest.fixture
 def tmp_eiko_file(tmp_path: Path) -> Iterable[Path]:
     """Temporary file using tmp_path fixture"""
@@ -82,4 +86,16 @@ def nested_properties_file() -> Iterable[Path]:
 @pytest.fixture
 def eiko_if_elif_else_file() -> Iterable[Path]:
     tmp_file = get_file("test_if_elif_else.eiko")
+    yield tmp_file
+
+
+@pytest.fixture
+def eiko_typedef() -> Iterable[Path]:
+    tmp_file = get_file("test_typedef.eiko")
+    yield tmp_file
+
+
+@pytest.fixture
+def eiko_std_regex_match() -> Iterable[Path]:
+    tmp_file = get_std_file("regex_match.eiko")
     yield tmp_file

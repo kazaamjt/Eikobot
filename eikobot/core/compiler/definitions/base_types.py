@@ -2,6 +2,7 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
@@ -11,16 +12,49 @@ if TYPE_CHECKING:
     from .context import StorableTypes
 
 
+@dataclass
+class EikoType:
+    """
+    The EikoType is used for typechecking.
+    It is a property of every object and performs type checking functions.
+    """
+
+    name: str
+    super: Optional["EikoType"] = None
+
+    def type_check(self, expected_type: "EikoType") -> bool:
+        """Recursivly type checks."""
+        if self == expected_type:
+            return True
+
+        if self.super is not None:
+            return self.super.type_check(expected_type)
+
+        return False
+
+    def get_top_level_type(self) -> "EikoType":
+        """Returns the toplevel super type."""
+        if self.super is None:
+            return self
+
+        return self.super
+
+    def __repr__(self) -> str:
+        return self.name
+
+
+eiko_base_type = EikoType("Object")
+
+
 class EikoBaseType:
     """
-    The base type represents all types, it is inherited from by all other types.
-    It shouldn't show up naturally anywhere though and is purely virtual.
+    The base type represents all objects, it is inherited from by all other types.
+    It shouldn't show up naturally anywhere though.
     """
 
-    name = "EikoObject"
-    type = "EikoObject"
+    type = eiko_base_type
 
-    def __init__(self, eiko_type: str) -> None:
+    def __init__(self, eiko_type: EikoType) -> None:
         self.type = eiko_type
 
     def get(self, name: str) -> Optional["EikoBaseType"]:
@@ -28,46 +62,58 @@ class EikoBaseType:
             f"Object of type {self.type} has no property {name}."
         )
 
+    def get_value(self) -> Union[bool, float, int, str]:
+        raise NotImplementedError
+
     def printable(self, indent: str = "") -> str:
         raise NotImplementedError
 
     def truthiness(self) -> bool:
         raise NotImplementedError
 
+    def type_check(self, expected_type: EikoType) -> bool:
+        return self.type.type_check(expected_type)
+
+
+_eiko_int_type = EikoType("int")
+
 
 class EikoInt(EikoBaseType):
-    """
-    Represents an integer in the Eiko language.
-    """
+    """Represents an integer in the Eiko language."""
 
-    name = "int"
-    type = "int"
+    type = _eiko_int_type
 
-    def __init__(self, value: int) -> None:
-        super().__init__(self.name)
+    def __init__(self, value: int, eiko_type: EikoType = _eiko_int_type) -> None:
+        super().__init__(eiko_type)
         self.value = value
 
+    def get_value(self) -> int:
+        return self.value
+
     def printable(self, _: str = "") -> str:
-        return f"int {self.value}"
+        return f"{self.type} {self.value}"
 
     def truthiness(self) -> bool:
         return bool(self.value)
 
 
+_eiko_float_type = EikoType("float")
+
+
 class EikoFloat(EikoBaseType):
-    """
-    Represents a float in the Eiko language.
-    """
+    """Represents a float in the Eiko language."""
 
-    name = "float"
-    type = "float"
+    type = _eiko_float_type
 
-    def __init__(self, value: float) -> None:
-        super().__init__(self.name)
+    def __init__(self, value: float, eiko_type: EikoType = _eiko_float_type) -> None:
+        super().__init__(eiko_type)
         self.value = value
 
+    def get_value(self) -> float:
+        return self.value
+
     def printable(self, _: str = "") -> str:
-        return f"float {self.value}"
+        return f"{self.type} {self.value}"
 
     def truthiness(self) -> bool:
         return bool(self.value)
@@ -75,65 +121,69 @@ class EikoFloat(EikoBaseType):
 
 EikoNumber = Union[EikoInt, EikoFloat]
 
+_eiko_bool_type = EikoType("bool")
+
 
 class EikoBool(EikoBaseType):
-    """
-    Represents a boolean in the Eiko language.
-    """
+    """Represents a boolean in the Eiko language."""
 
-    name = "bool"
-    type = "bool"
+    type = _eiko_bool_type
 
-    def __init__(self, value: bool) -> None:
-        super().__init__(self.name)
+    def __init__(self, value: bool, eiko_type: EikoType = _eiko_bool_type) -> None:
+        super().__init__(eiko_type)
         self.value = value
 
+    def get_value(self) -> bool:
+        return self.value
+
     def printable(self, _: str = "") -> str:
-        return f"bool {self.value}"
+        return f"{self.type} {self.value}"
 
     def truthiness(self) -> bool:
         return self.value
 
 
+_eiko_str_type = EikoType("str")
+
+
 class EikoStr(EikoBaseType):
-    """
-    Represents a string in the Eiko language.
-    """
+    """Represents a string in the Eiko language."""
 
-    name = "str"
-    type = "str"
+    type = _eiko_str_type
 
-    def __init__(self, value: str) -> None:
-        super().__init__(self.name)
+    def __init__(self, value: str, eiko_type: EikoType = _eiko_str_type) -> None:
+        super().__init__(eiko_type)
         self.value = value
 
+    def get_value(self) -> str:
+        return self.value
+
     def printable(self, _: str = "") -> str:
-        return f'str "{self.value}"'
+        return f'{self.type} "{self.value}"'
 
     def truthiness(self) -> bool:
         return bool(self.value)
 
 
 class EikoResource(EikoBaseType):
-    """
-    Represents a custom resource in the Eiko language.
-    """
+    """Represents a custom resource in the Eiko language."""
 
-    type = "EikoResource"
-
-    def __init__(self, eiko_type: str) -> None:
+    def __init__(self, eiko_type: EikoType) -> None:
         super().__init__(eiko_type)
         self.properties: Dict[str, EikoBaseType] = {}
 
     def get(self, name: str) -> Optional[EikoBaseType]:
         return self.properties.get(name)
 
+    def get_value(self) -> Union[bool, float, int, str]:
+        raise NotImplementedError
+
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
         """Set the value of a property, if the value wasn't already assigned."""
         if not isinstance(value, EikoBaseType):
             raise EikoCompilationError(
                 f"Unable to assign property {name} of class {self.type} "
-                f"cannot be assigned given vlaue.",
+                f"cannot be assigned given value.",
                 token=token,
             )
 
@@ -162,7 +212,7 @@ class EikoResource(EikoBaseType):
         return True
 
 
-BUiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
+BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
 
 
 def to_eiko_type(cls: Type) -> Type[EikoBaseType]:

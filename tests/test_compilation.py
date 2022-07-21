@@ -72,3 +72,8 @@ def test_nested_properties(nested_properties_file: Path) -> None:
     compiler.compile(nested_properties_file)
     var_b = compiler.context.get("b")
     assert isinstance(var_b, EikoStr)
+
+
+def test_typedef(eiko_typedef: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_typedef)

@@ -9,19 +9,22 @@ import pytest
 from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler.errors import EikoParserError
 from eikobot.core.compiler.parser import (
-    AssignmentAST,
+    AssignmentExprAST,
     BinOP,
     BinOpExprAST,
     CallExprAst,
+    FromImportExprAST,
     FStringExprAST,
     FStringLexer,
     IntExprAST,
+    ListExprAST,
     Parser,
     ResourceDefinitionAST,
     ResourcePropertyAST,
     StringExprAST,
+    TypedefExprAST,
     UnaryNegExprAST,
-    VariableAST,
+    VariableExprAST,
 )
 from eikobot.core.compiler.token import Index, Token, TokenType
 
@@ -78,27 +81,33 @@ def test_basic_ops(eiko_basic_ops_file: Path) -> None:
     assert isinstance(expr_3, BinOpExprAST)
     assert expr_3.bin_op == BinOP.ADD
     assert isinstance(expr_3.rhs, UnaryNegExprAST)
-    assert isinstance(expr_3.rhs.rhs, BinOpExprAST)
-    assert expr_3.rhs.rhs.bin_op == BinOP.MULTIPLY
-    assert isinstance(expr_3.rhs.rhs.rhs, IntExprAST)
-    assert expr_3.rhs.rhs.rhs.value == 2
-    assert isinstance(expr_3.rhs.rhs.lhs, IntExprAST)
-    assert expr_3.rhs.rhs.lhs.value == 7
+    assert isinstance(expr_3.rhs.rhs, ListExprAST)
+    expr_3_rhs_rhs = expr_3.rhs.rhs.elements[0]
+    assert isinstance(expr_3_rhs_rhs, BinOpExprAST)
+    assert expr_3_rhs_rhs.bin_op == BinOP.MULTIPLY
+    assert isinstance(expr_3_rhs_rhs.rhs, IntExprAST)
+    assert expr_3_rhs_rhs.rhs.value == 2
+    assert isinstance(expr_3_rhs_rhs.lhs, IntExprAST)
+    assert expr_3_rhs_rhs.lhs.value == 7
     assert isinstance(expr_3.lhs, BinOpExprAST)
     assert expr_3.lhs.bin_op == BinOP.EXPONENTIATION
     assert isinstance(expr_3.lhs.rhs, IntExprAST)
     assert expr_3.lhs.rhs.value == 2
-    assert isinstance(expr_3.lhs.lhs, BinOpExprAST)
-    assert expr_3.lhs.lhs.bin_op == BinOP.INT_DIVIDE
-    assert isinstance(expr_3.lhs.lhs.lhs, BinOpExprAST)
-    assert expr_3.lhs.lhs.lhs.bin_op == BinOP.ADD
-    assert isinstance(expr_3.lhs.lhs.lhs.rhs, IntExprAST)
-    assert expr_3.lhs.lhs.lhs.rhs.value == 2
-    assert isinstance(expr_3.lhs.lhs.lhs.lhs, IntExprAST)
-    assert expr_3.lhs.lhs.lhs.lhs.value == 1
-    assert isinstance(expr_3.lhs.lhs.rhs, UnaryNegExprAST)
-    assert isinstance(expr_3.lhs.lhs.rhs.rhs, IntExprAST)
-    assert expr_3.lhs.lhs.rhs.rhs.value == 3
+    assert isinstance(expr_3.lhs.lhs, ListExprAST)
+    expr_3_lhs_lhs = expr_3.lhs.lhs.elements[0]
+    assert isinstance(expr_3_lhs_lhs, BinOpExprAST)
+    assert expr_3_lhs_lhs.bin_op == BinOP.INT_DIVIDE
+    assert isinstance(expr_3_lhs_lhs.lhs, ListExprAST)
+    expr_3_lhs_lhs_lhs = expr_3_lhs_lhs.lhs.elements[0]
+    assert isinstance(expr_3_lhs_lhs_lhs, BinOpExprAST)
+    assert expr_3_lhs_lhs_lhs.bin_op == BinOP.ADD
+    assert isinstance(expr_3_lhs_lhs_lhs.rhs, IntExprAST)
+    assert expr_3_lhs_lhs_lhs.rhs.value == 2
+    assert isinstance(expr_3_lhs_lhs_lhs.lhs, IntExprAST)
+    assert expr_3_lhs_lhs_lhs.lhs.value == 1
+    assert isinstance(expr_3_lhs_lhs.rhs, UnaryNegExprAST)
+    assert isinstance(expr_3_lhs_lhs.rhs.rhs, IntExprAST)
+    assert expr_3_lhs_lhs.rhs.rhs.value == 3
 
     expr_4 = next(parse_iter)
     assert isinstance(expr_4, BinOpExprAST)
@@ -150,25 +159,25 @@ def test_parse_resource(eiko_file_1: Path) -> None:
     prop_1 = expr_1.properties["ip"]
     assert isinstance(prop_1, ResourcePropertyAST)
     assert prop_1.name == "ip"
-    assert isinstance(prop_1.type_expr, VariableAST)
+    assert isinstance(prop_1.type_expr, VariableExprAST)
     assert prop_1.type_expr.identifier == "str"
     prop_2 = expr_1.properties["ip_2"]
     assert isinstance(prop_2, ResourcePropertyAST)
     assert prop_2.name == "ip_2"
-    assert isinstance(prop_2.type_expr, VariableAST)
+    assert isinstance(prop_2.type_expr, VariableExprAST)
     assert prop_2.type_expr.identifier == "str"
 
     var_1 = next(parse_iter)
-    assert isinstance(var_1, AssignmentAST)
-    assert isinstance(var_1.lhs, VariableAST)
+    assert isinstance(var_1, AssignmentExprAST)
+    assert isinstance(var_1.lhs, VariableExprAST)
     assert var_1.lhs.identifier == "test_1"
     assert isinstance(var_1.rhs, CallExprAst)
     assert var_1.rhs.identifier == "Test"
-    assert len(var_1.rhs.args) == 2
-    assert isinstance(var_1.rhs.args[0], StringExprAST)
-    assert var_1.rhs.args[0].value == "192.168.0.1"
-    assert isinstance(var_1.rhs.args[1], StringExprAST)
-    assert var_1.rhs.args[1].value == "192.168.1.1"
+    assert len(var_1.rhs.args.elements) == 2
+    assert isinstance(var_1.rhs.args.elements[0], StringExprAST)
+    assert var_1.rhs.args.elements[0].value == "192.168.0.1"
+    assert isinstance(var_1.rhs.args.elements[1], StringExprAST)
+    assert var_1.rhs.args.elements[1].value == "192.168.1.1"
 
 
 def test_f_string_lexer() -> None:
@@ -222,3 +231,23 @@ def test_f_string_parser(eiko_f_string_file: Path) -> None:
 
     compiled_f_string = f_string_expr.compile(CompilerContext("f-string-test"))
     assert compiled_f_string.value == f"This is an f-string test: {3 + 3}, {4 + 4}"
+
+
+def test_parse_typedef(eiko_typedef: Path) -> None:
+    parser = Parser(eiko_typedef)
+    parse_iter = parser.parse()
+
+    expr_1 = next(parse_iter)
+    assert isinstance(expr_1, FromImportExprAST)
+
+    expr_2 = next(parse_iter)
+    assert isinstance(expr_2, TypedefExprAST)
+    assert expr_2.name == "string_alias"
+    assert expr_2.super_type_token.content == "str"
+    assert expr_2.condition is None
+
+    expr_3 = next(parse_iter)
+    assert isinstance(expr_3, TypedefExprAST)
+    assert expr_3.name == "IPv4Address"
+    assert expr_3.super_type_token.content == "str"
+    assert isinstance(expr_3.condition, CallExprAst)

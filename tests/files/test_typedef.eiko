@@ -2,3 +2,5 @@ from std import regex
 
 typedef string_alias str
 typedef IPv4Address str if regex.match(r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$", self)
+
+a = IPv4Address("10.0.0.0")

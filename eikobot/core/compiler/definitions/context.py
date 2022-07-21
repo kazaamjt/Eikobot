@@ -13,6 +13,7 @@ from .base_types import (
     EikoInt,
     EikoResource,
     EikoStr,
+    EikoType,
 )
 from .resource import ResourceDefinition
 
@@ -28,7 +29,7 @@ _builtins = {
 class CompilerContext:
     """
     Context hold variables, classes and more.
-    Used both by files/modules and fucntions.
+    Used both by files/modules and functions.
     """
 
     def __init__(
@@ -38,12 +39,12 @@ class CompilerContext:
     ) -> None:
         self.name = name
         self.storage: Dict[str, Union[_StorableTypes, "CompilerContext", None]] = {}
-        self.type = "ModuleContext"
+        self.type = EikoType("eiko_internal_context")
         self.super = super_scope
         self.assigned: Dict[str, EikoResource] = {}
 
     def __repr__(self, indent: str = "") -> str:
-        return_str = indent + "{\n"
+        return_str = indent + f"Context '{self.name}': " + "{\n"
         extra_indent = indent + "    "
         for key, value in self.storage.items():
             if isinstance(value, CompilerContext):
