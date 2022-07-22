@@ -14,7 +14,7 @@ from .definitions.context import CompilerContext
 from .definitions.function import PluginArg, PluginDefinition
 from .errors import EikoCompilationError
 
-INTERNAL_LIB_PATH = Path(__file__).parent.resolve() / "lib"
+INTERNAL_LIB_PATH = Path(__file__).parent.parent.resolve() / "lib"
 PATHS: List[Path] = [INTERNAL_LIB_PATH, Path(".")]
 
 
