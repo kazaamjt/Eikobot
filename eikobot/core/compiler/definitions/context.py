@@ -17,7 +17,7 @@ from .base_types import (
 )
 from .resource import ResourceDefinition
 
-_StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType]]
+_StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType], EikoType]
 _builtins = {
     "int": EikoInt,
     "float": EikoFloat,

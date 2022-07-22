@@ -58,7 +58,6 @@ For vscode, adding the following settings to your config is recommended:
     "python.linting.flake8Enabled": true,
     "python.linting.mypyEnabled": true,
     "python.linting.pylintEnabled": true,
-    "python.linting.banditEnabled": true,
     "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [],
     "editor.insertSpaces": true,

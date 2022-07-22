@@ -2,7 +2,6 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
 
 from ..errors import EikoCompilationError
@@ -12,23 +11,25 @@ if TYPE_CHECKING:
     from .context import StorableTypes
 
 
-@dataclass
 class EikoType:
     """
     The EikoType is used for typechecking.
     It is a property of every object and performs type checking functions.
     """
 
-    name: str
-    super: Optional["EikoType"] = None
+    type: "EikoType"
+
+    def __init__(self, name: str, super_type: Optional["EikoType"] = None) -> None:
+        self.name = name
+        self.super = super_type
 
     def type_check(self, expected_type: "EikoType") -> bool:
         """Recursivly type checks."""
-        if self == expected_type:
+        if self.name == expected_type.name:
             return True
 
-        if self.super is not None:
-            return self.super.type_check(expected_type)
+        if expected_type.super is not None:
+            return self.type_check(expected_type.super)
 
         return False
 
@@ -43,6 +44,7 @@ class EikoType:
         return self.name
 
 
+EikoType.type = EikoType("Type")
 eiko_base_type = EikoType("Object")
 
 
@@ -62,7 +64,7 @@ class EikoBaseType:
             f"Object of type {self.type} has no property {name}."
         )
 
-    def get_value(self) -> Union[bool, float, int, str]:
+    def get_value(self) -> Union[None, bool, float, int, str]:
         raise NotImplementedError
 
     def printable(self, indent: str = "") -> str:
@@ -72,7 +74,46 @@ class EikoBaseType:
         raise NotImplementedError
 
     def type_check(self, expected_type: EikoType) -> bool:
-        return self.type.type_check(expected_type)
+        return expected_type.type_check(self.type)
+
+
+_eiko_none_type = EikoType("None")
+
+
+class EikoOptional(EikoType):
+    """Eiko optional means a value can be None."""
+
+    def __init__(self, optional_type: EikoType) -> None:
+        super().__init__("None", eiko_base_type)
+        self.optional_type = optional_type
+
+    def type_check(self, expected_type: "EikoType") -> bool:
+        if self.name == expected_type.name:
+            return True
+
+        return expected_type.type_check(self.optional_type)
+
+    def __repr__(self) -> str:
+        return f"Optinal[{self.optional_type.name}]"
+
+
+class EikoNone(EikoBaseType):
+    """Represents the None Value in the Eiko Language."""
+
+    type = _eiko_none_type
+
+    def __init__(self, eiko_type: EikoType = _eiko_none_type) -> None:
+        super().__init__(eiko_type)
+        self.value = None
+
+    def get_value(self) -> None:
+        return None
+
+    def printable(self, _: str = "") -> str:
+        return "None"
+
+    def truthiness(self) -> bool:
+        return False
 
 
 _eiko_int_type = EikoType("int")

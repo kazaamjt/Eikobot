@@ -336,13 +336,13 @@ class ComparisonExprAST(ExprAST):
                 token=self.token,
             )
 
-        if isinstance(lhs, (type, CompilerContext)):
+        if isinstance(lhs, (type, CompilerContext, EikoType)):
             raise EikoInternalError(
                 "Something went horribly wrong, please submit a bug report.",
                 token=self.lhs.token,
             )
 
-        if isinstance(rhs, (type, CompilerContext)):
+        if isinstance(rhs, (type, CompilerContext, EikoType)):
             raise EikoInternalError(
                 "Something went horribly wrong, please submit a bug report.",
                 token=self.rhs.token,
@@ -622,7 +622,7 @@ class ResourcePropertyAST:
                     token=self.default_value.token,
                 )
 
-            if not default_value.type.type_check(_type.type):
+            if not _type.type.type_check(default_value.type):
                 raise EikoCompilationError(
                     f"Property {resource_name}.{self.name} has type {_type.type}, "
                     f"but default value is of type {default_value.type}.",
@@ -832,6 +832,17 @@ class TypedefExprAST(ExprAST):
                 f"Could not find type '{self.super_type_token.content}'.",
                 token=self.super_type_token,
             )
+
+
+@dataclass
+class TypeExprAST(ExprAST):
+    """An ExprAST expressing a complex type."""
+
+    main_expr: ExprAST
+    sub_expression: List["TypeExprAST"]
+
+    def compile(self, _: CompilerContext) -> EikoType:
+        raise NotImplementedError
 
 
 class Parser:
