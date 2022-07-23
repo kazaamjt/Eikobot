@@ -1242,8 +1242,9 @@ class Parser:
             rhs = self._parse_expression()
             if not isinstance(rhs, VariableExprAST):
                 raise EikoParserError(
-                    "Invalid expression in import statement.",
-                    token=lhs.token,
+                    "Invalid expression in import statement. "
+                    "Only identifiers are llowed after 'from'.",
+                    token=rhs.token,
                 )
             import_items.append(rhs)
             if self._current.type == TokenType.COMMA:
