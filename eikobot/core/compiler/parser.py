@@ -22,7 +22,7 @@ from .definitions.base_types import (
     EikoType,
     eiko_base_type,
 )
-from .definitions.context import CompilerContext, StorableTypes
+from .definitions.context import CompilerContext, LazyLoadModule, StorableTypes
 from .definitions.function import (
     ConstructorArg,
     ConstructorDefinition,
@@ -37,7 +37,12 @@ from .errors import (
     EikoParserError,
     EikoSyntaxError,
 )
-from .importlib import import_python_code, resolve_from_import, resolve_import
+from .importlib import (
+    Module,
+    import_python_code,
+    resolve_from_import,
+    resolve_import,
+)
 from .lexer import Lexer
 from .misc import Index
 from .ops import BINOP_MATRIX, BinOP, ComparisonOP, compare
@@ -708,19 +713,18 @@ class ImportExprAST(ExprAST):
         else:
             self.rhs.to_import_traversable_list(import_list)
 
-        resolve_result = resolve_import(import_list, context)
-        if resolve_result is None:
+        module = resolve_import(import_list, context)
+        if module is None:
             raise EikoCompilationError(
-                f"Failed to import module, module {'.'.join(import_list)} not found.",
+                f"Failed to locate module {'.'.join(import_list)}.",
                 token=self.token,
             )
 
-        import_path, import_context = resolve_result
-
-        import_python_code(import_list, import_path, import_context)
-        parser = Parser(import_path)
+        import_python_code(import_list, module.path, module.context)
+        init_lazy_load_submodules(module, import_list)
+        parser = Parser(module.path)
         for expr in parser.parse():
-            expr.compile(import_context)
+            expr.compile(module.context)
 
 
 @dataclass
@@ -730,56 +734,63 @@ class FromImportExprAST(ExprAST):
     """
 
     lhs: Union["DotExprAST", VariableExprAST]
-    rhs: VariableExprAST
+    import_items: List[VariableExprAST]
 
     def compile(self, context: CompilerContext) -> None:
-        import_list: List[str] = []
+        import_module: List[str] = []
         from_import_list: List[str] = []
         if isinstance(self.lhs, VariableExprAST):
-            import_list.append(self.lhs.identifier)
+            import_module.append(self.lhs.identifier)
             from_import_list.append(self.lhs.identifier)
         else:
-            self.lhs.to_import_traversable_list(import_list)
+            self.lhs.to_import_traversable_list(import_module)
             self.lhs.to_import_traversable_list(from_import_list)
 
-        import_list.append(self.rhs.identifier)
-
-        import_module = import_list
-        resolve_result = resolve_from_import(import_module)
-        if resolve_result is None:
-            import_module = import_list[:-1]
-            resolve_result = resolve_from_import(import_module)
-
-        if resolve_result is None:
+        module = resolve_from_import(import_module, context)
+        if module is None:
             raise EikoCompilationError(
                 f"Module '{'.'.join(from_import_list)}' not found.",
                 token=self.token,
             )
 
-        import_path, import_context = resolve_result
-
-        import_python_code(import_module, import_path, import_context)
-        parser = Parser(import_path)
+        import_python_code(import_module, module.path, module.context)
+        parser = Parser(module.path)
         for expr in parser.parse():
-            expr.import_context = import_context
-            expr.compile(import_context)
+            expr.import_context = module.context
+            expr.compile(module.context)
 
-        if self.rhs.identifier in import_module:
-            context.set(self.rhs.identifier, import_context)
-        else:
-            imported_item = import_context.get(self.rhs.identifier)
-            if isinstance(imported_item, (EikoBaseType, ResourceDefinition)):
-                context.set(self.rhs.identifier, imported_item)
-            elif imported_item is None:
-                raise EikoCompilationError(
-                    f"Failed to import name '{self.rhs.identifier}' from '{'.'.join(from_import_list)}'.",
-                    token=self.rhs.token,
-                )
+        init_lazy_load_submodules(module, import_module)
+        for item in self.import_items:
+            if item.identifier in import_module:
+                context.set(item.identifier, module.context)
             else:
-                raise EikoInternalError(
-                    "Something went horribly wrong during a from ... import. "
-                    "Please submit a bug report on github."
-                )
+                imported_item = module.context.get(item.identifier)
+                if isinstance(
+                    imported_item, (EikoBaseType, ResourceDefinition, CompilerContext)
+                ):
+                    context.set(item.identifier, imported_item)
+                elif imported_item is None:
+                    raise EikoCompilationError(
+                        f"Failed to import '{item.identifier}' from '{'.'.join(from_import_list)}'.",
+                        token=item.token,
+                    )
+                else:
+                    raise EikoInternalError(
+                        "Something went horribly wrong during a from ... import. "
+                        "Please submit a bug report on github."
+                    )
+
+
+def init_lazy_load_submodules(module: Module, import_list: List[str]) -> None:
+    """Turns submodules in to LazyLoadModules."""
+
+    for submodule in module.submodules:
+        import_path = import_list.copy()
+        import_path.append(submodule.name)
+        module.context.storage[submodule.name] = LazyLoadModule(
+            submodule.context, Parser(submodule.path), import_path
+        )
+        init_lazy_load_submodules(submodule, import_path)
 
 
 @dataclass
@@ -1226,14 +1237,21 @@ class Parser:
             )
 
         self._advance()
-        rhs = self._parse_expression()
-        if not isinstance(rhs, VariableExprAST):
-            raise EikoParserError(
-                "Invalid expression in import statement.",
-                token=lhs.token,
-            )
+        import_items: List[VariableExprAST] = []
+        while True:
+            rhs = self._parse_expression()
+            if not isinstance(rhs, VariableExprAST):
+                raise EikoParserError(
+                    "Invalid expression in import statement.",
+                    token=lhs.token,
+                )
+            import_items.append(rhs)
+            if self._current.type == TokenType.COMMA:
+                self._advance()
+            else:
+                break
 
-        return FromImportExprAST(import_token, lhs, rhs)
+        return FromImportExprAST(import_token, lhs, import_items)
 
     def _parse_if(self) -> IfExprAST:
         if_token = self._current

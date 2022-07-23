@@ -116,6 +116,7 @@ class EikoNone(EikoBaseType):
         return False
 
 
+eiko_none_object = EikoNone()
 _eiko_int_type = EikoType("int")
 
 
@@ -256,11 +257,14 @@ class EikoResource(EikoBaseType):
 BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
 
 
-def to_eiko_type(cls: Type) -> Type[EikoBaseType]:
+def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     """
     Takes a python type and returns it's eikobot compatible type.
     If said type exists.
     """
+    if cls is None:
+        return EikoNone
+
     if issubclass(cls, EikoBaseType):
         return cls
 
@@ -295,6 +299,9 @@ def to_eiko(value: Any) -> EikoBaseType:
 
     if isinstance(value, EikoBaseType):
         return value
+
+    if value is None:
+        return eiko_none_object
 
     raise ValueError
 

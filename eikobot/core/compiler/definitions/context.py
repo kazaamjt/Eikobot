@@ -2,28 +2,52 @@
 Context hold variables, classes and more.
 Used both by files/modules and fucntions.
 """
-from typing import Dict, Optional, Type, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
 from ..errors import EikoCompilationError
+from ..importlib import import_python_code
 from ..token import Token
 from .base_types import (
     EikoBaseType,
     EikoBool,
     EikoFloat,
     EikoInt,
-    EikoResource,
     EikoStr,
     EikoType,
+    eiko_none_object,
 )
 from .resource import ResourceDefinition
 
+if TYPE_CHECKING:
+    from ..parser import Parser
+
 _StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType], EikoType]
-_builtins = {
+_builtins: Dict[str, _StorableTypes] = {
     "int": EikoInt,
     "float": EikoFloat,
     "bool": EikoBool,
     "str": EikoStr,
+    "None": eiko_none_object,
 }
+
+
+@dataclass
+class LazyLoadModule:
+    """A lazyLoadModule is meant to only be compiled when it is directly called."""
+
+    context: "CompilerContext"
+    parser: "Parser"
+    import_path: List[str]
+
+    def compile(self) -> "CompilerContext":
+        """Imports plugins and compiles eiko code so the module can be used."""
+
+        for expr in self.parser.parse():
+            expr.compile(self.context)
+
+        import_python_code(self.import_path, self.parser.lexer.file_path, self.context)
+        return self.context
 
 
 class CompilerContext:
@@ -38,10 +62,11 @@ class CompilerContext:
         super_scope: Optional["CompilerContext"] = None,
     ) -> None:
         self.name = name
-        self.storage: Dict[str, Union[_StorableTypes, "CompilerContext", None]] = {}
+        self.storage: Dict[
+            str, Union[_StorableTypes, "CompilerContext", LazyLoadModule, None]
+        ] = {}
         self.type = EikoType("eiko_internal_context")
         self.super = super_scope
-        self.assigned: Dict[str, EikoResource] = {}
 
     def __repr__(self, indent: str = "") -> str:
         return_str = indent + f"Context '{self.name}': " + "{\n"
@@ -49,6 +74,8 @@ class CompilerContext:
         for key, value in self.storage.items():
             if isinstance(value, CompilerContext):
                 return_str += value.__repr__(extra_indent)
+            elif isinstance(value, LazyLoadModule):
+                pass
             elif isinstance(value, EikoBaseType):
                 return_str += (
                     f"{extra_indent}var {key}: {value.printable(extra_indent)}\n"
@@ -62,8 +89,13 @@ class CompilerContext:
     def get(self, name: str) -> Union[_StorableTypes, "CompilerContext", None]:
         """Get a value from this context or a super context."""
         value = self.storage.get(name)
-        if value is None and self.super is not None:
+
+        if isinstance(value, LazyLoadModule):
+            value = value.compile()
+        elif value is None and self.super is not None:
             value = self.super.get(name)
+            if isinstance(value, LazyLoadModule):
+                value = value.compile()
 
         if value is None:
             value = _builtins.get(name)
@@ -77,7 +109,9 @@ class CompilerContext:
         """
         value = self.storage.get(name)
 
-        if value is None:
+        if isinstance(value, LazyLoadModule):
+            value = value.compile()
+        elif value is None:
             value = _builtins.get(name)
 
         return value
@@ -95,9 +129,6 @@ class CompilerContext:
                 f'Illegal operation: Tried to reassign "{name}".',
                 token=token,
             )
-
-        if isinstance(value, EikoResource):
-            self.assigned[name] = value
 
         self.storage[name] = value
 
@@ -120,6 +151,13 @@ class CompilerContext:
             f'Illegal operation: Tried to reassign "{name}".',
             token=token,
         )
+
+    def get_subcontext(self, name: str) -> "CompilerContext":
+        """
+        Creates a new context, with the given context as its super context,
+        but does not store the new context in the super context.
+        """
+        return CompilerContext(name, self)
 
 
 StorableTypes = Union[_StorableTypes, "CompilerContext"]

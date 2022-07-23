@@ -16,12 +16,12 @@ The little Desired State Engine that made it so.
 - [x] cli commands
 - [x] add `from` imports (`from some_module import some_thing`)
 - [x] a plugin system
-- [ ] allow for complex types
+- [x] allow for complex types
 - [ ] add a `None` type
 - [ ] add a `Union` type
 - [ ] add a `List` type
 - [ ] add a `Dict` type
-- [ ] automatic sub imports
+- [x] automatic/lazy sub imports
 - [ ] crud resource
 - [ ] custom constructors
 

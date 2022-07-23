@@ -16,10 +16,10 @@ from .base_types import (
     to_eiko_type,
     to_py,
 )
-from .context import CompilerContext, StorableTypes
 
 if TYPE_CHECKING:
     from ..parser import ExprAST
+    from .context import CompilerContext, StorableTypes
 
 _eiko_function_type = EikoType("function", eiko_base_type)
 
@@ -44,7 +44,7 @@ class ConstructorArg:
 class ConstructorDefinition(EikoBaseType):
     """Internal representation of an Eikobot constructor."""
 
-    def __init__(self, name: str, execution_context: CompilerContext) -> None:
+    def __init__(self, name: str, execution_context: "CompilerContext") -> None:
         super().__init__(_eiko_function_type)
         self.name = name
         self.args: Dict[str, ConstructorArg] = {}
@@ -91,7 +91,7 @@ class ConstructorDefinition(EikoBaseType):
 
                 handled_args[arg_name] = arg.default_value
 
-        context = CompilerContext(f"{self.name}-execution", self.execution_context)
+        context = self.execution_context.get_subcontext(f"{self.name}-execution")
         for arg_name, value in handled_args.items():
             context.set(arg_name, value)
 
@@ -179,7 +179,7 @@ class PluginDefinition(EikoBaseType):
         self.args.append(arg)
 
     def execute(
-        self, args: List["ExprAST"], context: CompilerContext
+        self, args: List["ExprAST"], context: "CompilerContext"
     ) -> Optional[EikoBaseType]:
         """Execute the stored function and coerces types."""
 
@@ -202,7 +202,7 @@ class PluginDefinition(EikoBaseType):
                 token=arg.token,
             )
         if issubclass(required_arg.py_type, EikoBaseType):
-            converted_arg: Union[StorableTypes, bool, float, int, str] = compiled_arg
+            converted_arg: Union["StorableTypes", bool, float, int, str] = compiled_arg
         else:
             try:
                 converted_arg = to_py(compiled_arg)
