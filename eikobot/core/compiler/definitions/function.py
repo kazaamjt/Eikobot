@@ -173,7 +173,7 @@ class PluginDefinition(EikoBaseType):
         self.module = module
 
     def printable(self, _: str = "") -> str:
-        return f"PLUGIN {self.identifier}"
+        return f"Plugin '{self.identifier}'"
 
     def add_arg(self, arg: PluginArg) -> None:
         self.args.append(arg)
