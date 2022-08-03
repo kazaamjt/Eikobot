@@ -17,8 +17,8 @@ The little Desired State Engine that made it so.
 - [x] add `from` imports (`from some_module import some_thing`)
 - [x] a plugin system
 - [ ] allow for complex types
-- [ ] allow for NotSet
 - [ ] add a `None` type
+- [ ] allow for NotSet
 - [ ] add a `Union` type
 - [ ] add a `List` type
 - [ ] add a `Dict` type
@@ -30,7 +30,7 @@ The little Desired State Engine that made it so.
 
 - [x] add basic regex.match
 - [ ] add debug_msg (requires `None`)
-- [ ] add Host/IPv4/IPv6
+- [ ] add IPv4/IPv6
 
 ### Backend
 

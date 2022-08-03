@@ -77,3 +77,19 @@ def test_nested_properties(nested_properties_file: Path) -> None:
 def test_typedef(eiko_typedef: Path) -> None:
     compiler = Compiler()
     compiler.compile(eiko_typedef)
+
+
+def test_resource_compilation(eiko_file_1: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_file_1)
+
+    var_test_1 = compiler.context.get("test_1")
+    assert isinstance(var_test_1, EikoResource)
+
+    prop_ip = var_test_1.get("ip")
+    assert isinstance(prop_ip, EikoStr)
+    assert prop_ip.value == "192.168.0.1"
+
+    prop_ip_2 = var_test_1.get("ip_2")
+    assert isinstance(prop_ip_2, EikoStr)
+    assert prop_ip_2.value == "192.168.1.1"

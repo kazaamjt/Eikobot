@@ -14,7 +14,10 @@ if TYPE_CHECKING:
 
 @dataclass
 class ResourceProperty:
-    """Internal representation of a resource property for constructors."""
+    """
+    Internal representation of a resource property for constructors.
+    It does not verify wether the default value given is the correct type.
+    """
 
     name: str
     type: EikoType
