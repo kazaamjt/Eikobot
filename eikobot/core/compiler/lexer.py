@@ -28,6 +28,8 @@ KEYWORDS = {
 SPECIAL_CHARS = {
     "(": TokenType.LEFT_PAREN,
     ")": TokenType.RIGHT_PAREN,
+    "[": TokenType.LEFT_SQ_BRACKET,
+    "]": TokenType.RIGHT_SQ_BRACKET,
     ",": TokenType.COMMA,
     ".": TokenType.DOT,
     "@": TokenType.AT_SIGN,

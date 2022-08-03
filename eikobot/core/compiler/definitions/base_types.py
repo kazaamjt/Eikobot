@@ -224,8 +224,8 @@ class EikoResource(EikoBaseType):
         """Set the value of a property, if the value wasn't already assigned."""
         if not isinstance(value, EikoBaseType):
             raise EikoCompilationError(
-                f"Unable to assign property {name} of class {self.type} "
-                f"cannot be assigned given value.",
+                f"Property {name} of class {self.type} "
+                f"cannot be assigned the given value.",
                 token=token,
             )
 

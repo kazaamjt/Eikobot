@@ -25,10 +25,11 @@ class TokenType(Enum):
     OR = auto()
 
     IDENTIFIER = auto()
-    F_STRING = auto()
 
     LEFT_PAREN = auto()
     RIGHT_PAREN = auto()
+    LEFT_SQ_BRACKET = auto()
+    RIGHT_SQ_BRACKET = auto()
     COLON = auto()
     COMMA = auto()
     DOT = auto()
@@ -43,6 +44,7 @@ class TokenType(Enum):
     INTEGER = auto()
     FLOAT = auto()
     STRING = auto()
+    F_STRING = auto()
     TRUE = auto()
     FALSE = auto()
 

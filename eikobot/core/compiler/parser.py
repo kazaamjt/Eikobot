@@ -412,8 +412,29 @@ class AndExprAST(ExprAST):
 class VariableExprAST(ExprAST):
     """An AST expressing a variable of some kind."""
 
+    type_expr: Optional["TypeExprAST"] = None
+
     def __post_init__(self) -> None:
+        if self.token.type != TokenType.IDENTIFIER:
+            raise EikoSyntaxError(
+                "Expected an identifier.",
+                index=self.token.index,
+            )
         self.identifier = self.token.content
+
+    def assign(
+        self,
+        value: StorableTypes,
+        assign_context: Union[CompilerContext, EikoResource],
+        compile_context: CompilerContext,
+    ) -> StorableTypes:
+        """Assigns the variable a value."""
+        if self.type_expr is not None:
+            type_expr = self.type_expr.compile(compile_context)
+            type_expr.type_check(value.type)
+
+        assign_context.set(self.identifier, value, self.token)
+        return value
 
     def compile(self, context: Union[CompilerContext, EikoBaseType]) -> StorableTypes:
         value = context.get(self.identifier)
@@ -442,12 +463,8 @@ class AssignmentExprAST(ExprAST):
                 token=self.rhs.token,
             )
 
-        if isinstance(self.lhs, VariableExprAST):
-            context.set(self.lhs.token.content, assignment_val, self.token)
-            return assignment_val
-
-        if isinstance(self.lhs, DotExprAST):
-            return self.lhs.assign(assignment_val, context)
+        if isinstance(self.lhs, (DotExprAST, VariableExprAST)):
+            return self.lhs.assign(assignment_val, context, context)
 
         raise EikoCompilationError(
             "Assignment operation expected assignable variable on left hand side",
@@ -479,16 +496,17 @@ class DotExprAST(ExprAST):
             token=self.lhs.token,
         )
 
-    def assign(self, value: StorableTypes, context: CompilerContext) -> StorableTypes:
+    def assign(
+        self, value: StorableTypes, context: CompilerContext, _: CompilerContext
+    ) -> StorableTypes:
         """Assign this dot expression a value of some kind."""
         lhs = self.lhs.compile(context)
-        if isinstance(lhs, EikoResource):
-            lhs.set(self.rhs.identifier, value, self.rhs.token)
+        if isinstance(lhs, (EikoResource, CompilerContext)):
+            self.rhs.assign(value, lhs, context)
             return value
 
         raise EikoCompilationError(
-            f"Tried to assign value to {self.lhs.token.content}."
-            f"{self.rhs.token.content}, but this is not a valid expression.",
+            f"Unable to assign a value to {self.identifier}.",
             token=self.lhs.token,
         )
 
@@ -603,12 +621,14 @@ class CallExprAst(ExprAST):
 class ResourcePropertyAST:
     """An AST expressing a resource property."""
 
-    token: Token
-    type_expr: Union[VariableExprAST, DotExprAST]
+    expr: Union[VariableExprAST, AssignmentExprAST]
     default_value: Optional[ExprAST] = None
 
     def __post_init__(self) -> None:
-        self.name = self.token.content
+        if isinstance(self.expr, VariableExprAST):
+            self.name = self.expr.token.content
+        else:
+            self.name = self.expr.lhs.token.content
 
     def compile(self, context: CompilerContext, resource_name: str) -> ResourceProperty:
         """Compile the ResourceProperty to something the ResourceDefinitionAST understands."""
@@ -849,11 +869,22 @@ class TypedefExprAST(ExprAST):
 class TypeExprAST(ExprAST):
     """An ExprAST expressing a complex type."""
 
-    main_expr: ExprAST
+    primary_expr: Union[VariableExprAST, DotExprAST]
     sub_expression: List["TypeExprAST"]
 
-    def compile(self, _: CompilerContext) -> EikoType:
-        raise NotImplementedError
+    def compile(self, context: CompilerContext) -> EikoType:
+        primary_type = self.primary_expr.compile(context)
+
+        if isinstance(primary_type, type) and issubclass(primary_type, EikoBaseType):
+            return primary_type.type
+
+        if isinstance(primary_type, EikoType):
+            return primary_type
+
+        raise EikoCompilationError(
+            "Not a valid type expressions.",
+            token=self.token,
+        )
 
 
 class Parser:
@@ -959,7 +990,13 @@ class Parser:
         if self._current.type == TokenType.FROM:
             return self._parse_from_import()
 
-        return self._parse_expression()
+        expr = self._parse_expression()
+        if isinstance(expr, VariableExprAST) and self._current.type == TokenType.COLON:
+            self._advance()
+            expr.type_expr = self._parse_type()
+            return self._parse_bin_op_rhs(0, expr)
+
+        return expr
 
     def _parse_expression(self, precedence: int = 0) -> ExprAST:
         lhs = self._parse_primary()
@@ -1104,7 +1141,7 @@ class Parser:
             else:
                 lhs = BinOpExprAST(bin_op_token, lhs, rhs)
 
-    def _parse_identifier(self) -> Union[VariableExprAST, CallExprAst]:
+    def _parse_identifier(self) -> VariableExprAST:
         token = self._current
         self._advance()
 
@@ -1176,42 +1213,25 @@ class Parser:
         return rd_ast
 
     def _parse_resource_property(self) -> ResourcePropertyAST:
-        if self._current.type != TokenType.IDENTIFIER:
-            raise EikoParserError(
-                "Unexpected token. Expected a property identifier.",
-                token=self._current,
-            )
-
-        token = self._current
-        default_value = None
-
-        self._advance()
-        if self._current.content != ":":
-            prev = copy(self._previous)
-            prev.index = Index(
-                prev.index.line,
-                prev.index.col + len(prev.content),
-                prev.index.file,
-            )
-            raise EikoParserError(
-                "Unexpected token. "
-                "Expected a colon seperating the identifier from it's type.",
-                token=prev,
+        identifier = self._parse_identifier()
+        if not self._current.type == TokenType.COLON:
+            raise EikoSyntaxError(
+                "Expected type identifier for resource property.",
+                index=self._current.index,
             )
 
         self._advance()
-        type_expr = self._parse_expression()
-        if isinstance(type_expr, AssignmentExprAST):
-            default_value = type_expr.rhs
-            type_expr = type_expr.lhs
+        identifier.type_expr = self._parse_type()
 
-        if not isinstance(type_expr, (DotExprAST, VariableExprAST)):
+        expr = self._parse_bin_op_rhs(0, identifier)
+
+        if not isinstance(expr, (VariableExprAST, AssignmentExprAST)):
             raise EikoParserError(
-                "Invalid expression. Expected a type expression.",
-                token=type_expr.token,
+                "Unexpected expression in resource definition.",
+                token=expr.token,
             )
 
-        return ResourcePropertyAST(token, type_expr, default_value)
+        return ResourcePropertyAST(expr)
 
     def _parse_import(self) -> ImportExprAST:
         token = self._current
@@ -1363,3 +1383,30 @@ class Parser:
             if_expr = self._parse_expression()
 
         return TypedefExprAST(typedef_token, name, base_type, if_expr)
+
+    def _parse_type(self) -> TypeExprAST:
+        primary_expr: Union[VariableExprAST, DotExprAST] = self._parse_identifier()
+        while True:
+            if self._current.type != TokenType.DOT:
+                break
+
+            self._advance()
+            primary_expr = DotExprAST(
+                primary_expr.token, primary_expr, self._parse_identifier()
+            )
+
+        sub_expressions: List[TypeExprAST] = []
+        if self._current.type == TokenType.LEFT_SQ_BRACKET:
+            while True:
+                self._advance()
+                sub_expressions.append(self._parse_type())
+                if self._current.type == TokenType.RIGHT_SQ_BRACKET:
+                    break
+
+                if self._current.type != TokenType.COMMA:
+                    raise EikoSyntaxError(
+                        "Unexpected token",
+                        index=self._current.index,
+                    )
+
+        return TypeExprAST(primary_expr.token, primary_expr, sub_expressions)
