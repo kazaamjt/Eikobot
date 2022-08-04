@@ -430,7 +430,12 @@ class VariableExprAST(ExprAST):
         """Assigns the variable a value."""
         if self.type_expr is not None:
             type_expr = self.type_expr.compile(compile_context)
-            type_expr.type_check(value.type)
+            if not type_expr.type_check(value.type):
+                raise EikoCompilationError(
+                    "Variable assigned incompatible type:"
+                    f" given '{value.type}' but expected '{type_expr}'",
+                    token=self.token
+                )
 
         assign_context.set(self.identifier, value, self.token)
         return value
@@ -892,7 +897,6 @@ class TypeExprAST(ExprAST):
         if isinstance(primary_type, ResourceDefinition):
             return primary_type.type
 
-        # TODO: Automatically try to convert base_type to given typedef.
         if isinstance(primary_type, EikoTypeDef):
             return primary_type.type
 
