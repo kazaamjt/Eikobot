@@ -434,7 +434,7 @@ class VariableExprAST(ExprAST):
                 raise EikoCompilationError(
                     "Variable assigned incompatible type:"
                     f" given '{value.type}' but expected '{type_expr}'",
-                    token=self.token
+                    token=self.token,
                 )
 
         assign_context.set(self.identifier, value, self.token)
