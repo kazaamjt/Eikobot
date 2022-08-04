@@ -4,6 +4,8 @@
 # pylint: disable=too-many-statements
 from pathlib import Path
 
+import pytest
+
 from eikobot.core.compiler import Compiler
 from eikobot.core.compiler.definitions.base_types import (
     EikoInt,
@@ -11,6 +13,8 @@ from eikobot.core.compiler.definitions.base_types import (
     EikoStr,
 )
 from eikobot.core.compiler.definitions.context import CompilerContext
+from eikobot.core.compiler.definitions.typedef import EikoTypeDef
+from eikobot.core.compiler.errors import EikoCompilationError
 from eikobot.core.compiler.parser import Parser
 
 
@@ -76,4 +80,38 @@ def test_nested_properties(nested_properties_file: Path) -> None:
 
 def test_typedef(eiko_typedef: Path) -> None:
     compiler = Compiler()
-    compiler.compile(eiko_typedef)
+    with pytest.raises(EikoCompilationError):
+        compiler.compile(eiko_typedef)
+
+    string_alias = compiler.context.get("string_alias")
+    assert isinstance(string_alias, EikoTypeDef)
+
+    ipv4address = compiler.context.get("IPv4Address")
+    assert isinstance(ipv4address, EikoTypeDef)
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoStr)
+    assert var_a.value == "10.0.0.0"
+
+    res_1 = compiler.context.get("res_1")
+    assert isinstance(res_1, EikoResource)
+
+    prop_1 = res_1.get("prop_1")
+    assert isinstance(prop_1, EikoStr)
+    assert prop_1.value == "192.168.0.1"
+
+
+def test_resource_compilation(eiko_file_1: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_file_1)
+
+    var_test_1 = compiler.context.get("test_1")
+    assert isinstance(var_test_1, EikoResource)
+
+    prop_ip = var_test_1.get("ip")
+    assert isinstance(prop_ip, EikoStr)
+    assert prop_ip.value == "192.168.0.1"
+
+    prop_ip_2 = var_test_1.get("ip_2")
+    assert isinstance(prop_ip_2, EikoStr)
+    assert prop_ip_2.value == "192.168.1.1"

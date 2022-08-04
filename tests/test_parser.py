@@ -23,6 +23,7 @@ from eikobot.core.compiler.parser import (
     ResourcePropertyAST,
     StringExprAST,
     TypedefExprAST,
+    TypeExprAST,
     UnaryNegExprAST,
     VariableExprAST,
 )
@@ -159,13 +160,12 @@ def test_parse_resource(eiko_file_1: Path) -> None:
     prop_1 = expr_1.properties["ip"]
     assert isinstance(prop_1, ResourcePropertyAST)
     assert prop_1.name == "ip"
-    assert isinstance(prop_1.type_expr, VariableExprAST)
-    assert prop_1.type_expr.identifier == "str"
+    assert isinstance(prop_1.expr, VariableExprAST)
+    assert isinstance(prop_1.expr.type_expr, TypeExprAST)
+
     prop_2 = expr_1.properties["ip_2"]
-    assert isinstance(prop_2, ResourcePropertyAST)
-    assert prop_2.name == "ip_2"
-    assert isinstance(prop_2.type_expr, VariableExprAST)
-    assert prop_2.type_expr.identifier == "str"
+    assert isinstance(prop_2.expr, VariableExprAST)
+    assert isinstance(prop_2.expr.type_expr, TypeExprAST)
 
     var_1 = next(parse_iter)
     assert isinstance(var_1, AssignmentExprAST)

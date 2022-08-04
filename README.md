@@ -16,12 +16,15 @@ The little Desired State Engine that made it so.
 - [x] cli commands
 - [x] add `from` imports (`from some_module import some_thing`)
 - [x] a plugin system
-- [ ] allow for complex types
-- [ ] add a `None` type
+- [x] add typedefs
+- [x] allow for complex types (Type parsing is wholy seperate now)
+- [x] add a `None` type
+- [ ] add `Optional`, allowing for something to be either None or some other type.
+- [ ] allow for NotSet
 - [ ] add a `Union` type
 - [ ] add a `List` type
 - [ ] add a `Dict` type
-- [ ] automatic sub imports
+- [?] automatic/lazy sub imports
 - [ ] crud resource
 - [ ] custom constructors
 
@@ -29,7 +32,7 @@ The little Desired State Engine that made it so.
 
 - [x] add basic regex.match
 - [ ] add debug_msg (requires `None`)
-- [ ] add Host/IPv4/IPv6
+- [ ] add IPv4/IPv6
 
 ### Backend
 
@@ -58,7 +61,6 @@ For vscode, adding the following settings to your config is recommended:
     "python.linting.flake8Enabled": true,
     "python.linting.mypyEnabled": true,
     "python.linting.pylintEnabled": true,
-    "python.linting.banditEnabled": true,
     "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [],
     "editor.insertSpaces": true,

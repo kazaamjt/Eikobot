@@ -3,24 +3,39 @@ The importlib allows for importing
 of both Eiko and Python code.
 """
 import importlib.util
+from dataclasses import dataclass
 from inspect import getfullargspec, getmembers, isfunction
 from pathlib import Path
 from types import FunctionType, ModuleType
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional
 
 from .. import logger
 from .definitions.base_types import EikoBaseType
-from .definitions.context import CompilerContext
 from .definitions.function import PluginArg, PluginDefinition
 from .errors import EikoCompilationError
+
+if TYPE_CHECKING:
+    from .definitions.context import CompilerContext
 
 INTERNAL_LIB_PATH = Path(__file__).parent.parent.resolve() / "lib"
 PATHS: List[Path] = [INTERNAL_LIB_PATH, Path(".")]
 
 
+@dataclass
+class Module:
+    """A resolved module that can be imported by being compiled."""
+
+    name: str
+    path: Path
+    context: "CompilerContext"
+
+    def __post_init__(self) -> None:
+        self.submodules: List["Module"] = []
+
+
 def resolve_import(
-    import_path: List[str], main_context: CompilerContext
-) -> Optional[Tuple[Path, CompilerContext]]:
+    import_path: List[str], main_context: "CompilerContext"
+) -> Optional[Module]:
     """
     Tries to import a given path.
     """
@@ -33,8 +48,8 @@ def resolve_import(
 
 
 def _resolve_import(
-    import_path: List[str], parent: Path, context: CompilerContext
-) -> Optional[Tuple[Path, CompilerContext]]:
+    import_path: List[str], parent: Path, context: "CompilerContext"
+) -> Optional[Module]:
     current = import_path[0]
     import_path.remove(current)
 
@@ -44,7 +59,9 @@ def _resolve_import(
         if init_file.exists():
             if len(import_path) == 0:
                 new_context = context.get_or_set_context(current)
-                return init_file, new_context
+                module = Module(current_dir.stem, init_file, new_context)
+                _get_submodules(module)
+                return module
 
             new_context = context.get_or_set_context(current)
             return _resolve_import(import_path, current_dir, new_context)
@@ -55,19 +72,19 @@ def _resolve_import(
         file_path = parent / (current + ".eiko")
         if file_path.exists():
             new_context = context.get_or_set_context(current)
-            return file_path, new_context
+            return Module(file_path.stem, file_path, new_context)
 
     return None
 
 
 def resolve_from_import(
-    import_path: List[str],
-) -> Optional[Tuple[Path, CompilerContext]]:
+    import_path: List[str], context: "CompilerContext"
+) -> Optional[Module]:
     """
     Tries to from import a given path list.
     """
     for _path in PATHS:
-        file_path = _resolve_from_import(import_path.copy(), _path)
+        file_path = _resolve_from_import(import_path.copy(), _path, context)
         if file_path is not None:
             return file_path
 
@@ -75,8 +92,8 @@ def resolve_from_import(
 
 
 def _resolve_from_import(
-    import_path: List[str], parent: Path
-) -> Optional[Tuple[Path, CompilerContext]]:
+    import_path: List[str], parent: Path, context: "CompilerContext"
+) -> Optional[Module]:
     current = import_path[0]
     import_path.remove(current)
 
@@ -84,9 +101,11 @@ def _resolve_from_import(
     if current_dir.exists() and current_dir.is_dir():
         init_file = current_dir / "__init__.eiko"
         if init_file.exists():
-            new_context = CompilerContext(current)
+            new_context = context.get_or_set_context(current)
             if len(import_path) == 0:
-                return init_file, new_context
+                module = Module(current_dir.stem, init_file, new_context)
+                _get_submodules(module)
+                return module
 
             return _resolve_import(import_path, current_dir, new_context)
 
@@ -95,14 +114,14 @@ def _resolve_from_import(
     if len(import_path) == 0:
         file_path = parent / (current + ".eiko")
         if file_path.exists():
-            new_context = CompilerContext(current)
-            return file_path, new_context
+            new_context = context.get_or_set_context(current)
+            return Module(file_path.stem, file_path, new_context)
 
     return None
 
 
 def import_python_code(
-    module_path: List[str], eiko_file_path: Path, context: CompilerContext
+    module_path: List[str], eiko_file_path: Path, context: "CompilerContext"
 ) -> None:
     """
     Resolves and exposes python code that is tagged as eiko-plugins.
@@ -165,3 +184,19 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
         )
 
     return plugin_definition
+
+
+def _get_submodules(module: Module) -> None:
+    for path in module.path.parent.glob("*"):
+        if path.is_dir():
+            init_file = path / "__init__.eiko"
+            if init_file.exists():
+                new_context = module.context.get_or_set_context(path.stem)
+                new_module = Module(path.stem, init_file, new_context)
+                module.submodules.append(new_module)
+                _get_submodules(new_module)
+
+        elif path.suffix == ".eiko":
+            module.submodules.append(
+                Module(path.stem, path, module.context.get_or_set_context(path.stem))
+            )
