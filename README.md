@@ -16,7 +16,8 @@ The little Desired State Engine that made it so.
 - [x] cli commands
 - [x] add `from` imports (`from some_module import some_thing`)
 - [x] a plugin system
-- [ ] allow for complex types
+- [x] add typedefs
+- [x] allow for complex types (Type parsing is wholy seperate now)
 - [ ] add a `None` type
 - [ ] allow for NotSet
 - [ ] add a `Union` type

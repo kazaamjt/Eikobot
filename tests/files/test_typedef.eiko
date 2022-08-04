@@ -4,3 +4,10 @@ typedef string_alias str
 typedef IPv4Address str if regex.match(r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$", self)
 
 a = IPv4Address("10.0.0.0")
+
+resource TestRes:
+    prop_1: IPv4Address
+
+res_1 = TestRes(IPv4Address("192.168.0.1"))
+
+bad_value = IPv4Address("256.0.0.1")
