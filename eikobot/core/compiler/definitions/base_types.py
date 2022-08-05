@@ -245,8 +245,9 @@ class EikoResource(EikoBaseType):
             _repr += extra_indent
             _repr += f"{val.type} '{name}': "
             _repr += val.printable(extra_indent)
+            _repr += ",\n"
 
-        _repr += "\n" + indent + "}"
+        _repr += indent + "}"
 
         return _repr
 

@@ -132,11 +132,14 @@ def import_python_code(
         module_name = ".".join(module_path)
         py_module = load_python_code(module_name, file_path)
         for member in getmembers(py_module):
-            name = member[0]
             _obj = member[1]
             if isfunction(_obj) and hasattr(_obj, "eiko_plugin"):
-                logger.debug(f"Importing plugin '{_obj.__name__}' from {file_path}")
-                context.set(name, _load_plugin(module_name, name, _obj))
+                plugin_name = _obj.__name__
+                if hasattr(_obj, "alias"):
+                    if _obj.alias is not None:
+                        plugin_name = _obj.alias
+                logger.debug(f"Importing plugin '{plugin_name}' from {file_path}")
+                context.set(plugin_name, _load_plugin(module_name, plugin_name, _obj))
     else:
         logger.debug(f"Found no python plugins for eiko file: {eiko_file_path}")
 
