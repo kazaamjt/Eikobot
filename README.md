@@ -31,7 +31,7 @@ The little Desired State Engine that made it so.
 ### STD
 
 - [x] add basic regex.match
-- [ ] add debug_msg (requires `None`)
+- [x] add debug_msg (requires `None`)
 - [ ] add IPv4/IPv6
 
 ### Backend

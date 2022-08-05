@@ -1,3 +1,7 @@
+"""
+The Eiko standard library contains various quality of life
+plugins and resources.
+"""
 from colorama import Fore
 
 from eikobot.core.plugin import eiko_plugin
