@@ -92,10 +92,9 @@ class CompilerContext:
 
         if isinstance(value, LazyLoadModule):
             value = value.compile()
+            self.storage[name] = value
         elif value is None and self.super is not None:
             value = self.super.get(name)
-            if isinstance(value, LazyLoadModule):
-                value = value.compile()
 
         if value is None:
             value = _builtins.get(name)

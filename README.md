@@ -24,7 +24,7 @@ The little Desired State Engine that made it so.
 - [ ] add a `Union` type
 - [ ] add a `List` type
 - [ ] add a `Dict` type
-- [?] automatic/lazy sub imports
+- [x] automatic/lazy sub imports
 - [ ] crud resource
 - [ ] custom constructors
 
