@@ -9,6 +9,7 @@ import pytest
 from eikobot.core.compiler import Compiler
 from eikobot.core.compiler.definitions.base_types import (
     EikoInt,
+    EikoNone,
     EikoResource,
     EikoStr,
 )
@@ -115,3 +116,15 @@ def test_resource_compilation(eiko_file_1: Path) -> None:
     prop_ip_2 = var_test_1.get("ip_2")
     assert isinstance(prop_ip_2, EikoStr)
     assert prop_ip_2.value == "192.168.1.1"
+
+
+def test_unions(eiko_union_file: Path) -> None:
+    compiler = Compiler()
+    with pytest.raises(EikoCompilationError):
+        compiler.compile(eiko_union_file)
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoStr)
+
+    var_b = compiler.context.get("b")
+    assert isinstance(var_b, EikoNone)

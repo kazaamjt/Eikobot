@@ -19,7 +19,9 @@ from .definitions.base_types import (
     EikoResource,
     EikoStr,
     EikoType,
+    EikoUnion,
     eiko_base_type,
+    eiko_none_object,
 )
 from .definitions.context import CompilerContext, LazyLoadModule, StorableTypes
 from .definitions.function import (
@@ -883,10 +885,13 @@ class TypeExprAST(ExprAST):
     """An ExprAST expressing a complex type."""
 
     primary_expr: Union[VariableExprAST, DotExprAST]
-    sub_expression: List["TypeExprAST"]
+    sub_expressions: List["TypeExprAST"]
 
     def compile(self, context: CompilerContext) -> EikoType:
         primary_type = self.primary_expr.compile(context)
+
+        if primary_type is eiko_none_object:
+            return eiko_none_object.type
 
         if isinstance(primary_type, type) and issubclass(primary_type, EikoBaseType):
             return primary_type.type
@@ -899,6 +904,23 @@ class TypeExprAST(ExprAST):
 
         if isinstance(primary_type, EikoTypeDef):
             return primary_type.type
+
+        if primary_type is EikoUnion:
+            if len(self.sub_expressions) < 2:
+                raise EikoCompilationError(
+                    "Union type expects at least 2 type arguments.",
+                    token=self.token
+                )
+            name = "Union["
+            sub_expressions: List[EikoType] = []
+            for expr in self.sub_expressions:
+                compiled_expr = expr.compile(context)
+                name += compiled_expr.name + ","
+                sub_expressions.append(compiled_expr)
+
+            name = name[:-1] + "]"
+
+            return EikoUnion(name, sub_expressions)
 
         raise EikoCompilationError(
             "Not a valid type expressions.",
@@ -1420,6 +1442,7 @@ class Parser:
                 self._advance()
                 sub_expressions.append(self._parse_type())
                 if self._current.type == TokenType.RIGHT_SQ_BRACKET:
+                    self._advance()
                     break
 
                 if self._current.type != TokenType.COMMA:

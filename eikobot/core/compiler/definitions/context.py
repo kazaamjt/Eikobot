@@ -15,6 +15,7 @@ from .base_types import (
     EikoInt,
     EikoStr,
     EikoType,
+    EikoUnion,
     eiko_none_object,
 )
 from .resource import ResourceDefinition
@@ -22,13 +23,16 @@ from .resource import ResourceDefinition
 if TYPE_CHECKING:
     from ..parser import Parser
 
-_StorableTypes = Union[EikoBaseType, ResourceDefinition, Type[EikoBaseType], EikoType]
+_StorableTypes = Union[
+    EikoBaseType, ResourceDefinition, Type[EikoBaseType], EikoType, Type[EikoType]
+]
 _builtins: Dict[str, _StorableTypes] = {
     "int": EikoInt,
     "float": EikoFloat,
     "bool": EikoBool,
     "str": EikoStr,
     "None": eiko_none_object,
+    "Union": EikoUnion,
 }
 
 
