@@ -19,9 +19,9 @@ The little Desired State Engine that made it so.
 - [x] add typedefs
 - [x] allow for complex types (Type parsing is wholy seperate now)
 - [x] add a `None` type
-- [ ] add `Optional`, allowing for something to be either None or some other type.
-- [ ] allow for NotSet
-- [ ] add a `Union` type
+- [x] add `Optional`, allowing for something to be either None or some other type.
+- [x] allow for NotSet
+- [x] add a `Union` type
 - [ ] add a `List` type
 - [ ] add a `Dict` type
 - [x] automatic/lazy sub imports
