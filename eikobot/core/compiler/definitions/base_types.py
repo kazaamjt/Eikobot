@@ -2,7 +2,8 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 
 from ..errors import EikoCompilationError
 from ..token import Token
@@ -44,8 +45,38 @@ class EikoType:
         return self.name
 
 
+@dataclass
+class EikoUnset:
+    """
+    Special type, allowing for forward declarations.
+    """
+
+    type: EikoType
+
+
 EikoType.type = EikoType("Type")
 eiko_base_type = EikoType("Object")
+
+
+class EikoUnion(EikoType):
+    """Represents an Eiko Union type, which combines 2 or more types."""
+
+    def __init__(
+        self,
+        name: str,
+        types: List[EikoType],
+        super_type: None = None,
+    ) -> None:
+        self.types = types
+        super().__init__(name, super_type)
+
+    def type_check(self, expected_type: EikoType) -> bool:
+        """Recursivly type checks."""
+        for _type in self.types:
+            if _type.type_check(expected_type):
+                return True
+
+        return False
 
 
 class EikoBaseType:
@@ -88,7 +119,7 @@ class EikoOptional(EikoType):
         self.optional_type = optional_type
 
     def type_check(self, expected_type: "EikoType") -> bool:
-        if self.name == expected_type.name:
+        if expected_type is _eiko_none_type:
             return True
 
         return expected_type.type_check(self.optional_type)

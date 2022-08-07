@@ -16,10 +16,14 @@ from .definitions.base_types import (
     EikoBool,
     EikoFloat,
     EikoInt,
+    EikoOptional,
     EikoResource,
     EikoStr,
     EikoType,
+    EikoUnion,
+    EikoUnset,
     eiko_base_type,
+    eiko_none_object,
 )
 from .definitions.context import CompilerContext, LazyLoadModule, StorableTypes
 from .definitions.function import (
@@ -440,13 +444,26 @@ class VariableExprAST(ExprAST):
         assign_context.set(self.identifier, value, self.token)
         return value
 
-    def compile(self, context: Union[CompilerContext, EikoBaseType]) -> StorableTypes:
+    def compile(
+        self, context: Union[CompilerContext, EikoBaseType]
+    ) -> Optional[StorableTypes]:
         value = context.get(self.identifier)
         if value is None:
-            raise EikoCompilationError(
-                f"Variable '{self.identifier}' was accessed before having been assigned a value.",
-                token=self.token,
-            )
+            if self.type_expr is None:
+                raise EikoCompilationError(
+                    "Forward declaration of a variables require a type declaration.",
+                    token=self.token,
+                )
+
+            if isinstance(context, EikoBaseType):
+                raise EikoInternalError(
+                    "Got in trouble trying to foward declare a variable. "
+                    "Please report this error.",
+                    token=self.token,
+                )
+
+            context.set(self.identifier, EikoUnset(self.type_expr.compile(context)))
+            return None
 
         return value
 
@@ -883,10 +900,13 @@ class TypeExprAST(ExprAST):
     """An ExprAST expressing a complex type."""
 
     primary_expr: Union[VariableExprAST, DotExprAST]
-    sub_expression: List["TypeExprAST"]
+    sub_expressions: List["TypeExprAST"]
 
     def compile(self, context: CompilerContext) -> EikoType:
         primary_type = self.primary_expr.compile(context)
+
+        if primary_type is eiko_none_object:
+            return eiko_none_object.type
 
         if isinstance(primary_type, type) and issubclass(primary_type, EikoBaseType):
             return primary_type.type
@@ -899,6 +919,31 @@ class TypeExprAST(ExprAST):
 
         if isinstance(primary_type, EikoTypeDef):
             return primary_type.type
+
+        if primary_type is EikoUnion:
+            if len(self.sub_expressions) < 2:
+                raise EikoCompilationError(
+                    "Union type expects at least 2 type arguments.", token=self.token
+                )
+            name = "Union["
+            sub_expressions: List[EikoType] = []
+            for expr in self.sub_expressions:
+                compiled_expr = expr.compile(context)
+                name += compiled_expr.name + ","
+                sub_expressions.append(compiled_expr)
+
+            name = name[:-1] + "]"
+
+            return EikoUnion(name, sub_expressions)
+
+        if primary_type is EikoOptional:
+            if len(self.sub_expressions) != 1:
+                raise EikoCompilationError(
+                    "Optional type expects exactly 1 type argument.", token=self.token
+                )
+
+            compiled_expr = self.sub_expressions[0].compile(context)
+            return EikoOptional(compiled_expr)
 
         raise EikoCompilationError(
             "Not a valid type expressions.",
@@ -1420,6 +1465,7 @@ class Parser:
                 self._advance()
                 sub_expressions.append(self._parse_type())
                 if self._current.type == TokenType.RIGHT_SQ_BRACKET:
+                    self._advance()
                     break
 
                 if self._current.type != TokenType.COMMA:

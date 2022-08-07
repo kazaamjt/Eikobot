@@ -1,0 +1,3 @@
+a: Union[None, str] = "haha"
+b: Union[None, str] = None
+c: Union[None, str] = 13
