@@ -16,6 +16,7 @@ from .base_types import (
     EikoStr,
     EikoType,
     EikoUnion,
+    EikoUnset,
     eiko_none_object,
 )
 from .resource import ResourceDefinition
@@ -67,7 +68,8 @@ class CompilerContext:
     ) -> None:
         self.name = name
         self.storage: Dict[
-            str, Union[_StorableTypes, "CompilerContext", LazyLoadModule, None]
+            str,
+            Union[_StorableTypes, "CompilerContext", LazyLoadModule, EikoUnset, None],
         ] = {}
         self.type = EikoType("eiko_internal_context")
         self.super = super_scope
@@ -90,7 +92,9 @@ class CompilerContext:
         return_str += indent + "}\n"
         return return_str
 
-    def get(self, name: str) -> Union[_StorableTypes, "CompilerContext", None]:
+    def get(
+        self, name: str, token: Optional[Token] = None
+    ) -> Union[_StorableTypes, "CompilerContext", None]:
         """Get a value from this context or a super context."""
         value = self.storage.get(name)
 
@@ -98,14 +102,22 @@ class CompilerContext:
             value = value.compile()
             self.storage[name] = value
         elif value is None and self.super is not None:
-            value = self.super.get(name)
+            value = self.super.get(name, token)
 
         if value is None:
             value = _builtins.get(name)
 
+        if isinstance(value, EikoUnset):
+            raise EikoCompilationError(
+                "Variable accessed before assignment.",
+                token=token,
+            )
+
         return value
 
-    def shallow_get(self, name: str) -> Union[_StorableTypes, "CompilerContext", None]:
+    def shallow_get(
+        self, name: str
+    ) -> Union[_StorableTypes, "CompilerContext", EikoUnset, None]:
         """
         Shallow get only gets builtins and values local to the current scope.
         It is primarily for use by 'Set'.
@@ -122,14 +134,22 @@ class CompilerContext:
     def set(
         self,
         name: str,
-        value: Union[_StorableTypes, "CompilerContext"],
+        value: Union[_StorableTypes, "CompilerContext", EikoUnset],
         token: Optional[Token] = None,
     ) -> None:
         """Set a value. Throws an error if it's already set."""
         prev_value = self.shallow_get(name)
-        if prev_value is not None:
+        if isinstance(prev_value, EikoUnset):
+            if not prev_value.type.type_check(value.type):
+                raise EikoCompilationError(
+                    f"Tried to assign value of type {value.type}"
+                    f" to variable previously defined as {prev_value.type}.",
+                    token=token,
+                )
+
+        elif prev_value is not None:
             raise EikoCompilationError(
-                f'Illegal operation: Tried to reassign "{name}".',
+                f"Illegal operation: Tried to reassign '{name}'.",
                 token=token,
             )
 

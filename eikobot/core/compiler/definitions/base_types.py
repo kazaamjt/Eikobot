@@ -2,6 +2,7 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 
 from ..errors import EikoCompilationError
@@ -42,6 +43,15 @@ class EikoType:
 
     def __repr__(self) -> str:
         return self.name
+
+
+@dataclass
+class EikoUnset:
+    """
+    Special type, allowing for forward declarations.
+    """
+
+    type: EikoType
 
 
 EikoType.type = EikoType("Type")

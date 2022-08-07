@@ -20,6 +20,7 @@ from .definitions.base_types import (
     EikoStr,
     EikoType,
     EikoUnion,
+    EikoUnset,
     eiko_base_type,
     eiko_none_object,
 )
@@ -442,13 +443,26 @@ class VariableExprAST(ExprAST):
         assign_context.set(self.identifier, value, self.token)
         return value
 
-    def compile(self, context: Union[CompilerContext, EikoBaseType]) -> StorableTypes:
+    def compile(
+        self, context: Union[CompilerContext, EikoBaseType]
+    ) -> Optional[StorableTypes]:
         value = context.get(self.identifier)
         if value is None:
-            raise EikoCompilationError(
-                f"Variable '{self.identifier}' was accessed before having been assigned a value.",
-                token=self.token,
-            )
+            if self.type_expr is None:
+                raise EikoCompilationError(
+                    "Forward declaration of a variables require a type declaration.",
+                    token=self.token,
+                )
+
+            if isinstance(context, EikoBaseType):
+                raise EikoInternalError(
+                    "Got in trouble trying to foward declare a variable. "
+                    "Please report this error.",
+                    token=self.token,
+                )
+
+            context.set(self.identifier, EikoUnset(self.type_expr.compile(context)))
+            return None
 
         return value
 
@@ -908,8 +922,7 @@ class TypeExprAST(ExprAST):
         if primary_type is EikoUnion:
             if len(self.sub_expressions) < 2:
                 raise EikoCompilationError(
-                    "Union type expects at least 2 type arguments.",
-                    token=self.token
+                    "Union type expects at least 2 type arguments.", token=self.token
                 )
             name = "Union["
             sub_expressions: List[EikoType] = []
