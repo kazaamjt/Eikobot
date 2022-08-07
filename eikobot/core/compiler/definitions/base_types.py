@@ -119,7 +119,7 @@ class EikoOptional(EikoType):
         self.optional_type = optional_type
 
     def type_check(self, expected_type: "EikoType") -> bool:
-        if self.name == expected_type.name:
+        if expected_type is _eiko_none_type:
             return True
 
         return expected_type.type_check(self.optional_type)

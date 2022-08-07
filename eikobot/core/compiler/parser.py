@@ -16,6 +16,7 @@ from .definitions.base_types import (
     EikoBool,
     EikoFloat,
     EikoInt,
+    EikoOptional,
     EikoResource,
     EikoStr,
     EikoType,
@@ -934,6 +935,15 @@ class TypeExprAST(ExprAST):
             name = name[:-1] + "]"
 
             return EikoUnion(name, sub_expressions)
+
+        if primary_type is EikoOptional:
+            if len(self.sub_expressions) != 1:
+                raise EikoCompilationError(
+                    "Optional type expects exactly 1 type argument.", token=self.token
+                )
+
+            compiled_expr = self.sub_expressions[0].compile(context)
+            return EikoOptional(compiled_expr)
 
         raise EikoCompilationError(
             "Not a valid type expressions.",

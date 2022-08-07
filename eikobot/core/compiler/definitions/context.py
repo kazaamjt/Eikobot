@@ -13,6 +13,7 @@ from .base_types import (
     EikoBool,
     EikoFloat,
     EikoInt,
+    EikoOptional,
     EikoStr,
     EikoType,
     EikoUnion,
@@ -34,6 +35,7 @@ _builtins: Dict[str, _StorableTypes] = {
     "str": EikoStr,
     "None": eiko_none_object,
     "Union": EikoUnion,
+    "Optional": EikoOptional,
 }
 
 
