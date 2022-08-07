@@ -128,3 +128,36 @@ def test_unions(eiko_union_file: Path) -> None:
 
     var_b = compiler.context.get("b")
     assert isinstance(var_b, EikoNone)
+
+
+def test_forward_declare(tmp_eiko_file: Path) -> None:
+    compiler = Compiler()
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write("a: str\n" + 'a = "test_string"')
+
+    compiler.compile(tmp_eiko_file)
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoStr)
+    assert var_a.value == "test_string"
+
+
+def test_optional(tmp_eiko_file: Path) -> None:
+    compiler = Compiler()
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write('a: Optional[str] = "test_string"')
+
+    compiler.compile(tmp_eiko_file)
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoStr)
+    assert var_a.value == "test_string"
+
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write("a: Optional[str] = None")
+
+    compiler.reset()
+    compiler.compile(tmp_eiko_file)
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoNone)
