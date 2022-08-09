@@ -11,6 +11,7 @@ from .base_types import (
     EikoBaseType,
     EikoResource,
     EikoType,
+    PassedArg,
     eiko_base_type,
     to_eiko,
     to_eiko_type,
@@ -22,14 +23,6 @@ if TYPE_CHECKING:
     from .context import CompilerContext, StorableTypes
 
 _eiko_function_type = EikoType("function", eiko_base_type)
-
-
-@dataclass
-class PassedArg:
-    """A passed arg is a compiled expression passed as an arg."""
-
-    token: Token
-    value: EikoBaseType
 
 
 @dataclass
@@ -71,7 +64,7 @@ class ConstructorDefinition(EikoBaseType):
         """
         if len(positional_args) + len(keyword_args) > len(self.args) - 1:
             raise EikoCompilationError(
-                "Too many arguments given to call.",
+                "Too many arguments given to function call.",
                 token=callee_token,
             )
 

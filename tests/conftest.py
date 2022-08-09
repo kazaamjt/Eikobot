@@ -105,3 +105,9 @@ def eiko_std_regex_match() -> Iterable[Path]:
 def eiko_union_file() -> Iterable[Path]:
     _file = get_file("test_union.eiko")
     yield _file
+
+
+@pytest.fixture
+def eiko_list_file() -> Iterable[Path]:
+    _file = get_file("test_list.eiko")
+    yield _file

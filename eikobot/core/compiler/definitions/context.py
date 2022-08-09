@@ -13,6 +13,7 @@ from .base_types import (
     EikoBool,
     EikoFloat,
     EikoInt,
+    EikoListType,
     EikoOptional,
     EikoStr,
     EikoType,
@@ -36,6 +37,7 @@ _builtins: Dict[str, _StorableTypes] = {
     "None": eiko_none_object,
     "Union": EikoUnion,
     "Optional": EikoOptional,
+    "List": EikoListType,
 }
 
 
@@ -85,9 +87,7 @@ class CompilerContext:
             elif isinstance(value, LazyLoadModule):
                 pass
             elif isinstance(value, EikoBaseType):
-                return_str += (
-                    f"{extra_indent}var {key}: {value.printable(extra_indent)}\n"
-                )
+                return_str += f"{extra_indent}var '{key}' {value.type}: {value.printable(extra_indent)}\n"
             else:
                 return_str += f"{extra_indent}{key}: {value}\n"
 
@@ -111,7 +111,7 @@ class CompilerContext:
 
         if isinstance(value, EikoUnset):
             raise EikoCompilationError(
-                "Variable accessed before assignment.",
+                "Variable accessed before having been assignend a value.",
                 token=token,
             )
 

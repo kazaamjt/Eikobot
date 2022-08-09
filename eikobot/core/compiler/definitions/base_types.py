@@ -3,7 +3,16 @@ Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Type,
+    Union,
+)
 
 from ..errors import EikoCompilationError
 from ..token import Token
@@ -44,6 +53,9 @@ class EikoType:
     def __repr__(self) -> str:
         return self.name
 
+    def __str__(self) -> str:
+        return self.name
+
 
 @dataclass
 class EikoUnset:
@@ -65,13 +77,19 @@ class EikoUnion(EikoType):
         self,
         name: str,
         types: List[EikoType],
-        super_type: None = None,
     ) -> None:
         self.types = types
-        super().__init__(name, super_type)
+        super().__init__(name)
 
     def type_check(self, expected_type: EikoType) -> bool:
         """Recursivly type checks."""
+
+        if isinstance(expected_type, EikoUnion):
+            for _type in expected_type.types:
+                if not self.type_check(_type):
+                    return False
+            return True
+
         for _type in self.types:
             if _type.type_check(expected_type):
                 return True
@@ -90,9 +108,10 @@ class EikoBaseType:
     def __init__(self, eiko_type: EikoType) -> None:
         self.type = eiko_type
 
-    def get(self, name: str) -> Optional["EikoBaseType"]:
+    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
         raise EikoCompilationError(
-            f"Object of type {self.type} has no property {name}."
+            f"Object of type {self.type} has no property {name}.",
+            token=token,
         )
 
     def get_value(self) -> Union[None, bool, float, int, str]:
@@ -125,7 +144,7 @@ class EikoOptional(EikoType):
         return expected_type.type_check(self.optional_type)
 
     def __repr__(self) -> str:
-        return f"Optinal[{self.optional_type.name}]"
+        return f"Optional[{self.optional_type.name}]"
 
 
 class EikoNone(EikoBaseType):
@@ -238,6 +257,9 @@ class EikoStr(EikoBaseType):
         return bool(self.value)
 
 
+BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
+
+
 class EikoResource(EikoBaseType):
     """Represents a custom resource in the Eiko language."""
 
@@ -245,8 +267,15 @@ class EikoResource(EikoBaseType):
         super().__init__(eiko_type)
         self.properties: Dict[str, EikoBaseType] = {}
 
-    def get(self, name: str) -> Optional[EikoBaseType]:
-        return self.properties.get(name)
+    def get(self, name: str, token: Optional[Token] = None) -> EikoBaseType:
+        value = self.properties.get(name)
+        if value is None:
+            raise EikoCompilationError(
+                "Tried to access a property that does not exist.",
+                token=token,
+            )
+
+        return value
 
     def get_value(self) -> Union[bool, float, int, str]:
         raise NotImplementedError
@@ -286,7 +315,139 @@ class EikoResource(EikoBaseType):
         return True
 
 
-BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
+class EikoListType(EikoType):
+    """Represents an Eiko Union type, which combines 2 or more types."""
+
+    def __init__(self, element_type: EikoType) -> None:
+        super().__init__(f"List[{element_type.name}]")
+        self.element_type = element_type
+
+    def type_check(self, expected_type: "EikoType") -> bool:
+        if isinstance(expected_type, EikoListType):
+            return self.element_type.type_check(expected_type.element_type)
+
+        return False
+
+
+_builtin_function_type = EikoType("builtin_function", eiko_base_type)
+
+
+@dataclass
+class PassedArg:
+    """A passed arg is a compiled expression passed as an arg."""
+
+    token: Token
+    value: EikoBaseType
+
+
+@dataclass
+class BuiltinFunctionArg:
+    name: str
+    type: EikoType
+
+
+class EikoBuiltinFunction(EikoBaseType):
+    """
+    Built in functions are typically convenience functions.
+    They cannot be user generated.
+    """
+
+    def __init__(
+        self,
+        identifier: str,
+        args: List[BuiltinFunctionArg],
+        body: Callable[..., Optional[EikoBaseType]],
+    ) -> None:
+        super().__init__(_builtin_function_type)
+        self.identifier = identifier
+        self.args = args
+        self.body = body
+
+    def execute(
+        self, callee_token: Token, args: List[PassedArg]
+    ) -> Optional[EikoBaseType]:
+        """Execute the builtin function."""
+        if len(args) != len(self.args):
+            raise EikoCompilationError(
+                "Too many arguments given to function call.",
+                token=callee_token,
+            )
+
+        validated_args: List[EikoBaseType] = []
+        for passed_arg, expected_arg in zip(args, self.args):
+            if not expected_arg.type.type_check(passed_arg.value.type):
+                raise EikoCompilationError(
+                    f"Argument '{expected_arg.name}' must be of type '{expected_arg.type}', "
+                    f"but got '{passed_arg.value.type}'",
+                    token=passed_arg.token,
+                )
+            validated_args.append(passed_arg.value)
+
+        return self.body(*validated_args)
+
+    def truthiness(self) -> bool:
+        raise NotImplementedError
+
+
+class EikoList(EikoBaseType):
+    """Represents a list of objects in the Eiko language."""
+
+    def __init__(
+        self,
+        element_type: EikoType,
+        elements: Optional[List[EikoBaseType]] = None,
+    ) -> None:
+        super().__init__(EikoListType(element_type))
+        if elements is None:
+            self.elements: List[EikoBaseType] = []
+        else:
+            self.elements = elements
+
+        self.append_func = EikoBuiltinFunction(
+            "append",
+            [BuiltinFunctionArg("element", element_type)],
+            body=self.append,
+        )
+
+    def append(self, element: EikoBaseType) -> None:
+        self.elements.append(element)
+
+    def update_typing(self, new_type: EikoListType) -> None:
+        self.type = new_type
+        self.append_func = EikoBuiltinFunction(
+            "append",
+            [BuiltinFunctionArg("element", new_type.element_type)],
+            body=self.append,
+        )
+
+    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+        if name == "append":
+            return self.append_func
+
+        return super().get(name, token)
+
+    def get_index(self, index: int) -> Optional[EikoBaseType]:
+        try:
+            return self.elements[index]
+        except IndexError:
+            return None
+
+    def get_value(self) -> Union[bool, float, int, str]:
+        raise NotImplementedError
+
+    def printable(self, indent: str = "") -> str:
+        extra_indent = indent + "    "
+        _repr = "[\n"
+        for val in self.elements:
+            _repr += extra_indent
+            _repr += val.printable(extra_indent)
+            _repr += ",\n"
+
+        _repr += indent + "]"
+        return _repr
+
+    def truthiness(self) -> bool:
+        return bool(self.elements)
 
 
 def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:

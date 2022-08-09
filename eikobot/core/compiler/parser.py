@@ -14,8 +14,11 @@ from typing import Dict, Iterator, List, Optional, Union
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
+    EikoBuiltinFunction,
     EikoFloat,
     EikoInt,
+    EikoList,
+    EikoListType,
     EikoOptional,
     EikoResource,
     EikoStr,
@@ -440,6 +443,8 @@ class VariableExprAST(ExprAST):
                     f" given '{value.type}' but expected '{type_expr}'",
                     token=self.token,
                 )
+            if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):
+                value.update_typing(type_expr)
 
         assign_context.set(self.identifier, value, self.token)
         return value
@@ -447,23 +452,29 @@ class VariableExprAST(ExprAST):
     def compile(
         self, context: Union[CompilerContext, EikoBaseType]
     ) -> Optional[StorableTypes]:
-        value = context.get(self.identifier)
+        value = context.get(self.identifier, self.token)
         if value is None:
             if self.type_expr is None:
                 raise EikoCompilationError(
-                    "Forward declaration of a variables require a type declaration.",
+                    "Unable to resolve identifier.",
                     token=self.token,
                 )
 
             if isinstance(context, EikoBaseType):
                 raise EikoInternalError(
-                    "Got in trouble trying to foward declare a variable. "
+                    "Got in trouble trying to resolve an identifier. "
                     "Please report this error.",
                     token=self.token,
                 )
 
             context.set(self.identifier, EikoUnset(self.type_expr.compile(context)))
             return None
+
+        if self.type_expr is not None:
+            raise EikoCompilationError(
+                "Tried to reassign type of a variable that was already declared.",
+                token=self.token,
+            )
 
         return value
 
@@ -553,8 +564,32 @@ class ListExprAST(ExprAST):
     elements: List[ExprAST]
 
     def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
-        if len(self.elements) == 1:
+        if len(self.elements) == 1 and self.token.type == TokenType.LEFT_PAREN:
             return self.elements[0].compile(context)
+
+        if self.token.type == TokenType.LEFT_SQ_BRACKET:
+            _elements: List[EikoBaseType] = []
+            _types: List[EikoType] = []
+            for expr in self.elements:
+                element = expr.compile(context)
+                if not isinstance(element, EikoBaseType):
+                    raise EikoCompilationError(
+                        "Invalid expression when trying to compose list.",
+                        token=expr.token,
+                    )
+                _elements.append(element)
+                if element.type not in _types:
+                    _types.append(element.type)
+
+                if len(_types) == 1:
+                    _type = _types[0]
+                else:
+                    union_name = "Union["
+                    for sub_type in _types:
+                        union_name += sub_type.name + ","
+                    _type = EikoUnion(union_name[:-1] + "]", _types)
+
+            return EikoList(_type, _elements)
 
         raise NotImplementedError
 
@@ -575,8 +610,8 @@ class CallExprAst(ExprAST):
         if isinstance(eiko_callable, ResourceDefinition):
             eiko_callable = eiko_callable.default_constructor
 
+        args: List[PassedArg] = []
         if isinstance(eiko_callable, ConstructorDefinition):
-            args: List[PassedArg] = []
             keyword_args: Dict[str, PassedArg] = {}
             kw_args = False
             for arg_expr in self.args.elements:
@@ -621,7 +656,7 @@ class CallExprAst(ExprAST):
         if isinstance(eiko_callable, EikoTypeDef):
             if len(self.args.elements) != 1:
                 raise EikoCompilationError(
-                    f"{eiko_callable.name} takes exactly 1 argument, because it is a type definition.",
+                    f"{eiko_callable.name} takes exactly 1 argument.",
                     token=self.token,
                 )
 
@@ -630,10 +665,67 @@ class CallExprAst(ExprAST):
             if isinstance(compiled_arg, EikoBaseType):
                 return eiko_callable.execute(compiled_arg, arg.token)
 
-            raise EikoInternalError("")
+            raise EikoInternalError(
+                "Not sure what happened here. This is probably a bug",
+                token=self.token,
+            )
+
+        if isinstance(eiko_callable, EikoBuiltinFunction):
+            for arg_expr in self.args.elements:
+                arg_value = arg_expr.compile(context)
+                if not isinstance(arg_value, EikoBaseType):
+                    raise EikoCompilationError(
+                        "The provided argument did not provide a valid value.",
+                        token=arg_expr.token,
+                    )
+                args.append(PassedArg(arg_expr.token, arg_value))
+
+            return eiko_callable.execute(self.token, args)
 
         raise EikoCompilationError(
             f"{self.identifier} is not callable.",
+            token=self.token,
+        )
+
+
+@dataclass
+class IndexExprAst(ExprAST):
+    """An AST expressing a resource-constructor or plugin."""
+
+    identifier_expr: Union[DotExprAST, VariableExprAST]
+    index_expr: ListExprAST
+
+    def __post_init__(self) -> None:
+        self.identifier = self.identifier_expr.identifier
+
+    def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
+        indexed_item = self.identifier_expr.compile(context)
+        if len(self.index_expr.elements) != 1:
+            raise EikoCompilationError(
+                "Expected exactly 1 argument for index expression.",
+                token=self.index_expr.token,
+            )
+
+        index = self.index_expr.elements[0].compile(context)
+
+        if isinstance(indexed_item, EikoList):
+            if not isinstance(index, EikoInt):
+                raise EikoCompilationError(
+                    "Index of a list can only be an integer.",
+                    token=self.index_expr.token,
+                )
+
+            value = indexed_item.get_index(index.value)
+            if value is None:
+                raise EikoCompilationError(
+                    "List index out of range.",
+                    token=self.index_expr.token,
+                )
+
+            return value
+
+        raise EikoCompilationError(
+            "Expression is not indexable.",
             token=self.token,
         )
 
@@ -945,6 +1037,15 @@ class TypeExprAST(ExprAST):
             compiled_expr = self.sub_expressions[0].compile(context)
             return EikoOptional(compiled_expr)
 
+        if primary_type is EikoListType:
+            if len(self.sub_expressions) != 1:
+                raise EikoCompilationError(
+                    "List type expects exactly 1 type argument.", token=self.token
+                )
+
+            compiled_expr = self.sub_expressions[0].compile(context)
+            return EikoListType(compiled_expr)
+
         raise EikoCompilationError(
             "Not a valid type expressions.",
             token=self.token,
@@ -983,6 +1084,7 @@ class Parser:
             "**": 90,
             ".": 100,
             "(": 100,
+            "[": 100,
         }
 
     def parse(self) -> Iterator[ExprAST]:
@@ -1112,6 +1214,10 @@ class Parser:
         if self._current.type == TokenType.TYPEDEF:
             return self._parse_typedef()
 
+        if self._current.type == TokenType.LEFT_SQ_BRACKET:
+            token = self._current
+            return ListExprAST(token, self._parse_list(TokenType.RIGHT_SQ_BRACKET))
+
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
         )
@@ -1137,7 +1243,9 @@ class Parser:
         self._advance()
         return next_expr
 
-    def _parse_bin_op_rhs(self, expr_precedence: int, lhs: ExprAST) -> ExprAST:
+    def _parse_bin_op_rhs(
+        self, expr_precedence: Union[float, int], lhs: ExprAST
+    ) -> ExprAST:
         while True:
             current_predecedence = self._bin_op_precedence.get(self._current.content, 0)
             if current_predecedence < expr_precedence:
@@ -1145,6 +1253,7 @@ class Parser:
             if self._current.type in [
                 TokenType.INDENT,
                 TokenType.RIGHT_PAREN,
+                TokenType.RIGHT_SQ_BRACKET,
                 TokenType.COMMA,
                 TokenType.IMPORT,
                 TokenType.COLON,
@@ -1153,7 +1262,10 @@ class Parser:
                 return lhs
 
             bin_op_token = self._current
-            if self._current.type != TokenType.LEFT_PAREN:
+            if self._current.type not in [
+                TokenType.LEFT_PAREN,
+                TokenType.LEFT_SQ_BRACKET,
+            ]:
                 self._advance()
             rhs = self._parse_primary()
 
@@ -1161,7 +1273,7 @@ class Parser:
             # let the pending operator take rhs as it's lhs
             next_op_precedence = self._bin_op_precedence.get(self._current.content, 0)
             if expr_precedence < next_op_precedence:
-                rhs = self._parse_bin_op_rhs(current_predecedence + 1, rhs)
+                rhs = self._parse_bin_op_rhs(current_predecedence + 0.0001, rhs)
 
             if bin_op_token.type == TokenType.ASSIGNMENT_OP:
                 lhs = AssignmentExprAST(bin_op_token, lhs, rhs)
@@ -1200,6 +1312,22 @@ class Parser:
                     raise EikoParserError(
                         "Unexpected expression. "
                         "Expected an identifier for call expression.",
+                        token=lhs.token,
+                    )
+            elif bin_op_token.type == TokenType.LEFT_SQ_BRACKET:
+                if isinstance(lhs, (DotExprAST, VariableExprAST)):
+                    if isinstance(rhs, ListExprAST):
+                        lhs = IndexExprAst(lhs.token, lhs, rhs)
+                    else:
+                        raise EikoParserError(
+                            "Unexpected expression. "
+                            "Expected an expressions as arguments for index call.",
+                            token=rhs.token,
+                        )
+                else:
+                    raise EikoParserError(
+                        "Unexpected expression. "
+                        "Expected an identifier for index expression.",
                         token=lhs.token,
                     )
             else:
