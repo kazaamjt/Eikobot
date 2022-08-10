@@ -7,6 +7,7 @@ from pathlib import Path
 from eikobot.core.compiler import Compiler
 from eikobot.core.compiler.definitions.base_types import (
     EikoBool,
+    EikoDict,
     EikoInt,
     EikoList,
     EikoNone,
@@ -66,3 +67,32 @@ def test_list(eiko_list_file: Path) -> None:
     var_b = compiler.context.get("b")
     assert isinstance(var_b, EikoInt)
     assert var_b.value == 3
+
+
+def test_dict(eiko_dict_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_dict_file)
+
+    var_test_dict = compiler.context.get("test_dict")
+    assert isinstance(var_test_dict, EikoDict)
+    assert len(var_test_dict.elements) == 4
+
+    value_1 = var_test_dict.elements.get("key_1")
+    assert isinstance(value_1, EikoStr)
+    assert value_1.value == "string_1"
+
+    value_2 = var_test_dict.elements.get("key_2")
+    assert isinstance(value_2, EikoStr)
+    assert value_2.value == "string_2"
+
+    value_3 = var_test_dict.elements.get("key_3")
+    assert isinstance(value_3, EikoInt)
+    assert value_3.value == 3
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoStr)
+    assert var_a.value == "string_2"
+
+    value_4 = var_test_dict.elements.get("key_4")
+    assert isinstance(value_4, EikoBool)
+    assert value_4.value is True

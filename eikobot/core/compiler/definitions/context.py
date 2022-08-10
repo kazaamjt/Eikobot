@@ -11,6 +11,7 @@ from ..token import Token
 from .base_types import (
     EikoBaseType,
     EikoBool,
+    EikoDictType,
     EikoFloat,
     EikoInt,
     EikoListType,
@@ -38,6 +39,7 @@ _builtins: Dict[str, _StorableTypes] = {
     "Union": EikoUnion,
     "Optional": EikoOptional,
     "List": EikoListType,
+    "Dict": EikoDictType,
 }
 
 

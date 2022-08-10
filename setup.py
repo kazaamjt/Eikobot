@@ -16,9 +16,12 @@ with open(this_directory / "requirements.txt", encoding="utf-8") as f:
     for line in lines:
         requires.append(line)
 
+with open(this_directory / "VERSION", encoding="utf-8") as f:
+    version = f.read()
+
 setuptools.setup(
     name="eikobot",
-    version="0.0.0",
+    version=version,
     description="The eikobot desired state engine.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -31,6 +34,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
+    package_data={"": ["**/*.eiko", "**/*.py"]},
     python_requires=">=3.10",
     install_requires=requires,
     entry_points={"console_scripts": ["eikobot=eikobot.__main__:cli"]},

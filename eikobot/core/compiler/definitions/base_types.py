@@ -70,6 +70,19 @@ EikoType.type = EikoType("Type")
 eiko_base_type = EikoType("Object")
 
 
+def type_list_to_type(types: List[EikoType]) -> EikoType:
+    """Turns a list of Eiko types in to a single usable type."""
+    if len(types) == 1:
+        _type = types[0]
+    else:
+        union_name = "Union["
+        for sub_type in types:
+            union_name += sub_type.name + ","
+        _type = EikoUnion(union_name[:-1] + "]", types)
+
+    return _type
+
+
 class EikoUnion(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
 
@@ -315,20 +328,6 @@ class EikoResource(EikoBaseType):
         return True
 
 
-class EikoListType(EikoType):
-    """Represents an Eiko Union type, which combines 2 or more types."""
-
-    def __init__(self, element_type: EikoType) -> None:
-        super().__init__(f"List[{element_type.name}]")
-        self.element_type = element_type
-
-    def type_check(self, expected_type: "EikoType") -> bool:
-        if isinstance(expected_type, EikoListType):
-            return self.element_type.type_check(expected_type.element_type)
-
-        return False
-
-
 _builtin_function_type = EikoType("builtin_function", eiko_base_type)
 
 
@@ -389,8 +388,24 @@ class EikoBuiltinFunction(EikoBaseType):
         raise NotImplementedError
 
 
+class EikoListType(EikoType):
+    """Represents an Eiko Union type, which combines 2 or more types."""
+
+    def __init__(self, element_type: EikoType) -> None:
+        super().__init__(f"List[{element_type.name}]")
+        self.element_type = element_type
+
+    def type_check(self, expected_type: "EikoType") -> bool:
+        if isinstance(expected_type, EikoListType):
+            return self.element_type.type_check(expected_type.element_type)
+
+        return False
+
+
 class EikoList(EikoBaseType):
     """Represents a list of objects in the Eiko language."""
+
+    type: EikoListType
 
     def __init__(
         self,
@@ -427,6 +442,7 @@ class EikoList(EikoBaseType):
         return super().get(name, token)
 
     def get_index(self, index: int) -> Optional[EikoBaseType]:
+        """Gets an element by its index, if it exists."""
         try:
             return self.elements[index]
         except IndexError:
@@ -442,6 +458,131 @@ class EikoList(EikoBaseType):
             _repr += extra_indent
             _repr += val.printable(extra_indent)
             _repr += ",\n"
+
+        _repr += indent + "]"
+        return _repr
+
+    def truthiness(self) -> bool:
+        return bool(self.elements)
+
+
+class EikoDictType(EikoType):
+    """Represents an Eiko Union type, which combines 2 or more types."""
+
+    def __init__(self, key_type: EikoType, value_type: EikoType) -> None:
+        super().__init__(f"Dict[{key_type.name}, {value_type.name}]")
+        self.key_type = key_type
+        self.value_type = value_type
+
+    def type_check(self, expected_type: "EikoType") -> bool:
+        if isinstance(expected_type, EikoDictType):
+            if self.key_type.type_check(
+                expected_type.key_type
+            ) and self.value_type.type_check(expected_type.value_type):
+                return True
+
+        return False
+
+
+class EikoDict(EikoBaseType):
+    """Represents a list of objects in the Eiko language."""
+
+    type: EikoDictType
+
+    def __init__(
+        self,
+        key_type: EikoType,
+        value_type: EikoType,
+        elements: Optional[
+            Dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType]
+        ] = None,
+    ) -> None:
+        super().__init__(EikoDictType(key_type, value_type))
+        if elements is None:
+            self.elements: Dict[
+                Union[EikoBaseType, bool, float, int, str], EikoBaseType
+            ] = {}
+        else:
+            self.elements = elements
+
+    def update_typing(self, new_type: EikoDictType) -> None:
+        self.type = new_type
+
+    def insert(
+        self,
+        key: EikoBaseType,
+        value: EikoBaseType,
+        key_token: Optional[Token] = None,
+        value_token: Optional[Token] = None,
+    ) -> bool:
+        """Insert an element in to the dictionary"""
+        if not self.type.key_type.type_check(key.type):
+            raise EikoCompilationError(
+                f"Expected key of type '{self.type.key_type}', but was given type {key.type}",
+                token=key_token,
+            )
+
+        if not self.type.value_type.type_check(value.type):
+            raise EikoCompilationError(
+                f"Expected key of type '{self.type.value_type}', but was given type {value.type}",
+                token=value_token,
+            )
+
+        _key: Union[EikoBaseType, bool, float, int, str]
+
+        if isinstance(key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+            _key = key.value
+        else:
+            _key = key
+
+        prev_value = self.elements.get(_key)
+        if prev_value is not None:
+            return False
+
+        self.elements[_key] = value
+        return True
+
+    def get_value(self) -> Union[bool, float, int, str]:
+        raise NotImplementedError
+
+    def get_index(
+        self,
+        key: EikoBaseType,
+        key_token: Optional[Token] = None,
+    ) -> EikoBaseType:
+        """Get a value based on it's index."""
+        if not self.type.key_type.type_check(key.type):
+            raise EikoCompilationError(
+                f"Expected key of type '{self.type.key_type}', but got '{key.type}'.",
+                token=key_token,
+            )
+
+        _key: Union[EikoBaseType, bool, float, int, str]
+        if isinstance(key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+            _key = key.value
+        else:
+            _key = key
+
+        value = self.elements.get(_key)
+
+        if value is None:
+            raise EikoCompilationError(
+                "No value stored for given key.",
+                token=key_token,
+            )
+
+        return value
+
+    def printable(self, indent: str = "") -> str:
+        extra_indent = indent + "    "
+        _repr = "{\n"
+        for key, val in self.elements.items():
+            _repr += extra_indent
+            if not isinstance(key, EikoBaseType):
+                key = to_eiko(key)
+
+            _repr += key.printable(extra_indent) + ": "
+            _repr += val.printable(extra_indent) + ",\n"
 
         _repr += indent + "]"
         return _repr

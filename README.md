@@ -23,9 +23,8 @@ The little Desired State Engine that made it so.
 - [x] allow for NotSet
 - [x] add a `Union` type
 - [x] add a `List` type
-- [ ] add a `Dict` type
+- [x] add a `Dict` type
 - [x] automatic/lazy sub imports
-- [ ] crud resource
 - [ ] custom constructors
 
 ### STD
@@ -36,7 +35,7 @@ The little Desired State Engine that made it so.
 
 ### Backend
 
-TBD
+- [ ] crud resource
 
 ## Linters, type checkers, testing, etc
 

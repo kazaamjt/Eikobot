@@ -30,6 +30,8 @@ class TokenType(Enum):
     RIGHT_PAREN = auto()
     LEFT_SQ_BRACKET = auto()
     RIGHT_SQ_BRACKET = auto()
+    LEFT_BRACE = auto()
+    RIGHT_BRACE = auto()
     COLON = auto()
     COMMA = auto()
     DOT = auto()

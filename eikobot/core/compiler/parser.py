@@ -9,12 +9,14 @@ These ASTs in turn can be compiled to Eikobot data.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
     EikoBuiltinFunction,
+    EikoDict,
+    EikoDictType,
     EikoFloat,
     EikoInt,
     EikoList,
@@ -27,6 +29,7 @@ from .definitions.base_types import (
     EikoUnset,
     eiko_base_type,
     eiko_none_object,
+    type_list_to_type,
 )
 from .definitions.context import CompilerContext, LazyLoadModule, StorableTypes
 from .definitions.function import (
@@ -433,6 +436,7 @@ class VariableExprAST(ExprAST):
         value: StorableTypes,
         assign_context: Union[CompilerContext, EikoResource],
         compile_context: CompilerContext,
+        _: Token,
     ) -> StorableTypes:
         """Assigns the variable a value."""
         if self.type_expr is not None:
@@ -443,7 +447,11 @@ class VariableExprAST(ExprAST):
                     f" given '{value.type}' but expected '{type_expr}'",
                     token=self.token,
                 )
+
             if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):
+                value.update_typing(type_expr)
+
+            if isinstance(value, EikoDict) and isinstance(type_expr, EikoDictType):
                 value.update_typing(type_expr)
 
         assign_context.set(self.identifier, value, self.token)
@@ -495,12 +503,12 @@ class AssignmentExprAST(ExprAST):
                 token=self.rhs.token,
             )
 
-        if isinstance(self.lhs, (DotExprAST, VariableExprAST)):
-            return self.lhs.assign(assignment_val, context, context)
+        if isinstance(self.lhs, (DotExprAST, VariableExprAST, IndexExprAst)):
+            return self.lhs.assign(assignment_val, context, context, self.rhs.token)
 
         raise EikoCompilationError(
             "Assignment operation expected assignable variable on left hand side",
-            token=self.token,
+            token=self.lhs.token,
         )
 
 
@@ -529,12 +537,16 @@ class DotExprAST(ExprAST):
         )
 
     def assign(
-        self, value: StorableTypes, context: CompilerContext, _: CompilerContext
+        self,
+        value: StorableTypes,
+        context: CompilerContext,
+        _: CompilerContext,
+        value_token: Token,
     ) -> StorableTypes:
         """Assign this dot expression a value of some kind."""
         lhs = self.lhs.compile(context)
         if isinstance(lhs, (EikoResource, CompilerContext)):
-            self.rhs.assign(value, lhs, context)
+            self.rhs.assign(value, lhs, context, value_token)
             return value
 
         raise EikoCompilationError(
@@ -581,13 +593,7 @@ class ListExprAST(ExprAST):
                 if element.type not in _types:
                     _types.append(element.type)
 
-                if len(_types) == 1:
-                    _type = _types[0]
-                else:
-                    union_name = "Union["
-                    for sub_type in _types:
-                        union_name += sub_type.name + ","
-                    _type = EikoUnion(union_name[:-1] + "]", _types)
+            _type = type_list_to_type(_types)
 
             return EikoList(_type, _elements)
 
@@ -697,15 +703,14 @@ class IndexExprAst(ExprAST):
 
     def __post_init__(self) -> None:
         self.identifier = self.identifier_expr.identifier
-
-    def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
-        indexed_item = self.identifier_expr.compile(context)
         if len(self.index_expr.elements) != 1:
             raise EikoCompilationError(
                 "Expected exactly 1 argument for index expression.",
                 token=self.index_expr.token,
             )
 
+    def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
+        indexed_item = self.identifier_expr.compile(context)
         index = self.index_expr.elements[0].compile(context)
 
         if isinstance(indexed_item, EikoList):
@@ -724,10 +729,50 @@ class IndexExprAst(ExprAST):
 
             return value
 
+        if isinstance(indexed_item, EikoDict):
+            if not isinstance(index, EikoBaseType):
+                raise EikoCompilationError(
+                    "Illegal expression for dictionairy index.",
+                    token=self.index_expr.token,
+                )
+            return indexed_item.get_index(index, self.index_expr.elements[0].token)
+
         raise EikoCompilationError(
             "Expression is not indexable.",
             token=self.token,
         )
+
+    def assign(
+        self,
+        value: StorableTypes,
+        context: CompilerContext,
+        _: CompilerContext,
+        value_token: Token,
+    ) -> StorableTypes:
+        """Assign this index expression a value of some kind."""
+        indexed_item = self.identifier_expr.compile(context)
+        index = self.index_expr.elements[0].compile(context)
+        if not isinstance(indexed_item, EikoDict):
+            raise EikoCompilationError(
+                f"'{self.identifier}' is not an indexable item.",
+                token=self.token,
+            )
+
+        if not isinstance(index, EikoBaseType):
+            raise EikoCompilationError(
+                "Illegal expression for dictionairy index.",
+                token=self.index_expr.token,
+            )
+
+        if not isinstance(value, EikoBaseType):
+            raise EikoCompilationError(
+                "Illegal expression for dictionairy value.",
+                token=value_token,
+            )
+
+        indexed_item.insert(index, value)
+
+        return value
 
 
 @dataclass
@@ -1046,10 +1091,64 @@ class TypeExprAST(ExprAST):
             compiled_expr = self.sub_expressions[0].compile(context)
             return EikoListType(compiled_expr)
 
+        if primary_type is EikoDictType:
+            if len(self.sub_expressions) != 2:
+                raise EikoCompilationError(
+                    "Dict type expects exactly 2 type arguments.", token=self.token
+                )
+
+            return EikoDictType(
+                self.sub_expressions[0].compile(context),
+                self.sub_expressions[1].compile(context),
+            )
+
         raise EikoCompilationError(
             "Not a valid type expressions.",
             token=self.token,
         )
+
+
+@dataclass
+class DictExprAST(ExprAST):
+    """A Dict of some type."""
+
+    kv_pairs: List[Tuple[ExprAST, ExprAST]]
+
+    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+        key_types: List[EikoType] = []
+        value_types: List[EikoType] = []
+        elements: Dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType] = {}
+        for key, value in self.kv_pairs:
+            compiled_key = key.compile(context)
+            if not isinstance(compiled_key, EikoBaseType):
+                raise EikoCompilationError(
+                    "Invalid dictionary key expression.",
+                    token=key.token,
+                )
+            if compiled_key.type not in key_types:
+                key_types.append(compiled_key.type)
+
+            compiled_value = value.compile(context)
+            if not isinstance(compiled_value, EikoBaseType):
+                raise EikoCompilationError(
+                    "Invalid dictionary value expression.",
+                    token=key.token,
+                )
+            if compiled_value.type not in value_types:
+                value_types.append(compiled_value.type)
+
+            _key: Union[EikoBaseType, bool, float, int, str]
+            if isinstance(compiled_key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+                _key = compiled_key.value
+            else:
+                _key = compiled_key
+
+            elements[_key] = compiled_value
+
+        key_type = type_list_to_type(key_types)
+        value_type = type_list_to_type(value_types)
+
+        return EikoDict(key_type, value_type, elements)
 
 
 class Parser:
@@ -1215,8 +1314,12 @@ class Parser:
             return self._parse_typedef()
 
         if self._current.type == TokenType.LEFT_SQ_BRACKET:
-            token = self._current
-            return ListExprAST(token, self._parse_list(TokenType.RIGHT_SQ_BRACKET))
+            return ListExprAST(
+                self._current, self._parse_list(TokenType.RIGHT_SQ_BRACKET)
+            )
+
+        if self._current.type == TokenType.LEFT_BRACE:
+            return self._parse_dict()
 
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
@@ -1341,7 +1444,7 @@ class Parser:
 
     def _parse_list(self, closer: TokenType) -> List[ExprAST]:
         expressions: List[ExprAST] = []
-        self._advance()
+        self._advance(skip_indentation=True)
         while True:
             expr = self._parse_expression()
             expressions.append(expr)
@@ -1349,13 +1452,16 @@ class Parser:
                 self._advance()
                 break
 
+            if self._current.type == TokenType.INDENT:
+                self._advance(skip_indentation=True)
+
             if self._current.type != TokenType.COMMA:
                 raise EikoParserError(
-                    "Unexpected token. Expected a comma or right parenthesis.",
+                    "Unexpected token. Expected a ',' or ']'.",
                     token=self._current,
                 )
 
-            self._advance()
+            self._advance(skip_indentation=True)
             if self._current.type == closer:
                 self._advance()
                 break
@@ -1603,3 +1709,37 @@ class Parser:
                     )
 
         return TypeExprAST(primary_expr.token, primary_expr, sub_expressions)
+
+    def _parse_dict(self) -> DictExprAST:
+        token = self._current
+        kv_pairs: List[Tuple[ExprAST, ExprAST]] = []
+        self._advance(skip_indentation=True)
+
+        while True:
+            key_expr = self._parse_expression()
+            if self._current.type != TokenType.COLON:
+                raise EikoParserError(
+                    "Expected a ':' after a key expression.",
+                    token=self._current,
+                )
+
+            self._advance(skip_indentation=True)
+            value_expr = self._parse_expression()
+            kv_pairs.append((key_expr, value_expr))
+
+            if self._current.type == TokenType.RIGHT_BRACE:
+                self._advance()
+                break
+
+            if self._current.type != TokenType.COMMA:
+                raise EikoParserError(
+                    "Expected a ',' or a '}'",
+                    token=self._current,
+                )
+            self._advance(skip_indentation=True)
+
+            if self._current.type == TokenType.RIGHT_BRACE:
+                self._advance()
+                break
+
+        return DictExprAST(token, kv_pairs)

@@ -111,3 +111,9 @@ def eiko_union_file() -> Iterable[Path]:
 def eiko_list_file() -> Iterable[Path]:
     _file = get_file("test_list.eiko")
     yield _file
+
+
+@pytest.fixture
+def eiko_dict_file() -> Iterable[Path]:
+    _file = get_file("test_dict.eiko")
+    yield _file

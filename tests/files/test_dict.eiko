@@ -1,0 +1,8 @@
+test_dict: Dict[str, Union[str, int, bool]] = {
+    "key_1": "string_1",
+    "key_2": "string_2",
+    "key_3": 3,
+}
+
+a = test_dict["key_2"]
+test_dict["key_4"] = True
