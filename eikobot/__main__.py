@@ -4,12 +4,13 @@ Schould only contain things related to the client cli.
 """
 import sys
 from pathlib import Path
+import traceback
 
 import click
 
 from .core import logger
 from .core.compiler import Compiler
-from .core.compiler.errors import EikoError
+from .core.compiler.errors import EikoError, EikoPluginError
 from .core.compiler.lexer import Token
 from .core.compiler.misc import Index
 
@@ -42,7 +43,12 @@ def print_error_trace(index: Index) -> None:
     is_flag=True,
     help="Outputs a human readable version of compiler context.",
 )
-def compile_cmd(file: str, output_model: bool = False) -> None:
+@click.option(
+    "--enable-plugin-stacktrace",
+    is_flag=True,
+    help="Outputs a plugins stacktrace if it raises an exception.",
+)
+def compile_cmd(file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False) -> None:
     """
     Compile an eikobot file.
     """
@@ -58,20 +64,30 @@ def compile_cmd(file: str, output_model: bool = False) -> None:
         compiler.compile(file_path)
     except EikoError as e:
         logger.error(str(e))
+
         if e.index is not None:
             print_error_trace(e.index)
+
+        if isinstance(e, EikoPluginError):
+            if e.python_exception is not None:
+                logger.error("Python error: " + str(e.python_exception))
+                if enable_plugin_stacktrace:
+                    logger.error("Python plugin stacktrace (ignore the first line):")
+                    traceback.print_exception(e.python_exception)  # type: ignore
+                else:
+                    logger.error("To view the python plugin stacktrace, use '--enable-plugin-stacktrace'")
+
 
     except NotImplementedError as e:
         logger.error("Congratz, you made something unexpected and terrible happen!")
         logger.error("Please report this error on https://github.com/kazaamjt/Eikobot")
         try:
             token = e.args[0]
-        except IndexError:
-            pass
-        else:
             if isinstance(token, Token):
                 logger.error("Got stuck here:")
                 print_error_trace(token.index)
+        except IndexError:
+            pass
 
     else:
         if output_model:

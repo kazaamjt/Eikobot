@@ -2,10 +2,12 @@
 While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
+import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
 
-from ..errors import EikoCompilationError
+from ...plugin import EikoPluginException
+from ..errors import EikoCompilationError, EikoPluginError
 from ..token import Token
 from .base_types import (
     EikoBaseType,
@@ -172,7 +174,7 @@ class PluginDefinition(EikoBaseType):
         self.args.append(arg)
 
     def execute(
-        self, args: List["ExprAST"], context: "CompilerContext"
+        self, args: List["ExprAST"], context: "CompilerContext", token: Optional[Token]
     ) -> Optional[EikoBaseType]:
         """Execute the stored function and coerces types."""
 
@@ -180,7 +182,16 @@ class PluginDefinition(EikoBaseType):
         for i, arg in enumerate(args):
             stable_args.append(self._handle_arg(arg, context, self.args[i]))
 
-        val = self.body(*stable_args)
+        try:
+            val = self.body(*stable_args)
+        except EikoPluginException as e:
+            raise EikoPluginError(str(e), token=token) from e
+        except Exception as e:
+            raise EikoPluginError(
+                f"An unhandled exception occured while executing plugin '{self.identifier}'",
+                token=token,
+                python_exception=e,
+            ) from e
 
         return to_eiko(val)
 

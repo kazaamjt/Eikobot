@@ -1,7 +1,7 @@
 """
 Error types raised by the Eikobot compiler.
 """
-from typing import Optional
+from typing import List, Optional
 
 from .misc import Index
 from .token import Token
@@ -63,3 +63,19 @@ class EikoCompilationError(EikoError):
         self, reason: str, *args: object, token: Optional[Token] = None
     ) -> None:
         super().__init__("CompilationError: " + reason, *args, token=token)
+
+
+class EikoPluginError(EikoError):
+    """
+    An error that happened while calling a plugin.
+    """
+
+    def __init__(
+        self,
+        reason: str,
+        *args: object,
+        token: Optional[Token] = None,
+        python_exception: Optional[Exception] = None,
+    ) -> None:
+        super().__init__("PluginError: " + reason, *args, token=token)
+        self.python_exception = python_exception

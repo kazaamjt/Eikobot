@@ -657,7 +657,9 @@ class CallExprAst(ExprAST):
             plugin_context = CompilerContext(
                 f"{self.identifier}-plugin-call-context", context
             )
-            return eiko_callable.execute(self.args.elements, plugin_context)
+            return eiko_callable.execute(
+                self.args.elements, plugin_context, token=self.token
+            )
 
         if isinstance(eiko_callable, EikoTypeDef):
             if len(self.args.elements) != 1:
@@ -1446,6 +1448,10 @@ class Parser:
         expressions: List[ExprAST] = []
         self._advance(skip_indentation=True)
         while True:
+            if self._current.type == closer:
+                self._advance()
+                break
+
             expr = self._parse_expression()
             expressions.append(expr)
             if self._current.type == closer:

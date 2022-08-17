@@ -20,3 +20,9 @@ def eiko_plugin(alias: Optional[str] = None) -> Callable:
         return function
 
     return _eiko_plugin
+
+
+class EikoPluginException(Exception):
+    """
+    If something goes wrong inside a plugin, this error should be thrown.
+    """
