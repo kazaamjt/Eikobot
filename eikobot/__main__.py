@@ -3,8 +3,8 @@ The entrypoint to the client application.
 Schould only contain things related to the client cli.
 """
 import sys
-from pathlib import Path
 import traceback
+from pathlib import Path
 
 import click
 
@@ -48,7 +48,9 @@ def print_error_trace(index: Index) -> None:
     is_flag=True,
     help="Outputs a plugins stacktrace if it raises an exception.",
 )
-def compile_cmd(file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False) -> None:
+def compile_cmd(
+    file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False
+) -> None:
     """
     Compile an eikobot file.
     """
@@ -75,8 +77,9 @@ def compile_cmd(file: str, output_model: bool = False, enable_plugin_stacktrace:
                     logger.error("Python plugin stacktrace (ignore the first line):")
                     traceback.print_exception(e.python_exception)  # type: ignore
                 else:
-                    logger.error("To view the python plugin stacktrace, use '--enable-plugin-stacktrace'")
-
+                    logger.error(
+                        "To view the python plugin stacktrace, use '--enable-plugin-stacktrace'"
+                    )
 
     except NotImplementedError as e:
         logger.error("Congratz, you made something unexpected and terrible happen!")
@@ -91,7 +94,7 @@ def compile_cmd(file: str, output_model: bool = False, enable_plugin_stacktrace:
 
     else:
         if output_model:
-            logger.info("Model result:")
+            logger.info("resulting model context:")
             print(compiler.context)
 
 

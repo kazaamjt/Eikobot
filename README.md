@@ -1,6 +1,43 @@
 # Eikobot Desired State Engine
 
-The little Desired State Engine that made it so.  
+*The little Desired State Engine that made it so.*  
+
+Eikobot is a desired state orchestrator.  
+The basic idea is that you describe your infrastructure and eikobot
+will make it happen.  
+
+The language is akin to python, as this is a commonly used language
+and the language in which eikobot and eikobot plugins are written.  
+
+Once you have installed Eikobot,
+you can get familiar with Eikobot language by reading [the basic instructions](https://github.com/kazaamjt/Eikobot/blob/main/docs/basics.md)
+
+## Installation
+
+Eikobot requires python 3.10 or up and has 2 external dependencies that can be install using pip.  
+In fact, Eikobot can be installed using pip as well.  
+
+Here is an example of how to install Eikobot:  
+(This should work on most platforms, although the python command might be different if you are on windows)
+
+```bash
+python3.10 -m venv eikobot-venv
+eikobot-venv/bin/pip install eikobot
+```
+
+You can now use the eikobot commands,
+either by invoking them directly with their venv path:
+
+```bash
+eikobot-venv/bin/eikobot
+```
+
+Or by activating the venv first:
+
+```bash
+eikobot-venv/bin/activate
+eikobot
+```
 
 ## Roadmap
 

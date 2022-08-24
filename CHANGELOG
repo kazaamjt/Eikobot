@@ -1,0 +1,6 @@
+# 0.2.0
+
+- Added basic tutorial
+- Added exception handling for plugins
+- Added compilation error for empty lists and dicts without typing
+- Fixed a bug in parsing dictionaries
