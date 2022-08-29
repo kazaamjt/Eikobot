@@ -63,12 +63,14 @@ eikobot
 - [x] add a `Dict` type
 - [x] automatic/lazy sub imports
 - [ ] custom constructors
+- [ ] inheritance for `resouce`
+- [ ] add `for` to loop over lists and dicts
 
 ### STD
 
 - [x] add basic regex.match
 - [x] add debug_msg (requires `None`)
-- [ ] add IPv4/IPv6
+- [ ] add IPv4/IPv6 types
 
 ### Backend
 

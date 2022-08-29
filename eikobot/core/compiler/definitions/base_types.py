@@ -584,7 +584,7 @@ class EikoDict(EikoBaseType):
             _repr += key.printable(extra_indent) + ": "
             _repr += val.printable(extra_indent) + ",\n"
 
-        _repr += indent + "]"
+        _repr += indent + "}"
         return _repr
 
     def truthiness(self) -> bool:

@@ -182,6 +182,38 @@ new_dict: Dict[str, str] = {
 }
 ```
 
-Just like variables, keys cannot be reassigned, nor can keys/values be deleted.  
-Also note the typing, expressed as `Dict[key_type, value_type]`.  
+Just like variables, keys cannot be reassigned, nor can keys or values be deleted.  
+Note the typing, expressed as `Dict[key_type, value_type]`.  
+When not typed, it takes all it's initial keys and values,
+and expresses the value as a union of those types.  
 
+### Resources
+
+Finaly we have the `resource` type.  
+`resource` works in a similar way to `struct` or `class` in other languages to create custom objects.  
+
+Using the `resource` keyword, indenting, and typing, we can define it's name and properties:
+
+```Python
+resource Car:
+    brand: str
+    number_of_doors: int
+    number_of_wheels: int = 4
+```
+
+`resource` automatically has a default constructor created, using all it's properties.  
+Properties become the arguments of the constructor, in are in the same order.  
+They have to be typed.  
+A property without default value must have a value passed at creation.  
+
+Calling the constructor is as simple as just calling the class:
+
+```
+car = Car("toyota", 3)
+```
+
+Properties of a resource can be accessed using a `.`:
+
+```Python
+
+```
