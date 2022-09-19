@@ -215,5 +215,5 @@ car = Car("toyota", 3)
 Properties of a resource can be accessed using a `.`:
 
 ```Python
-
+car.brand  # "toyota"
 ```
