@@ -2,7 +2,6 @@
 While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
-import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
 

@@ -139,7 +139,10 @@ def import_python_code(
                     if _obj.alias is not None:
                         plugin_name = _obj.alias
                 logger.debug(f"Importing plugin '{plugin_name}' from {file_path}")
-                context.set(plugin_name, _load_plugin(module_name, plugin_name, _obj))
+                if context.shallow_get(plugin_name) is None:
+                    context.set(
+                        plugin_name, _load_plugin(module_name, plugin_name, _obj)
+                    )
     else:
         logger.debug(f"Found no python plugins for eiko file: {eiko_file_path}")
 
@@ -198,6 +201,10 @@ def _get_submodules(module: Module) -> None:
                 new_module = Module(path.stem, init_file, new_context)
                 module.submodules.append(new_module)
                 _get_submodules(new_module)
+
+        # Assume this has already been imported
+        elif path.name == "__init__.eiko":
+            pass
 
         elif path.suffix == ".eiko":
             module.submodules.append(
