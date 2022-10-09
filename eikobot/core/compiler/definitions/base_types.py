@@ -139,6 +139,9 @@ class EikoBaseType:
     def type_check(self, expected_type: EikoType) -> bool:
         return expected_type.type_check(self.type)
 
+    def index(self) -> str:
+        raise NotImplementedError
+
 
 _eiko_none_type = EikoType("None")
 
@@ -178,6 +181,9 @@ class EikoNone(EikoBaseType):
     def truthiness(self) -> bool:
         return False
 
+    def index(self) -> str:
+        return str(self.value)
+
 
 eiko_none_object = EikoNone()
 _eiko_int_type = EikoType("int")
@@ -201,6 +207,9 @@ class EikoInt(EikoBaseType):
     def truthiness(self) -> bool:
         return bool(self.value)
 
+    def index(self) -> str:
+        return str(self.value)
+
 
 _eiko_float_type = EikoType("float")
 
@@ -222,6 +231,9 @@ class EikoFloat(EikoBaseType):
 
     def truthiness(self) -> bool:
         return bool(self.value)
+
+    def index(self) -> str:
+        return str(self.value)
 
 
 EikoNumber = Union[EikoInt, EikoFloat]
@@ -247,6 +259,9 @@ class EikoBool(EikoBaseType):
     def truthiness(self) -> bool:
         return self.value
 
+    def index(self) -> str:
+        return str(self.value)
+
 
 _eiko_str_type = EikoType("str")
 
@@ -269,6 +284,9 @@ class EikoStr(EikoBaseType):
     def truthiness(self) -> bool:
         return bool(self.value)
 
+    def index(self) -> str:
+        return self.value
+
 
 BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
 
@@ -278,7 +296,11 @@ class EikoResource(EikoBaseType):
 
     def __init__(self, eiko_type: EikoType) -> None:
         super().__init__(eiko_type)
+        self._index: str
         self.properties: Dict[str, EikoBaseType] = {}
+
+    def set_index(self, index: str) -> None:
+        self._index = index
 
     def get(self, name: str, token: Optional[Token] = None) -> EikoBaseType:
         value = self.properties.get(name)
@@ -327,7 +349,11 @@ class EikoResource(EikoBaseType):
     def truthiness(self) -> bool:
         return True
 
+    def index(self) -> str:
+        return self._index
 
+
+INDEXABLE_TYPES = (EikoBool, EikoFloat, EikoInt, EikoNone, EikoStr, EikoResource)
 _builtin_function_type = EikoType("builtin_function", eiko_base_type)
 
 

@@ -4,3 +4,6 @@
 - Added exception handling for plugins
 - Added compilation error for empty lists and dicts without typing
 - Fixed a bug in parsing dictionaries
+- Fixed a bug where importing from the same module using multiple statements resulted in an error
+- Fixed a bug where a dot-expressed callable would wrongly refer to the dot-token instead of the identifier
+- Added decorators, indexes on resources and index decorator

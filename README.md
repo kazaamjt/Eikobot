@@ -43,6 +43,8 @@ eikobot
 
 ### Frontend
 
+Features and bug fixes:
+
 - [x] basic lexer
 - [x] basic expression parser
 - [x] basic types (bool, int, float, string)
@@ -62,9 +64,19 @@ eikobot
 - [x] add a `List` type
 - [x] add a `Dict` type
 - [x] automatic/lazy sub imports
+- [x] add decorators
+- [x] indexes used to track items
+- [ ] add handlers, that reflect how a resource is deployed (needed for backend)
 - [ ] custom constructors
-- [ ] inheritance for `resouce`
-- [ ] add `for` to loop over lists and dicts
+- [ ] inheritance for `resource`
+- [ ] add `Tuple` data type and automatic unpacking of tuples
+- [ ] add `for` keyword, to loop over lists and dicts
+- [ ] Expand type system (take module in to account)
+
+
+Code cleanup:
+
+- [ ] Implement an `expects` function for parser, raise if token is not correct type
 
 ### STD
 
@@ -74,7 +86,7 @@ eikobot
 
 ### Backend
 
-- [ ] crud resource
+TBD
 
 ## Linters, type checkers, testing, etc
 

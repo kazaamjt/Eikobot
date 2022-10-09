@@ -9,6 +9,7 @@ from ...plugin import EikoPluginException
 from ..errors import EikoCompilationError, EikoPluginError
 from ..token import Token
 from .base_types import (
+    INDEXABLE_TYPES,
     EikoBaseType,
     EikoResource,
     EikoType,
@@ -44,6 +45,7 @@ class ConstructorDefinition(EikoBaseType):
         self.args: Dict[str, ConstructorArg] = {}
         self.body: List["ExprAST"] = []
         self.execution_context = execution_context
+        self.index_def: List[str] = []
 
     def printable(self, _: str = "") -> str:
         raise NotImplementedError
@@ -79,7 +81,7 @@ class ConstructorDefinition(EikoBaseType):
             if arg_name not in handled_args:
                 if arg.default_value is None:
                     raise EikoCompilationError(
-                        f"Argument '{arg_name}' for '{callee_token.content}' requires a value.",
+                        f"Argument '{arg_name}' for callable '{callee_token.content}' requires a value.",
                         token=callee_token,
                     )
 
@@ -91,6 +93,19 @@ class ConstructorDefinition(EikoBaseType):
 
         for expr in self.body:
             expr.compile(context)
+
+        res_index = ""
+
+        for property_name in self.index_def:
+            index_prop = resource.properties.get(property_name)
+            if not isinstance(index_prop, INDEXABLE_TYPES):
+                raise EikoCompilationError(
+                    f"Property '{property_name}' does not contain an indexable value."
+                )
+
+            res_index += "-" + index_prop.index()
+
+        resource.set_index(res_index[1:])
 
         return resource
 

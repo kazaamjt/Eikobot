@@ -5,6 +5,7 @@ Used both by files/modules and fucntions.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
+from ..decorator import index_decorator
 from ..errors import EikoCompilationError
 from ..importlib import import_python_code
 from ..token import Token
@@ -40,6 +41,7 @@ _builtins: Dict[str, _StorableTypes] = {
     "Optional": EikoOptional,
     "List": EikoListType,
     "Dict": EikoDictType,
+    "index": index_decorator,
 }
 
 

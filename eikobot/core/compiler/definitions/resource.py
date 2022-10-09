@@ -25,7 +25,7 @@ class ResourceProperty:
 
 
 class ResourceDefinition(EikoBaseType):
-    """Internal representation of a constructor."""
+    """Internal representation of a resource definition."""
 
     def __init__(
         self,
@@ -39,6 +39,7 @@ class ResourceDefinition(EikoBaseType):
         self.name = name
         self.default_constructor = default_constructor
         self.properties = properties
+        self.index_def = [list(properties.keys())[0]]
 
     def printable(self, _: str = "") -> str:
         return f"Resource Definition '{self.name}'"

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
+from .decorator import EikoDecorator
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -498,6 +499,9 @@ class VariableExprAST(ExprAST):
 
         return value
 
+    def get_identifier_token(self) -> Token:
+        return self.token
+
 
 @dataclass
 class AssignmentExprAST(ExprAST):
@@ -579,6 +583,9 @@ class DotExprAST(ExprAST):
             )
 
         import_list.append(self.rhs.identifier)
+
+    def get_identifier_token(self) -> Token:
+        return self.rhs.get_identifier_token()
 
 
 @dataclass
@@ -710,7 +717,7 @@ class CallExprAst(ExprAST):
 
 @dataclass
 class IndexExprAst(ExprAST):
-    """An AST expressing a resource-constructor or plugin."""
+    """An AST expressing an object being accessed by index."""
 
     identifier_expr: Union[DotExprAST, VariableExprAST]
     index_expr: ListExprAST
@@ -843,12 +850,42 @@ class ResourcePropertyAST:
 
 
 @dataclass
+class DecoratorExprAST(ExprAST):
+    """A decorator, used to decorate resource definitions."""
+
+    identifier: VariableExprAST
+    args: List[ExprAST]
+
+    def __post_init__(self) -> None:
+        self.compiled_args: List[StorableTypes] = []
+
+    def compile(self, context: CompilerContext) -> EikoDecorator:
+        decorator = self.identifier.compile(context)
+        if not isinstance(decorator, EikoDecorator):
+            raise EikoCompilationError(
+                "Decorator call applied to non decorator.", token=self.token
+            )
+
+        for arg in self.args:
+            _arg = arg.compile(context)
+            if _arg is None:
+                raise EikoCompilationError(
+                    "Expression did not return a value, but decorator expected a value.",
+                    token=arg.token,
+                )
+            self.compiled_args.append(_arg)
+
+        return decorator
+
+
+@dataclass
 class ResourceDefinitionAST(ExprAST):
     """
     A resource definition represents the resources properties and constructors.
     """
 
     name: str
+    decorators: List[DecoratorExprAST]
 
     def __post_init__(self) -> None:
         self.type = EikoType(self.name, eiko_base_type)
@@ -891,12 +928,19 @@ class ResourceDefinitionAST(ExprAST):
                 ),
             )
 
-        resource_definition = ResourceDefinition(
+        resource_def = ResourceDefinition(
             self.name, self.token, default_constructor, properties
         )
-        context.set(self.name, resource_definition, self.token)
 
-        return resource_definition
+        for decorator in self.decorators:
+            decorator.compile(context).execute(
+                resource_def, decorator.compiled_args, decorator.token
+            )
+
+        resource_def.default_constructor.index_def = resource_def.index_def
+        context.set(self.name, resource_def, self.token)
+
+        return resource_def
 
 
 @dataclass
@@ -1261,7 +1305,7 @@ class Parser:
             return EOFExprAST(self._current)
 
         if self._current.type == TokenType.RESOURCE:
-            return self._parse_resource_definition()
+            return self._parse_resource_definition([])
 
         if self._current.type == TokenType.IMPORT:
             return self._parse_import()
@@ -1334,6 +1378,9 @@ class Parser:
 
         if self._current.type == TokenType.LEFT_BRACE:
             return self._parse_dict()
+
+        if self._current.type == TokenType.AT_SIGN:
+            return self._parse_decorator([])
 
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
@@ -1419,7 +1466,7 @@ class Parser:
             elif bin_op_token.type == TokenType.LEFT_PAREN:
                 if isinstance(lhs, (DotExprAST, VariableExprAST)):
                     if isinstance(rhs, ListExprAST):
-                        lhs = CallExprAst(lhs.token, lhs, rhs)
+                        lhs = CallExprAst(lhs.get_identifier_token(), lhs, rhs)
                     else:
                         raise EikoParserError(
                             "Unexpected expression. "
@@ -1487,7 +1534,47 @@ class Parser:
 
         return expressions
 
-    def _parse_resource_definition(self) -> ResourceDefinitionAST:
+    def _parse_decorator(
+        self, decorators: List[DecoratorExprAST]
+    ) -> ResourceDefinitionAST:
+        deco_token = self._current
+        self._advance()
+        if self._current.type != TokenType.IDENTIFIER:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, "
+                "expected resource identifier.",
+                token=self._next,
+            )
+
+        identifier = VariableExprAST(self._current)
+        self._advance()
+        if self._current.type == TokenType.LEFT_PAREN:
+            list_expr = self._parse_list(TokenType.RIGHT_PAREN)
+        else:
+            list_expr = []
+        deco_expr = DecoratorExprAST(deco_token, identifier, list_expr)
+        decorators.append(deco_expr)
+        if self._current.type != TokenType.INDENT and self._current.content != "":
+            raise EikoParserError(
+                "Unexpected token.",
+                token=self._current,
+            )
+        self._advance(skip_indentation=True)
+
+        if self._current.type == TokenType.AT_SIGN:
+            return self._parse_decorator(decorators)
+
+        if self._current.type == TokenType.RESOURCE:
+            return self._parse_resource_definition(decorators)
+
+        raise EikoCompilationError(
+            "Expected a resource definition after a decorator.",
+            token=self._current,
+        )
+
+    def _parse_resource_definition(
+        self, decorators: List[DecoratorExprAST]
+    ) -> ResourceDefinitionAST:
         if self._next.type != TokenType.IDENTIFIER:
             raise EikoParserError(
                 f"Unexpected token {self._next.content}, "
@@ -1495,7 +1582,7 @@ class Parser:
                 token=self._next,
             )
 
-        rd_ast = ResourceDefinitionAST(self._current, self._next.content)
+        rd_ast = ResourceDefinitionAST(self._current, self._next.content, decorators)
 
         self._advance()
         self._advance()
