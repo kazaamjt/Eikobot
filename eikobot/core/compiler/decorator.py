@@ -64,7 +64,7 @@ def _index_decorator(
     res_def: ResourceDefinition, args: List, call_token: Token
 ) -> None:
     index: EikoList = args[0]
-    new_index: List[str] = []
+    new_index: List[str] = [res_def.name]
     for arg in index.elements:
         if not isinstance(arg, EikoStr):
             raise EikoCompilationError(

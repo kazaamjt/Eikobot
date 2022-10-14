@@ -15,20 +15,26 @@ from .decorator import EikoDecorator
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
+    EikoBoolType,
     EikoBuiltinFunction,
     EikoDict,
     EikoDictType,
     EikoFloat,
+    EikoFloatType,
     EikoInt,
+    EikoIntType,
     EikoList,
     EikoListType,
+    EikoNone,
+    EikoNoneType,
+    EikoObjectType,
     EikoOptional,
     EikoResource,
     EikoStr,
+    EikoStrType,
     EikoType,
     EikoUnion,
     EikoUnset,
-    eiko_base_type,
     eiko_none_object,
     type_list_to_type,
 )
@@ -56,7 +62,7 @@ from .importlib import (
 from .lexer import Lexer
 from .misc import Index
 from .ops import BINOP_MATRIX, BinOP, ComparisonOP, compare
-from .token import Token, TokenType
+from .token import Token, TokenType, token_to_char
 
 
 @dataclass
@@ -888,7 +894,7 @@ class ResourceDefinitionAST(ExprAST):
     decorators: List[DecoratorExprAST]
 
     def __post_init__(self) -> None:
-        self.type = EikoType(self.name, eiko_base_type)
+        self.type = EikoType(self.name, EikoObjectType)
         self.properties: Dict[str, ResourcePropertyAST] = {}
 
     def add_property(self, new_property: ResourcePropertyAST) -> None:
@@ -897,7 +903,7 @@ class ResourceDefinitionAST(ExprAST):
     def compile(self, context: CompilerContext) -> ResourceDefinition:
         properties: Dict[str, ResourceProperty] = {}
 
-        default_constructor = ConstructorDefinition(self.name + ".__init__", context)
+        default_constructor = ConstructorDefinition(self.name, ".__init__", context)
         default_constructor.add_arg(ConstructorArg("self", self.type))
         for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
@@ -1090,6 +1096,15 @@ class TypedefExprAST(ExprAST):
             )
 
 
+eiko_indexable_types = (
+    EikoBoolType,
+    EikoFloatType,
+    EikoIntType,
+    EikoNoneType,
+    EikoStrType,
+)
+
+
 @dataclass
 class TypeExprAST(ExprAST):
     """An ExprAST expressing a complex type."""
@@ -1155,15 +1170,36 @@ class TypeExprAST(ExprAST):
                     "Dict type expects exactly 2 type arguments.", token=self.token
                 )
 
-            return EikoDictType(
-                self.sub_expressions[0].compile(context),
-                self.sub_expressions[1].compile(context),
-            )
+            key_type = self.sub_expressions[0].compile(context)
+            if isinstance(key_type, EikoUnion):
+                for _sub_type in key_type.types:
+                    if not self._is_valid_dict_key_type(_sub_type):
+                        raise EikoCompilationError(
+                            f"Type '{_sub_type.name}' can not be used for dictionary indexes.",
+                            token=self.sub_expressions[0].token,
+                        )
+            elif not self._is_valid_dict_key_type(key_type):
+                raise EikoCompilationError(
+                    f"Type '{key_type.name}' can not be used for dictionary indexes.",
+                    token=self.sub_expressions[0].token,
+                )
+
+            return EikoDictType(key_type, self.sub_expressions[1].compile(context))
 
         raise EikoCompilationError(
             "Not a valid type expressions.",
             token=self.token,
         )
+
+    @staticmethod
+    def _is_valid_dict_key_type(_type: EikoType) -> bool:
+        if _type in eiko_indexable_types:
+            return True
+
+        if _type.get_top_level_type() == EikoObjectType:
+            return True
+
+        return False
 
 
 @dataclass
@@ -1198,8 +1234,13 @@ class DictExprAST(ExprAST):
             _key: Union[EikoBaseType, bool, float, int, str]
             if isinstance(compiled_key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
                 _key = compiled_key.value
-            else:
+            elif isinstance(compiled_key, (EikoNone, EikoResource)):
                 _key = compiled_key
+            else:
+                raise EikoCompilationError(
+                    f"Object of type '{compiled_key.type.name}' can not be for keys in dictionairies.",
+                    token=key.token,
+                )
 
             elements[_key] = compiled_value
 
@@ -1521,9 +1562,14 @@ class Parser:
             if self._current.type == TokenType.INDENT:
                 self._advance(skip_indentation=True)
 
+            if self._current.type == closer:
+                self._advance()
+                break
+
             if self._current.type != TokenType.COMMA:
+                closer_char = token_to_char.get(closer, "??")
                 raise EikoParserError(
-                    "Unexpected token. Expected a ',' or ']'.",
+                    f"Unexpected token. Expected a ',' or a '{closer_char}'.",
                     token=self._current,
                 )
 

@@ -90,8 +90,13 @@ class CompilerContext:
                 return_str += value.__repr__(extra_indent)
             elif isinstance(value, LazyLoadModule):
                 pass
+            elif isinstance(value, ResourceDefinition):
+                return_str += value.printable(extra_indent)
             elif isinstance(value, EikoBaseType):
-                return_str += f"{extra_indent}var '{key}' {value.type}: {value.printable(extra_indent)}\n"
+                extra_extra_indent = extra_indent + "    "
+                return_str += f"{extra_indent}var '{key}':\n"
+                return_str += extra_extra_indent + value.printable(extra_extra_indent)
+                return_str += "\n"
             else:
                 return_str += f"{extra_indent}{key}: {value}\n"
 

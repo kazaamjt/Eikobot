@@ -6,4 +6,8 @@
 - Fixed a bug in parsing dictionaries
 - Fixed a bug where importing from the same module using multiple statements resulted in an error
 - Fixed a bug where a dot-expressed callable would wrongly refer to the dot-token instead of the identifier
-- Added decorators, indexes on resources and index decorator
+- Added decorators
+- Added indexes on resources and added an index decorator
+- Restrict valid types for dictionary keys
+- Fixed a bug where no trialing comma in a list caused a syntax error
+- 

@@ -66,7 +66,7 @@ Features and bug fixes:
 - [x] automatic/lazy sub imports
 - [x] add decorators
 - [x] indexes used to track items
-- [ ] add handlers, that reflect how a resource is deployed (needed for backend)
+- [ ] link handlers to resources
 - [ ] custom constructors
 - [ ] inheritance for `resource`
 - [ ] add `Tuple` data type and automatic unpacking of tuples
@@ -86,7 +86,7 @@ Code cleanup:
 
 ### Backend
 
-TBD
+- [ ] add handlers, that reflect how a resource is deployed
 
 ## Linters, type checkers, testing, etc
 

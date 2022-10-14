@@ -14,7 +14,7 @@ from typing import (
     Union,
 )
 
-from ..errors import EikoCompilationError
+from ..errors import EikoCompilationError, EikoInternalError
 from ..token import Token
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ class EikoUnset:
 
 
 EikoType.type = EikoType("Type")
-eiko_base_type = EikoType("Object")
+EikoObjectType = EikoType("Object")
 
 
 def type_list_to_type(types: List[EikoType]) -> EikoType:
@@ -110,13 +110,18 @@ class EikoUnion(EikoType):
         return False
 
 
+# Implement this once mypy supports it
+# PyTypes = Union[None, bool, float, int, str, dict["PyTypes", "PyTypes"], List["PyTypes"]]
+PyTypes = Union[None, bool, float, int, str, dict, list]
+
+
 class EikoBaseType:
     """
     The base type represents all objects, it is inherited from by all other types.
     It shouldn't show up naturally anywhere though.
     """
 
-    type = eiko_base_type
+    type = EikoObjectType
 
     def __init__(self, eiko_type: EikoType) -> None:
         self.type = eiko_type
@@ -127,7 +132,7 @@ class EikoBaseType:
             token=token,
         )
 
-    def get_value(self) -> Union[None, bool, float, int, str]:
+    def get_value(self) -> PyTypes:
         raise NotImplementedError
 
     def printable(self, indent: str = "") -> str:
@@ -143,18 +148,18 @@ class EikoBaseType:
         raise NotImplementedError
 
 
-_eiko_none_type = EikoType("None")
+EikoNoneType = EikoType("None")
 
 
 class EikoOptional(EikoType):
     """Eiko optional means a value can be None."""
 
     def __init__(self, optional_type: EikoType) -> None:
-        super().__init__("None", eiko_base_type)
+        super().__init__("None", EikoObjectType)
         self.optional_type = optional_type
 
     def type_check(self, expected_type: "EikoType") -> bool:
-        if expected_type is _eiko_none_type:
+        if expected_type is EikoNoneType:
             return True
 
         return expected_type.type_check(self.optional_type)
@@ -166,9 +171,9 @@ class EikoOptional(EikoType):
 class EikoNone(EikoBaseType):
     """Represents the None Value in the Eiko Language."""
 
-    type = _eiko_none_type
+    type = EikoNoneType
 
-    def __init__(self, eiko_type: EikoType = _eiko_none_type) -> None:
+    def __init__(self, eiko_type: EikoType = EikoNoneType) -> None:
         super().__init__(eiko_type)
         self.value = None
 
@@ -186,15 +191,15 @@ class EikoNone(EikoBaseType):
 
 
 eiko_none_object = EikoNone()
-_eiko_int_type = EikoType("int")
+EikoIntType = EikoType("int")
 
 
 class EikoInt(EikoBaseType):
     """Represents an integer in the Eiko language."""
 
-    type = _eiko_int_type
+    type = EikoIntType
 
-    def __init__(self, value: int, eiko_type: EikoType = _eiko_int_type) -> None:
+    def __init__(self, value: int, eiko_type: EikoType = EikoIntType) -> None:
         super().__init__(eiko_type)
         self.value = value
 
@@ -211,15 +216,15 @@ class EikoInt(EikoBaseType):
         return str(self.value)
 
 
-_eiko_float_type = EikoType("float")
+EikoFloatType = EikoType("float")
 
 
 class EikoFloat(EikoBaseType):
     """Represents a float in the Eiko language."""
 
-    type = _eiko_float_type
+    type = EikoFloatType
 
-    def __init__(self, value: float, eiko_type: EikoType = _eiko_float_type) -> None:
+    def __init__(self, value: float, eiko_type: EikoType = EikoFloatType) -> None:
         super().__init__(eiko_type)
         self.value = value
 
@@ -238,15 +243,15 @@ class EikoFloat(EikoBaseType):
 
 EikoNumber = Union[EikoInt, EikoFloat]
 
-_eiko_bool_type = EikoType("bool")
+EikoBoolType = EikoType("bool")
 
 
 class EikoBool(EikoBaseType):
     """Represents a boolean in the Eiko language."""
 
-    type = _eiko_bool_type
+    type = EikoBoolType
 
-    def __init__(self, value: bool, eiko_type: EikoType = _eiko_bool_type) -> None:
+    def __init__(self, value: bool, eiko_type: EikoType = EikoBoolType) -> None:
         super().__init__(eiko_type)
         self.value = value
 
@@ -263,15 +268,15 @@ class EikoBool(EikoBaseType):
         return str(self.value)
 
 
-_eiko_str_type = EikoType("str")
+EikoStrType = EikoType("str")
 
 
 class EikoStr(EikoBaseType):
     """Represents a string in the Eiko language."""
 
-    type = _eiko_str_type
+    type = EikoStrType
 
-    def __init__(self, value: str, eiko_type: EikoType = _eiko_str_type) -> None:
+    def __init__(self, value: str, eiko_type: EikoType = EikoStrType) -> None:
         super().__init__(eiko_type)
         self.value = value
 
@@ -312,8 +317,8 @@ class EikoResource(EikoBaseType):
 
         return value
 
-    def get_value(self) -> Union[bool, float, int, str]:
-        raise NotImplementedError
+    def get_value(self) -> dict[str, PyTypes]:
+        return {key: value.get_value() for key, value in self.properties.items()}
 
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
         """Set the value of a property, if the value wasn't already assigned."""
@@ -335,7 +340,7 @@ class EikoResource(EikoBaseType):
 
     def printable(self, indent: str = "") -> str:
         extra_indent = indent + "    "
-        _repr = "{\n"
+        _repr = f"{self.type.name} '{self._index}': " + "{\n"
         for name, val in self.properties.items():
             _repr += extra_indent
             _repr += f"{val.type} '{name}': "
@@ -354,7 +359,7 @@ class EikoResource(EikoBaseType):
 
 
 INDEXABLE_TYPES = (EikoBool, EikoFloat, EikoInt, EikoNone, EikoStr, EikoResource)
-_builtin_function_type = EikoType("builtin_function", eiko_base_type)
+_builtin_function_type = EikoType("builtin_function", EikoObjectType)
 
 
 @dataclass
@@ -474,8 +479,8 @@ class EikoList(EikoBaseType):
         except IndexError:
             return None
 
-    def get_value(self) -> Union[bool, float, int, str]:
-        raise NotImplementedError
+    def get_value(self) -> list[PyTypes]:
+        return [value.get_value() for value in self.elements]
 
     def printable(self, indent: str = "") -> str:
         extra_indent = indent + "    "
@@ -490,6 +495,9 @@ class EikoList(EikoBaseType):
 
     def truthiness(self) -> bool:
         return bool(self.elements)
+
+    def index(self) -> str:
+        raise NotImplementedError
 
 
 class EikoDictType(EikoType):
@@ -508,6 +516,15 @@ class EikoDictType(EikoType):
                 return True
 
         return False
+
+
+EikoIndexTypes = Union[
+    bool,
+    float,
+    int,
+    None,
+    str,
+]
 
 
 class EikoDict(EikoBaseType):
@@ -568,8 +585,26 @@ class EikoDict(EikoBaseType):
         self.elements[_key] = value
         return True
 
-    def get_value(self) -> Union[bool, float, int, str]:
-        raise NotImplementedError
+    def get_value(self) -> dict[EikoIndexTypes, PyTypes]:
+        n_dict: dict[EikoIndexTypes, PyTypes] = {}
+        n_key: EikoIndexTypes
+        for key, value in self.elements.items():
+            if isinstance(key, EikoResource):
+                n_key = key.index()
+            elif isinstance(key, (bool, float, int, str)) or key is None:
+                n_key = key
+            elif isinstance(key, (EikoBool, EikoFloat, EikoInt, EikoNone, EikoStr)):
+                n_key = key.get_value()
+            else:
+                raise EikoInternalError(
+                    "A non indexable type was passed to a dictionary, "
+                    "but this should have been caught earlier in the compilation process. "
+                    "Please report this bug."
+                )
+
+            n_dict[n_key] = value.get_value()
+
+        return n_dict
 
     def get_index(
         self,
@@ -615,6 +650,9 @@ class EikoDict(EikoBaseType):
 
     def truthiness(self) -> bool:
         return bool(self.elements)
+
+    def index(self) -> str:
+        raise NotImplementedError
 
 
 def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:

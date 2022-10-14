@@ -6,13 +6,13 @@ from typing import Callable, Optional, Union
 
 from .compiler.definitions.base_types import EikoBaseType
 
-EikoPluginType = Callable[..., Union[None, bool, float, int, str, EikoBaseType]]
+EikoPluginTyping = Callable[..., Union[None, bool, float, int, str, EikoBaseType]]
 
 
 def eiko_plugin(alias: Optional[str] = None) -> Callable:
     """Tags a function as an Eikobot plugin with alias."""
 
-    def _eiko_plugin(function: EikoPluginType) -> EikoPluginType:
+    def _eiko_plugin(function: EikoPluginTyping) -> EikoPluginTyping:
         """Tags a function as an Eikobot plugin."""
         function.eiko_plugin = True  # type: ignore
         function.alias = alias  # type: ignore

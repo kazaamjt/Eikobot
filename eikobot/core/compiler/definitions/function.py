@@ -3,9 +3,9 @@ While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
-from ...plugin import EikoPluginException
+from ...plugin import EikoPluginException, EikoPluginTyping
 from ..errors import EikoCompilationError, EikoPluginError
 from ..token import Token
 from .base_types import (
@@ -14,7 +14,6 @@ from .base_types import (
     EikoResource,
     EikoType,
     PassedArg,
-    eiko_base_type,
     to_eiko,
     to_eiko_type,
     to_py,
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
     from ..parser import ExprAST
     from .context import CompilerContext, StorableTypes
 
-_eiko_function_type = EikoType("function", eiko_base_type)
+EikoFunctionType = EikoType("function")
 
 
 @dataclass
@@ -39,8 +38,11 @@ class ConstructorArg:
 class ConstructorDefinition(EikoBaseType):
     """Internal representation of an Eikobot constructor."""
 
-    def __init__(self, name: str, execution_context: "CompilerContext") -> None:
-        super().__init__(_eiko_function_type)
+    def __init__(
+        self, class_name: str, name: str, execution_context: "CompilerContext"
+    ) -> None:
+        super().__init__(EikoFunctionType)
+        self.class_name = class_name
         self.name = name
         self.args: Dict[str, ConstructorArg] = {}
         self.body: List["ExprAST"] = []
@@ -99,8 +101,9 @@ class ConstructorDefinition(EikoBaseType):
         for property_name in self.index_def:
             index_prop = resource.properties.get(property_name)
             if not isinstance(index_prop, INDEXABLE_TYPES):
+                # Pass a token so we can have a trace.
                 raise EikoCompilationError(
-                    f"Property '{property_name}' does not contain an indexable value."
+                    f"Property '{property_name}' of '{self.class_name}' is not an indexable type."
                 )
 
             res_index += "-" + index_prop.index()
@@ -151,7 +154,7 @@ class ConstructorDefinition(EikoBaseType):
         raise NotImplementedError
 
 
-_eiko_plugin_type = EikoType("plugin", eiko_base_type)
+EikoPluginType = EikoType("plugin")
 
 
 @dataclass
@@ -168,12 +171,12 @@ class PluginDefinition(EikoBaseType):
 
     def __init__(
         self,
-        body: Callable[..., Union[None, bool, float, int, str, EikoBaseType]],
+        body: EikoPluginTyping,
         return_type: Type[EikoBaseType],
         identifier: str,
         module: str,
     ) -> None:
-        super().__init__(_eiko_plugin_type)
+        super().__init__(EikoPluginType)
         self.body = body
         self.return_type = to_eiko_type(return_type)
         self._body_return_type = return_type

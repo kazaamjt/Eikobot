@@ -55,6 +55,19 @@ class TokenType(Enum):
     UNKNOWN = auto()
 
 
+token_to_char = {
+    TokenType.LEFT_PAREN: "(",
+    TokenType.RIGHT_PAREN: ")",
+    TokenType.LEFT_SQ_BRACKET: "[",
+    TokenType.RIGHT_SQ_BRACKET: "]",
+    TokenType.LEFT_BRACE: "{",
+    TokenType.RIGHT_BRACE: "}",
+    TokenType.COMMA: ",",
+    TokenType.DOT: ".",
+    TokenType.AT_SIGN: "@",
+}
+
+
 @dataclass
 class Token:
     """
