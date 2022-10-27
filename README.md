@@ -10,7 +10,7 @@ The language is akin to python, as this is a commonly used language
 and the language in which eikobot and eikobot plugins are written.  
 
 Once you have installed Eikobot,
-you can get familiar with Eikobot language by reading [the basic instructions](https://github.com/kazaamjt/Eikobot/blob/main/docs/basics.md)
+you can get familiar with Eikobot language by reading [the basic instructions](docs/basics.md)
 
 ## Installation
 
