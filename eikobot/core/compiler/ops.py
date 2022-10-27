@@ -4,6 +4,7 @@ allowing the addition, multiplication, division, etc...
 of Eikobot builtin types.
 """
 from enum import Enum, auto
+from pathlib import Path
 from typing import Callable, Dict, Union
 
 from .definitions.base_types import (
@@ -12,6 +13,7 @@ from .definitions.base_types import (
     EikoFloat,
     EikoInt,
     EikoNumber,
+    EikoPath,
     EikoResource,
     EikoStr,
 )
@@ -124,12 +126,17 @@ def multiply_string(a: EikoStr, b: EikoInt) -> EikoStr:
     return EikoStr(a.value * b.value)
 
 
+def divide_path(a: EikoPath, b: Union[EikoPath, EikoStr]) -> EikoPath:
+    return EikoPath(Path(a.value / b.value))
+
+
 BinOpCallable = Union[
     Callable[[EikoInt, EikoInt], EikoBaseType],
     Callable[[EikoStr, EikoInt], EikoBaseType],
     Callable[[EikoStr, EikoStr], EikoBaseType],
     Callable[[EikoNumber, EikoNumber], EikoBaseType],
     Callable[[EikoBaseType, EikoBaseType], EikoBaseType],
+    Callable[[EikoPath, Union[EikoPath, EikoStr]], EikoBaseType],
 ]
 
 BinOpMatrix = Dict[BinOP, BinOpCallable]
@@ -162,6 +169,14 @@ BINOP_MATRIX: Dict[str, Dict[str, BinOpMatrix]] = {
         },
         "str": {
             BinOP.ADD: add_string,
+        },
+    },
+    "Path": {
+        "str": {
+            BinOP.DIVIDE: divide_path,
+        },
+        "path": {
+            BinOP.DIVIDE: divide_path,
         },
     },
 }

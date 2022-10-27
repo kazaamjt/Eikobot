@@ -66,6 +66,8 @@ Features and bug fixes:
 - [x] automatic/lazy sub imports
 - [x] add decorators
 - [x] indexes used to track items
+- [x] constructors for builtin types
+- [x] `Path` type, uses python `Pathlib.Path` underneath
 - [ ] link handlers to resources
 - [ ] custom constructors
 - [ ] inheritance for `resource`
@@ -83,10 +85,13 @@ Code cleanup:
 - [x] add basic regex.match
 - [x] add debug_msg (requires `None`)
 - [ ] add IPv4/IPv6 types
+- [ ] File module
+- [ ] Templates using jinja
 
 ### Backend
 
-- [ ] add handlers, that reflect how a resource is deployed
+- [ ] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
+- [ ] add deployment engine
 
 ## Linters, type checkers, testing, etc
 

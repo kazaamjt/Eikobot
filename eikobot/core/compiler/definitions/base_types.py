@@ -3,6 +3,7 @@ Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
 from dataclasses import dataclass
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -112,7 +113,7 @@ class EikoUnion(EikoType):
 
 # Implement this once mypy supports it
 # PyTypes = Union[None, bool, float, int, str, dict["PyTypes", "PyTypes"], List["PyTypes"]]
-PyTypes = Union[None, bool, float, int, str, dict, list]
+PyTypes = Union[None, bool, float, int, str, dict, list, Path]
 
 
 class EikoBaseType:
@@ -215,6 +216,17 @@ class EikoInt(EikoBaseType):
     def index(self) -> str:
         return str(self.value)
 
+    @classmethod
+    def convert(cls, obj: "BuiltinTypes") -> "EikoInt":
+        """
+        Converts the given value to an EikoInt.
+        """
+        value = obj.get_value()
+        if isinstance(value, (str, int, float)):
+            return cls(int(value))
+
+        raise ValueError
+
 
 EikoFloatType = EikoType("float")
 
@@ -239,6 +251,17 @@ class EikoFloat(EikoBaseType):
 
     def index(self) -> str:
         return str(self.value)
+
+    @classmethod
+    def convert(cls, obj: "BuiltinTypes") -> "EikoFloat":
+        """
+        Converts the given value to an EikoFloat.
+        """
+        value = obj.get_value()
+        if isinstance(value, (str, int, float)):
+            return cls(float(value))
+
+        raise ValueError
 
 
 EikoNumber = Union[EikoInt, EikoFloat]
@@ -267,6 +290,10 @@ class EikoBool(EikoBaseType):
     def index(self) -> str:
         return str(self.value)
 
+    @classmethod
+    def convert(cls, obj: EikoBaseType) -> "EikoBool":
+        return EikoBool(bool(obj.get_value()))
+
 
 EikoStrType = EikoType("str")
 
@@ -292,8 +319,49 @@ class EikoStr(EikoBaseType):
     def index(self) -> str:
         return self.value
 
+    @classmethod
+    def convert(cls, obj: "BuiltinTypes") -> "EikoStr":
+        return cls(str(obj.get_value()))
 
-BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr]
+
+EikoPathType = EikoType("Path")
+
+
+class EikoPath(EikoBaseType):
+    """Represents a string in the Eiko language."""
+
+    type = EikoPathType
+
+    def __init__(self, value: Path, eiko_type: EikoType = EikoPathType) -> None:
+        super().__init__(eiko_type)
+        self.value = value.resolve()
+
+    def get_value(self) -> Path:
+        return self.value
+
+    def printable(self, _: str = "") -> str:
+        return f'{self.type} "{self.value}"'
+
+    def truthiness(self) -> bool:
+        return bool(self.value)
+
+    def index(self) -> str:
+        return str(self.value)
+
+    @classmethod
+    def convert(cls, obj: "BuiltinTypes") -> "EikoPath":
+        """
+        Converts the given value to an EikoPath.
+        """
+        value = obj.get_value()
+        if isinstance(value, str):
+            return cls(Path(value))
+
+        raise ValueError
+
+
+BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone]
+EikoBuiltinTypes = [EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath]
 
 
 class EikoResource(EikoBaseType):
@@ -358,7 +426,15 @@ class EikoResource(EikoBaseType):
         return self._index
 
 
-INDEXABLE_TYPES = (EikoBool, EikoFloat, EikoInt, EikoNone, EikoStr, EikoResource)
+INDEXABLE_TYPES = (
+    EikoBool,
+    EikoFloat,
+    EikoInt,
+    EikoNone,
+    EikoStr,
+    EikoPath,
+    EikoResource,
+)
 _builtin_function_type = EikoType("builtin_function", EikoObjectType)
 
 
@@ -537,14 +613,13 @@ class EikoDict(EikoBaseType):
         key_type: EikoType,
         value_type: EikoType,
         elements: Optional[
-            Dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType]
+            dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType]
         ] = None,
     ) -> None:
         super().__init__(EikoDictType(key_type, value_type))
+        self.elements: dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType]
         if elements is None:
-            self.elements: Dict[
-                Union[EikoBaseType, bool, float, int, str], EikoBaseType
-            ] = {}
+            self.elements = {}
         else:
             self.elements = elements
 
@@ -678,6 +753,9 @@ def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     if cls == str:
         return EikoStr
 
+    if cls == Path:
+        return EikoPath
+
     raise ValueError
 
 
@@ -695,6 +773,9 @@ def to_eiko(value: Any) -> EikoBaseType:
     if isinstance(value, str):
         return EikoStr(value)
 
+    if isinstance(value, Path):
+        return EikoPath(value)
+
     if isinstance(value, EikoBaseType):
         return value
 
@@ -704,9 +785,9 @@ def to_eiko(value: Any) -> EikoBaseType:
     raise ValueError
 
 
-def to_py(value: Any) -> Union[bool, float, int, str]:
+def to_py(value: Any) -> Union[bool, float, int, str, Path]:
     """Takes an Eikobot type and tries to coerce it to a python type."""
-    if isinstance(value, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+    if isinstance(value, (EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath)):
         return value.value
 
     raise ValueError

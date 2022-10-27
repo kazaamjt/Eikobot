@@ -1,0 +1,5 @@
+@index(["target", "path"])
+resource File:
+    target: str
+    path: Path
+    content: str

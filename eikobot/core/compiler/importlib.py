@@ -4,12 +4,13 @@ of both Eiko and Python code.
 """
 import importlib.util
 from dataclasses import dataclass
-from inspect import getfullargspec, getmembers, isfunction
+from inspect import getfullargspec, getmembers, isclass, isfunction
 from pathlib import Path
 from types import FunctionType, ModuleType
 from typing import TYPE_CHECKING, List, Optional
 
 from .. import logger
+from ..backend.handlers import CRUDHandler
 from .definitions.base_types import EikoBaseType
 from .definitions.function import PluginArg, PluginDefinition
 from .errors import EikoCompilationError
@@ -31,6 +32,7 @@ class Module:
 
     def __post_init__(self) -> None:
         self.submodules: List["Module"] = []
+        self.context.set_path(self.path)
 
 
 def resolve_import(
@@ -84,9 +86,9 @@ def resolve_from_import(
     Tries to from import a given path list.
     """
     for _path in PATHS:
-        file_path = _resolve_from_import(import_path.copy(), _path, context)
-        if file_path is not None:
-            return file_path
+        module = _resolve_from_import(import_path.copy(), _path, context)
+        if module is not None:
+            return module
 
     return None
 
@@ -102,6 +104,7 @@ def _resolve_from_import(
         init_file = current_dir / "__init__.eiko"
         if init_file.exists():
             new_context = context.get_or_set_context(current)
+            new_context.set_path(init_file)
             if len(import_path) == 0:
                 module = Module(current_dir.stem, init_file, new_context)
                 _get_submodules(module)
@@ -143,6 +146,13 @@ def import_python_code(
                     context.set(
                         plugin_name, _load_plugin(module_name, plugin_name, _obj)
                     )
+
+            elif (
+                isclass(_obj)
+                and issubclass(_obj, CRUDHandler)
+                and _obj is not CRUDHandler
+            ):
+                logger.debug(f"Importing handler '{_obj.__name__}' from {file_path}")
     else:
         logger.debug(f"Found no python plugins for eiko file: {eiko_file_path}")
 
@@ -176,7 +186,8 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
             raise EikoCompilationError(
                 f"Plugin '{module}.{name}' has no type annotation for argument '{arg_name}'."
             )
-        if not issubclass(arg_annotation, (EikoBaseType, bool, float, int, str)):
+        if not issubclass(arg_annotation, (EikoBaseType, bool, float, int, str, Path)):
+            print(type(arg_annotation))
             raise EikoCompilationError(
                 f"Plugin '{module}.{name}' type annotation for argument '{arg_name}' must be "
                 "'bool', 'float', 'int', 'str' or an eiko type.",

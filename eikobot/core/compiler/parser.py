@@ -17,6 +17,7 @@ from .definitions.base_types import (
     EikoBool,
     EikoBoolType,
     EikoBuiltinFunction,
+    EikoBuiltinTypes,
     EikoDict,
     EikoDictType,
     EikoFloat,
@@ -74,7 +75,7 @@ class ExprAST:
     def __post_init__(self) -> None:
         self.import_context: Optional[CompilerContext] = None
 
-    def compile(self, _: CompilerContext) -> Optional[StorableTypes]:
+    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
         raise NotImplementedError(self.token)
 
 
@@ -311,7 +312,7 @@ class BinOpExprAST(ExprAST):
         arg_a_matrix = BINOP_MATRIX.get(lhs.type.get_top_level_type().name)
         if arg_a_matrix is None:
             raise EikoCompilationError(
-                f"No overload of operation {self.bin_op} for arguments"
+                f"No overload of operation '{self.bin_op}' for arguments "
                 f"of types {lhs.type} and {rhs.type} available.",
                 token=self.token,
             )
@@ -483,7 +484,7 @@ class VariableExprAST(ExprAST):
         if value is None:
             if self.type_expr is None:
                 raise EikoCompilationError(
-                    "Unable to resolve identifier.",
+                    f"Unable to resolve identifier '{self.identifier}'.",
                     token=self.token,
                 )
 
@@ -714,6 +715,29 @@ class CallExprAst(ExprAST):
                 args.append(PassedArg(arg_expr.token, arg_value))
 
             return eiko_callable.execute(self.token, args)
+
+        if eiko_callable in EikoBuiltinTypes:
+            if len(self.args.elements) != 1:
+                raise EikoCompilationError(
+                    f"{eiko_callable.type.name} takes exactly 1 argument.",
+                    token=self.token,
+                )
+
+            compiled_arg = self.args.elements[0].compile(context)
+            if compiled_arg is None:
+                raise EikoCompilationError(
+                    "Expected a value, but expression did not return one.",
+                    token=self.args.elements[0].token,
+                )
+            try:
+                # Unsure how to fix this mypy error...
+                return eiko_callable.convert(compiled_arg)  # type: ignore
+            except ValueError as e:
+                raise EikoCompilationError(
+                    f"Value of type '{compiled_arg.type.name}' "
+                    f"can not be converted to a '{eiko_callable.type.name}'",
+                    token=self.args.elements[0].token,
+                ) from e
 
         raise EikoCompilationError(
             f"{self.identifier} is not callable.",
@@ -971,11 +995,14 @@ class ImportExprAST(ExprAST):
                 token=self.token,
             )
 
-        import_python_code(import_list, module.path, module.context)
+        if not module.context.compiled:
+            import_python_code(import_list, module.path, module.context)
+            parser = Parser(module.path)
+            for expr in parser.parse():
+                expr.compile(module.context)
+            module.context.flag_as_compiled()
+
         init_lazy_load_submodules(module, import_list)
-        parser = Parser(module.path)
-        for expr in parser.parse():
-            expr.compile(module.context)
 
 
 @dataclass
@@ -1004,11 +1031,14 @@ class FromImportExprAST(ExprAST):
                 token=self.token,
             )
 
-        import_python_code(import_module, module.path, module.context)
-        parser = Parser(module.path)
-        for expr in parser.parse():
-            expr.import_context = module.context
-            expr.compile(module.context)
+        if not module.context.compiled:
+            import_python_code(import_module, module.path, module.context)
+            parser = Parser(module.path)
+            for expr in parser.parse():
+                expr.import_context = module.context
+                expr.compile(module.context)
+
+            module.context.flag_as_compiled()
 
         init_lazy_load_submodules(module, import_module)
         for item in self.import_items:

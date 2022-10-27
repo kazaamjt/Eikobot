@@ -3,6 +3,7 @@ While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
 from ...plugin import EikoPluginException, EikoPluginTyping
@@ -99,6 +100,8 @@ class ConstructorDefinition(EikoBaseType):
         res_index = ""
 
         for property_name in self.index_def:
+            if property_name == self.class_name:
+                continue
             index_prop = resource.properties.get(property_name)
             if not isinstance(index_prop, INDEXABLE_TYPES):
                 # Pass a token so we can have a trace.
@@ -160,7 +163,7 @@ EikoPluginType = EikoType("plugin")
 @dataclass
 class PluginArg:
     name: str
-    py_type: Type[Union[EikoBaseType, bool, float, int, str]]
+    py_type: Type[Union[EikoBaseType, bool, float, int, str, list, dict]]
 
 
 class PluginDefinition(EikoBaseType):
@@ -223,13 +226,15 @@ class PluginDefinition(EikoBaseType):
                 token=arg.token,
             )
         if issubclass(required_arg.py_type, EikoBaseType):
-            converted_arg: Union["StorableTypes", bool, float, int, str] = compiled_arg
+            converted_arg: Union[
+                "StorableTypes", bool, float, int, str, Path
+            ] = compiled_arg
         else:
             try:
                 converted_arg = to_py(compiled_arg)
             except ValueError as e:
                 raise EikoCompilationError(
-                    "Failed to convert to python type when apssing to plugin.",
+                    "Failed to convert to python type when passing to plugin.",
                     token=arg.token,
                 ) from e
 

@@ -3,6 +3,7 @@ Context hold variables, classes and more.
 Used both by files/modules and fucntions.
 """
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
 from ..decorator import index_decorator
@@ -17,6 +18,7 @@ from .base_types import (
     EikoInt,
     EikoListType,
     EikoOptional,
+    EikoPath,
     EikoStr,
     EikoType,
     EikoUnion,
@@ -36,6 +38,7 @@ _builtins: Dict[str, _StorableTypes] = {
     "float": EikoFloat,
     "bool": EikoBool,
     "str": EikoStr,
+    "Path": EikoPath,
     "None": eiko_none_object,
     "Union": EikoUnion,
     "Optional": EikoOptional,
@@ -55,11 +58,16 @@ class LazyLoadModule:
 
     def compile(self) -> "CompilerContext":
         """Imports plugins and compiles eiko code so the module can be used."""
+        if not self.context.compiled:
+            for expr in self.parser.parse():
+                expr.compile(self.context)
 
-        for expr in self.parser.parse():
-            expr.compile(self.context)
-
-        import_python_code(self.import_path, self.parser.lexer.file_path, self.context)
+            import_python_code(
+                self.import_path,
+                self.parser.lexer.file_path,
+                self.context,
+            )
+            self.context.flag_as_compiled()
         return self.context
 
 
@@ -81,6 +89,13 @@ class CompilerContext:
         ] = {}
         self.type = EikoType("eiko_internal_context")
         self.super = super_scope
+        self.compiled = False
+
+    def flag_as_compiled(self) -> None:
+        self.compiled = True
+
+    def set_path(self, path: Path) -> None:
+        self.storage["__file__"] = EikoPath(path)
 
     def __repr__(self, indent: str = "") -> str:
         return_str = indent + f"Context '{self.name}': " + "{\n"
@@ -153,8 +168,8 @@ class CompilerContext:
         if isinstance(prev_value, EikoUnset):
             if not prev_value.type.type_check(value.type):
                 raise EikoCompilationError(
-                    f"Tried to assign value of type {value.type}"
-                    f" to variable previously defined as {prev_value.type}.",
+                    f"Tried to assign value of type {value.type} "
+                    f"to a variable declared as type {prev_value.type}.",
                     token=token,
                 )
 
