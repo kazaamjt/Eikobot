@@ -13,3 +13,4 @@
 - Fixed a bug where imports could happen twice and thus break the declare once rule
 - Added Path as a base type
 - Added std.file (read_file, render_template)
+- Added IPv4 and IPv6 as typedefs to std

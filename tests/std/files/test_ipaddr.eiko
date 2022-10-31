@@ -1,0 +1,6 @@
+from std import IPv4Address, IPv6Address
+
+a = IPv4Address("10.10.10.10")
+b = IPv4Address("192.168.1.20")
+c = IPv6Address("2001:0db8:75a2:0000:0000:8a2e:0340:5625")
+d = IPv6Address("2001:0db8:75a2::8a2e:0340:5626")

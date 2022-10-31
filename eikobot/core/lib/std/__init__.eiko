@@ -1,0 +1,2 @@
+typedef IPv4Address str if is_ipv4(self)
+typedef IPv6Address str if is_ipv6(self)

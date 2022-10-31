@@ -35,7 +35,7 @@ eikobot-venv/bin/eikobot
 Or by activating the venv first:
 
 ```bash
-eikobot-venv/bin/activate
+. eikobot-venv/bin/activate
 eikobot
 ```
 
@@ -84,9 +84,9 @@ Code cleanup:
 
 - [x] add basic regex.match
 - [x] add debug_msg (requires `None`)
-- [ ] add IPv4/IPv6 types
-- [ ] File module
-- [ ] Templates using jinja
+- [x] add IPv4/IPv6 types
+- [x] File module
+- [x] Templates using jinja
 
 ### Backend
 
