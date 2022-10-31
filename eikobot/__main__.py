@@ -2,7 +2,9 @@
 The entrypoint to the client application.
 Schould only contain things related to the client cli.
 """
+import datetime
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -57,6 +59,7 @@ def compile_cmd(
     """
     Compile an eikobot file.
     """
+    start = time.process_time()
     compiler = Compiler()
 
     file_path = Path(file)
@@ -99,6 +102,11 @@ def compile_cmd(
         if output_model:
             logger.info("resulting model context:")
             print(compiler.context)
+
+        time_taken = time.process_time() - start
+        time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+        logger.info("Done")
+        logger.info(f"Compiled in {time_taken_formatted}")
 
 
 if __name__ == "__main__":
