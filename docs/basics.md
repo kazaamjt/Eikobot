@@ -26,12 +26,12 @@ debug_msg("hello world")
 ```
 
 NOTE: Technically the entrypoint file doesn't have to be a `.eiko` file,
-other files need to be `.eiko` for them to be detected by the import system.  
+but other files need to be `.eiko` for them to be detected by the import system.  
 
 We can then compile it like so:
 
 ```bash
-eikobot compile -f hello.eiko --output-model
+eikobot compile -f hello.eiko
 ```
 
 This should give us the following output as a result:
@@ -39,26 +39,31 @@ This should give us the following output as a result:
 ```
 INFO Compiling hello.eiko
 DEBUG_MSG hello world
-INFO Model result:
-Context '__main__': {
-    Context 'std': {
-        var 'debug_msg' plugin: Plugin 'debug_msg'
-        var 'print' plugin: Plugin 'print'
-    }
-    var 'debug_msg' plugin: Plugin 'debug_msg'
-}
+INFO Done
+INFO Compiled in 0:00:00.002391
 ```
 
 Our debug message was printed.  
-Don't worry too much about the model result that was printed.  
-This is mostly for debugging and testing purposes.  
+
+Another usefull function in the standard library is the `inspect` function.  
+Use it to print objects to the screen in the examples that follow.  
+
+## Comments
+
+The hashtag (`#`) denotes a comment.  
+The compiler completely ignores these.  
+
+```python
+a = 1 # This is a comment
+```
+
+There is no multiline comment.  
 
 ## Variables
 
-The first quirk one will run in to using the Eiko language,
-is variables and properties cannot be reassigned.  
+In the eiko language, variables and properties cannot be reassigned.  
 Once something is given a value, it cannot be changed.  
-This is by design as it, in general, makes working with desired state easier.  
+This is by design, as it, in general, makes working with desired state easier.  
 
 For example, assigning the variable A twice, is not valid and will give an error:
 
@@ -70,9 +75,9 @@ a = "This is illegal"
 and when compiling, this happens:
 
 ```
-INFO Compiling illegal_vars.eiko
+INFO Compiling hello.eiko
 ERROR CompilationError: Illegal operation: Tried to reassign 'a'.
-    File "/home/yaron/projects/eikobot-tests/illegal_vars.eiko", line 2
+    File "/home/yaron/hello.eiko", line 2
         a = "This is illegal"
         ^
 ```
@@ -98,12 +103,18 @@ a: int
 a = "some string"
 ```
 
-## Comments
+Also note that a forward declaration requires typing.  
+A forward declaration without typing is not valid.  
 
-The hashtag (`#`) denotes a comment.  
-The compiler completely ignores these.  
+Similarly, declaring the type of variable after it had already been assigned,
+or was given a type declaration, is not valid.  
 
-There are no multiline comments.  
+So this:
+
+```Python
+a = ""
+a: str
+```
 
 ## Types and Typing
 
@@ -154,14 +165,13 @@ new_list.append("pear")
 new_list[2]  # "pear"
 ```
 
-Currently one can append after a list has been accessed, but this might change in the future,
-for similar reasons that variables cannot be reassigned.  
+Currently one can append after a list has been accessed, but this might change in the future.  
 
 A list also has typing.  
 When not typed, it takes all it's initial values and expresses the value as a union of those types.  
 Its typing is expressed as `List[element_type]`, where `element_type` is a type expression of any kind.  
 
-So a list of integers would eb typed like this:
+So a list of integers would be typed like this:
 
 ```Python
 new_list: List[int] = [1, 2, 3]
@@ -217,3 +227,286 @@ Properties of a resource can be accessed using a `.`:
 ```Python
 car.brand  # "toyota"
 ```
+
+These properties ofcourse can be nested resources:
+
+```Python
+resource Wheel:
+    Brand: str
+    age: int
+
+resource Car:
+    brand: str
+    wheels: List[Wheel]
+
+car = Car(
+    "Toyota",
+    [
+        Wheel("Toyota", 3),
+        Wheel("Toyota", 3),
+        Wheel("Toyota", 3),
+        Wheel("Michelin", 1)
+    ],
+)
+
+a = car.wheels[3].age
+```
+
+#### Custom constructors
+
+To be implemented.  
+
+#### inheritance
+
+To be implemented.  
+
+### typedefs
+
+Typedefs allow for aliasing and narrowing of types.  
+It currently can not be used in conjunction with a `resource`,
+only basic types.  
+
+It's most basic usage is to alias a type like so:  
+
+```
+typedef StrAlias str
+```
+
+Which creates a `StrAlias` type.  
+This new type is considered a subtype of `str`,
+meaning that things that accept a str, will accept our new `StrAlias` as well:  
+
+```
+typedef StrAlias str
+
+a: str
+b = StrAlias("test")
+
+a = b
+```
+
+But, the inverse is not true.  
+When expecting a StrAlias, a value of type `str` will not suffice:  
+
+```
+typedef StrAlias str
+
+a: StrAlias = "test"
+```
+
+Besides simple aliassing, typedefs also allow for conditionals.  
+For example, when creating a service,
+the port it listens on will never be less than 1 or higher than 65535.  
+
+Using a type condition, denoted by an `if`-statement following our typedef declaration,
+we can specify our required condition.  
+Note that this if statement runs inside it's own context where `self` is a reference:
+
+```
+typedef NetworkPort int if 1 <= self and self <= 65535
+```
+
+Now we can use NetworkPort as a type and are safe in the knownledge it's value will always be correct.  
+When used as the type of a property for a resource, the compiler will even try to coerce the type:  
+
+```
+typedef NetworkPort int if 1 <= self and self <= 65535
+
+resource Service:
+    port: NetworkPort
+
+s = Service(8080)
+```
+
+Further testing will also show our custom resource `Service` does not accept bad values:  
+
+```
+s = Service(-1)
+```
+
+## importing and modules
+
+The Eiko language has modules and an import system.  
+These are very similar to the way python does things.  
+
+Let's start with the import system.  
+
+### Imports
+
+Imports allwos us to use code defined elsewhere.  
+For example the `std` or standard library contains several convenience typedefs,
+resources and plugins. (We'll come back later to the subject of plugins.)  
+
+One such plugin is the `inspect` plugin, which prints an object to the console,
+recursivly going over it's properties.  
+
+To access this function, we can simply import the `std` module
+and access `inspect` using a dot, eg: `std.inspect`.  
+
+Let's take our earlier car example and inspect it:  
+
+```
+import std
+
+resource Wheel:
+    Brand: str
+    age: int
+
+resource Car:
+    brand: str
+    wheels: List[Wheel]
+
+car = Car(
+    "Toyota",
+    [
+        Wheel("Toyota", 3),
+        Wheel("Toyota", 3),
+        Wheel("Toyota", 3),
+        Wheel("Michelin", 1)
+    ],
+)
+
+std.inspect(car)
+```
+
+This will output something akin to this:  
+
+```
+INFO Compiling test.eiko
+PRINT Car 'Toyota': {
+    str 'brand': str "Toyota",
+    List[Wheel] 'wheels': [
+        Wheel 'Toyota': {
+            str 'Brand': str "Toyota",
+            int 'age': int 3,
+        },
+        Wheel 'Toyota': {
+            str 'Brand': str "Toyota",
+            int 'age': int 3,
+        },
+        Wheel 'Toyota': {
+            str 'Brand': str "Toyota",
+            int 'age': int 3,
+        },
+        Wheel 'Michelin': {
+            str 'Brand': str "Michelin",
+            int 'age': int 1,
+        },
+    ],
+}
+INFO Done
+INFO Compiled in 0:00:00.003875
+```
+
+Importing somthing from a package is also possible,
+using `from ... import ...` syntax, like so:  
+
+```
+from std import inspect
+
+inspect(car)
+```
+
+### modules
+
+Sometimes a single file will be too much to hold all your code and
+you'll want to seperate out some code in to different files.  
+
+This is where models come in.  
+Models allows the compiler to use code spread out over different files.  
+The simplest way to create a new module is just by creating a `.eiko` file,
+next to the main file you're compiling.  
+The Eikobot compiler automatically picks up files with the `.eiko` extension.  
+
+For example, create the file `module_1` and put a variable in it:
+
+```
+a = "this is an import test"
+```
+
+Then, in the `hello.eiko` file, import this variable and print it:
+
+```
+from std import debug_msg
+import module_1
+
+debug_msg(module_1.a)
+```
+
+If files aren't enough, you can also gather related files together in a
+directory and turn said directory in to a module.  
+This can be done by adding a `__init__.eiko` file to the directory, like in python.  
+This file can be empty, or it can contain code.  
+
+As an example let's create the following file structure:  
+
+```
+module_2 /
+    __init__.eiko
+    submodule_1.eiko
+    submodule_2.eiko
+```
+
+importing from the `__init__.eiko` file can be done like so:  
+
+```
+from module_2 import ...
+```
+
+And to import the submodules, or, import from the submodules:  
+
+```
+from module_2 import sumodule_1
+from module_2.submodule_2 import ...
+```
+
+You could also not bother with seperate imports like this and just
+import the top level module and access everything through dots:  
+
+```
+import module_2
+
+module_2.submodule_1.something
+```
+
+Modules do not currently support relative imports like in python.  
+
+## plugins
+
+Plugins allow the programmer to write code in python and directly call it
+from the Eiko code, with some limitations.  
+
+Plugins are fully typed python functions decorated with the `@eiko_plugin()` decorator.  
+To start adding plugins, create a python file with the same name as the file or
+module you want to add the plugin to.  
+The plugin can then be used inside this file or imported from outside this file,
+like any other thing.  
+
+for example, we could create a plugin in `hello.py` next to `hello.eiko`,
+that concatenates 2 strings:
+
+NOTE: this plugin ofcourse isn't very usfull as eiko supports string concatination using `+`.
+```
+from eikobot.core.plugin import eiko_plugin
+
+@eiko_plugin()
+def concat(string_1: str, string_2: str) -> str:
+    return string_1 + string_2
+```
+
+Next, call the plugin, inside `hello.eiko`:
+
+```
+from std import inspect
+
+a = concat("ha", "ha")
+inspect(a)
+```
+
+The variable `a` now contains the string `"haha"`.  
+Also note how the plugin has the python typing of `str`.  
+The Eiko compiler will automatically convert python types to eiko objects and back,
+but it is only able to do so for `str`, `int`, `bool` and `float`.  
+
+If you are unsure about what type you will receive as an argument,
+know that most anything in the Eiko language inherits from `eikobot.core.type.EikoBaseType`.  

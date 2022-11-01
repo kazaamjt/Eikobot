@@ -8,7 +8,7 @@ from typing import Type, Union
 from colorama import Fore
 
 from eikobot.core.plugin import eiko_plugin
-from eikobot.core.types import EikoBaseType, EikoStr
+from eikobot.core.types import EikoBaseType
 
 
 @eiko_plugin()
@@ -20,10 +20,7 @@ def debug_msg(msg: str) -> None:
 @eiko_plugin()
 def inspect(obj: EikoBaseType) -> None:
     """Objects to the console."""
-    if isinstance(obj, EikoStr):
-        print("PRINT " + obj.value)
-
-    print("PRINT " + obj.printable())
+    print("INSPECT " + obj.printable())
 
 
 @eiko_plugin()

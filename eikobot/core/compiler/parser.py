@@ -1050,7 +1050,7 @@ class FromImportExprAST(ExprAST):
         init_lazy_load_submodules(module, import_module)
         for item in self.import_items:
             if item.identifier in import_module:
-                context.set(item.identifier, module.context)
+                context.set(item.identifier, module.context, self.token)
             else:
                 imported_item = module.context.get(item.identifier)
                 if isinstance(
