@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional
 
 from ..token import Token
-from .base_types import EikoBaseType, EikoType, eiko_base_type
+from .base_types import EikoBaseType, EikoType
 
 if TYPE_CHECKING:
     from .function import ConstructorDefinition
@@ -24,8 +24,11 @@ class ResourceProperty:
     default_value: Optional[EikoBaseType] = None
 
 
+EikoResourceDefinitionType = EikoType("ResourceDefinition")
+
+
 class ResourceDefinition(EikoBaseType):
-    """Internal representation of a constructor."""
+    """Internal representation of a resource definition."""
 
     def __init__(
         self,
@@ -34,14 +37,21 @@ class ResourceDefinition(EikoBaseType):
         default_constructor: "ConstructorDefinition",
         properties: Dict[str, ResourceProperty],
     ) -> None:
-        super().__init__(EikoType(name, eiko_base_type))
+        super().__init__(EikoType(name, EikoResourceDefinitionType))
         self.token = token
         self.name = name
         self.default_constructor = default_constructor
         self.properties = properties
+        self.index_def = [list(properties.keys())[0]]
 
-    def printable(self, _: str = "") -> str:
-        return f"Resource Definition '{self.name}'"
+    def printable(self, indent: str = "") -> str:
+        return_str = f"{indent}Resource Definition '{self.name}': " + "{\n"
+        for value in self.properties.values():
+            return_str += f"{indent}    {value.name}: {value.type.name}\n"
+
+        return_str += indent + "}\n"
+
+        return return_str
 
     def truthiness(self) -> bool:
         raise NotImplementedError

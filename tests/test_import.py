@@ -43,3 +43,8 @@ def test_from_import(eiko_from_import_file: Path) -> None:
     assert isinstance(test_2, EikoResource)
     assert test_2.type.name == "Test_2"
     assert test_2.properties.get("test") == test_resource
+
+
+def test_multi_import(eiko_multi_import_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_multi_import_file)

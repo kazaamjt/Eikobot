@@ -22,6 +22,7 @@ class Compiler:
     def compile(self, file: Path) -> None:
         """Compiles an Eikobot file given a path."""
         results = []
+        self.context.set_path(file)
         import_python_code(["__main__"], file, self.context)
 
         for expr in Parser(file).parse():

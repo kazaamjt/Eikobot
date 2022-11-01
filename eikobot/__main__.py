@@ -2,9 +2,11 @@
 The entrypoint to the client application.
 Schould only contain things related to the client cli.
 """
+import datetime
 import sys
-from pathlib import Path
+import time
 import traceback
+from pathlib import Path
 
 import click
 
@@ -18,7 +20,10 @@ from .core.compiler.misc import Index
 @click.group()
 @click.option("--debug", is_flag=True)
 def cli(debug: bool = False) -> None:
-    """Directly call the Eikobot compiler."""
+    """
+    The Eikobot CLI allows for compilation
+    and exporting of eiko files.
+    """
     log_level = logger.LOG_LEVEL.INFO
     if debug:
         log_level = logger.LOG_LEVEL.DEBUG
@@ -48,10 +53,13 @@ def print_error_trace(index: Index) -> None:
     is_flag=True,
     help="Outputs a plugins stacktrace if it raises an exception.",
 )
-def compile_cmd(file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False) -> None:
+def compile_cmd(
+    file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False
+) -> None:
     """
     Compile an eikobot file.
     """
+    start = time.process_time()
     compiler = Compiler()
 
     file_path = Path(file)
@@ -75,8 +83,9 @@ def compile_cmd(file: str, output_model: bool = False, enable_plugin_stacktrace:
                     logger.error("Python plugin stacktrace (ignore the first line):")
                     traceback.print_exception(e.python_exception)  # type: ignore
                 else:
-                    logger.error("To view the python plugin stacktrace, use '--enable-plugin-stacktrace'")
-
+                    logger.error(
+                        "To view the python plugin stacktrace, use '--enable-plugin-stacktrace'"
+                    )
 
     except NotImplementedError as e:
         logger.error("Congratz, you made something unexpected and terrible happen!")
@@ -91,8 +100,13 @@ def compile_cmd(file: str, output_model: bool = False, enable_plugin_stacktrace:
 
     else:
         if output_model:
-            logger.info("Model result:")
+            logger.info("resulting model context:")
             print(compiler.context)
+
+        time_taken = time.process_time() - start
+        time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+        logger.info("Done")
+        logger.info(f"Compiled in {time_taken_formatted}")
 
 
 if __name__ == "__main__":

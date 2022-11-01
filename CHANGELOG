@@ -1,0 +1,18 @@
+# 0.2.0
+
+- Added basic tutorial
+- Added exception handling for plugins
+- Added compilation error for empty lists and dicts without typing
+- Fixed a bug in parsing dictionaries
+- Fixed a bug where importing from the same module using multiple statements resulted in an error
+- Fixed a bug where a dot-expressed callable would wrongly refer to the dot-token instead of the identifier
+- Added decorators
+- Added indexes on resources and added an index decorator
+- Restrict valid types for dictionary keys
+- Fixed a bug where no trialing comma in a list caused a syntax error
+- Fixed a bug where imports could happen twice and thus break the declare once rule
+- Added Path as a base type
+- Added std.file (read_file, render_template)
+- Added IPv4 and IPv6 as typedefs to std
+- Fix a bug mixing index and dot access expressions
+- Rename `std.print` to `std.inspect`

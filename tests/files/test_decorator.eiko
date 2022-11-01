@@ -1,0 +1,6 @@
+@index(["host", "cmd"])
+resource TCommand:
+    host: str
+    cmd: str
+
+cmd = TCommand("127.0.0.1", "echo test")

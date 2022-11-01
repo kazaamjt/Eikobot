@@ -2,29 +2,30 @@
 While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
-import traceback
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
-from ...plugin import EikoPluginException
+from ...plugin import EikoPluginException, EikoPluginTyping
 from ..errors import EikoCompilationError, EikoPluginError
 from ..token import Token
 from .base_types import (
+    INDEXABLE_TYPES,
     EikoBaseType,
     EikoResource,
     EikoType,
     PassedArg,
-    eiko_base_type,
     to_eiko,
     to_eiko_type,
     to_py,
 )
+from .typedef import EikoTypeDef
 
 if TYPE_CHECKING:
     from ..parser import ExprAST
     from .context import CompilerContext, StorableTypes
 
-_eiko_function_type = EikoType("function", eiko_base_type)
+EikoFunctionType = EikoType("function")
 
 
 @dataclass
@@ -39,12 +40,16 @@ class ConstructorArg:
 class ConstructorDefinition(EikoBaseType):
     """Internal representation of an Eikobot constructor."""
 
-    def __init__(self, name: str, execution_context: "CompilerContext") -> None:
-        super().__init__(_eiko_function_type)
+    def __init__(
+        self, class_name: str, name: str, execution_context: "CompilerContext"
+    ) -> None:
+        super().__init__(EikoFunctionType)
+        self.class_name = class_name
         self.name = name
         self.args: Dict[str, ConstructorArg] = {}
         self.body: List["ExprAST"] = []
         self.execution_context = execution_context
+        self.index_def: List[str] = []
 
     def printable(self, _: str = "") -> str:
         raise NotImplementedError
@@ -74,13 +79,15 @@ class ConstructorDefinition(EikoBaseType):
         self_arg = list(self.args.values())[0]
         resource = EikoResource(self_arg.type)
         handled_args[self_arg.name] = resource
-        self._handle_args(handled_args, positional_args, keyword_args)
+        self._handle_args(
+            handled_args, positional_args, keyword_args, self.execution_context
+        )
 
         for arg_name, arg in self.args.items():
             if arg_name not in handled_args:
                 if arg.default_value is None:
                     raise EikoCompilationError(
-                        f"Argument '{arg_name}' for '{callee_token.content}' requires a value.",
+                        f"Argument '{arg_name}' for callable '{callee_token.content}' requires a value.",
                         token=callee_token,
                     )
 
@@ -93,6 +100,22 @@ class ConstructorDefinition(EikoBaseType):
         for expr in self.body:
             expr.compile(context)
 
+        res_index = ""
+
+        for property_name in self.index_def:
+            if property_name == self.class_name:
+                continue
+            index_prop = resource.properties.get(property_name)
+            if not isinstance(index_prop, INDEXABLE_TYPES):
+                # Pass a token so we can have a trace.
+                raise EikoCompilationError(
+                    f"Property '{property_name}' of '{self.class_name}' is not an indexable type."
+                )
+
+            res_index += "-" + index_prop.index()
+
+        resource.set_index(res_index[1:])
+
         return resource
 
     def _handle_args(
@@ -100,14 +123,29 @@ class ConstructorDefinition(EikoBaseType):
         handled_args: Dict[str, EikoBaseType],
         positional_args: List[PassedArg],
         keyword_args: Dict[str, PassedArg],
+        context: "CompilerContext",
     ) -> None:
         for passed_arg, arg in zip(positional_args, list(self.args.values())[1:]):
             if not passed_arg.value.type_check(arg.type):
-                raise EikoCompilationError(
-                    f"Argument '{arg.name}' expected value of type '{arg.type}', "
-                    f"but got value of type '{passed_arg.value.type}'.",
-                    token=passed_arg.token,
-                )
+                # Try to coerce the type
+                if arg.type.inverse_type_check(passed_arg.value.type):
+                    type_constr = context.get(arg.type.name)
+                    if isinstance(type_constr, EikoTypeDef):
+                        passed_arg.value = type_constr.execute(
+                            passed_arg.value, passed_arg.token
+                        )
+                    else:
+                        raise EikoCompilationError(
+                            f"Argument '{arg.name}' expected value of type '{arg.type}', "
+                            f"but got value of type '{passed_arg.value.type}'.",
+                            token=passed_arg.token,
+                        )
+                else:
+                    raise EikoCompilationError(
+                        f"Argument '{arg.name}' expected value of type '{arg.type}', "
+                        f"but got value of type '{passed_arg.value.type}'.",
+                        token=passed_arg.token,
+                    )
 
             handled_args[arg.name] = passed_arg.value
 
@@ -137,13 +175,13 @@ class ConstructorDefinition(EikoBaseType):
         raise NotImplementedError
 
 
-_eiko_plugin_type = EikoType("plugin", eiko_base_type)
+EikoPluginType = EikoType("plugin")
 
 
 @dataclass
 class PluginArg:
     name: str
-    py_type: Type[Union[EikoBaseType, bool, float, int, str]]
+    py_type: Type[Union[EikoBaseType, bool, float, int, str, list, dict]]
 
 
 class PluginDefinition(EikoBaseType):
@@ -154,12 +192,12 @@ class PluginDefinition(EikoBaseType):
 
     def __init__(
         self,
-        body: Callable[..., Union[None, bool, float, int, str, EikoBaseType]],
+        body: EikoPluginTyping,
         return_type: Type[EikoBaseType],
         identifier: str,
         module: str,
     ) -> None:
-        super().__init__(_eiko_plugin_type)
+        super().__init__(EikoPluginType)
         self.body = body
         self.return_type = to_eiko_type(return_type)
         self._body_return_type = return_type
@@ -206,13 +244,15 @@ class PluginDefinition(EikoBaseType):
                 token=arg.token,
             )
         if issubclass(required_arg.py_type, EikoBaseType):
-            converted_arg: Union["StorableTypes", bool, float, int, str] = compiled_arg
+            converted_arg: Union[
+                "StorableTypes", bool, float, int, str, Path
+            ] = compiled_arg
         else:
             try:
                 converted_arg = to_py(compiled_arg)
             except ValueError as e:
                 raise EikoCompilationError(
-                    "Failed to convert to python type when apssing to plugin.",
+                    "Failed to convert to python type when passing to plugin.",
                     token=arg.token,
                 ) from e
 

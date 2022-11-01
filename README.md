@@ -1,10 +1,49 @@
 # Eikobot Desired State Engine
 
-The little Desired State Engine that made it so.  
+*The little Desired State Engine that made it so.*  
+
+Eikobot is a desired state orchestrator.  
+The basic idea is that you describe your infrastructure and eikobot
+will make it happen.  
+
+The language is akin to python, as this is a commonly used language
+and the language in which eikobot and eikobot plugins are written.  
+
+## Installation
+
+Eikobot requires python 3.10 or up and has 2 external dependencies that can be install using pip.  
+In fact, Eikobot can be installed using pip as well.  
+
+Here is an example of how to install Eikobot:  
+(This should work on most platforms, although the python command might be different if you are on windows)
+
+```bash
+python3.10 -m venv eikobot-venv
+eikobot-venv/bin/pip install eikobot
+```
+
+You can now use the eikobot commands,
+either by invoking them directly with their venv path:
+
+```bash
+eikobot-venv/bin/eikobot
+```
+
+Or by activating the venv first:
+
+```bash
+. eikobot-venv/bin/activate
+eikobot
+```
+
+Once you have installed Eikobot,
+you can get familiar with Eikobot language by reading [the basic instructions](docs/basics.md)
 
 ## Roadmap
 
 ### Frontend
+
+Features and bug fixes:
 
 - [x] basic lexer
 - [x] basic expression parser
@@ -25,17 +64,34 @@ The little Desired State Engine that made it so.
 - [x] add a `List` type
 - [x] add a `Dict` type
 - [x] automatic/lazy sub imports
+- [x] add decorators
+- [x] indexes used to track items
+- [x] constructors for builtin types
+- [x] `Path` type, uses python `Pathlib.Path` underneath
+- [ ] link handlers to resources
 - [ ] custom constructors
+- [ ] inheritance for `resource`
+- [ ] add `Tuple` data type and automatic unpacking of tuples
+- [ ] add `for` keyword, to loop over lists and dicts
+- [ ] Expand type system (take module in to account)
+
+
+Code cleanup:
+
+- [ ] Implement an `expects` function for parser, raise if token is not correct type
 
 ### STD
 
 - [x] add basic regex.match
 - [x] add debug_msg (requires `None`)
-- [ ] add IPv4/IPv6
+- [x] add IPv4/IPv6 types
+- [x] File module
+- [x] Templates using jinja
 
 ### Backend
 
-- [ ] crud resource
+- [ ] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
+- [ ] add deployment engine
 
 ## Linters, type checkers, testing, etc
 
