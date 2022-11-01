@@ -15,10 +15,10 @@ from .base_types import (
     EikoStr,
     EikoType,
 )
-from .context import CompilerContext
 
 if TYPE_CHECKING:
     from ..parser import ExprAST
+    from .context import CompilerContext
 
 
 class EikoTypeDef(EikoBaseType):
@@ -29,7 +29,7 @@ class EikoTypeDef(EikoBaseType):
         name: str,
         super_type: EikoType,
         condition: Optional["ExprAST"],
-        context: CompilerContext,
+        context: "CompilerContext",
     ) -> None:
         self.name = name
         self.type = EikoType(name, super_type)
@@ -54,7 +54,7 @@ class EikoTypeDef(EikoBaseType):
             )
 
         if self.condition is not None:
-            condition_context = CompilerContext(f"{self.name}-typedef", self.context)
+            condition_context = self.context.get_subcontext(f"{self.name}-typedef")
             condition_context.set("self", arg)
             res = self.condition.compile(condition_context)
             if not isinstance(res, EikoBaseType) or not res.truthiness():

@@ -8,6 +8,6 @@ a = IPv4Address("10.0.0.0")
 resource TestRes:
     prop_1: IPv4Address
 
-res_1 = TestRes(IPv4Address("192.168.0.1"))
+res_1 = TestRes("192.168.0.1")
 
 bad_value = IPv4Address("256.0.0.1")

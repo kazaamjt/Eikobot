@@ -44,6 +44,16 @@ class EikoType:
 
         return False
 
+    def inverse_type_check(self, expected_type: "EikoType") -> bool:
+        """Checks if a given type is the same or a super type of this type."""
+        if self.name == expected_type.name:
+            return True
+
+        if self.super is not None:
+            return self.super.inverse_type_check(expected_type)
+
+        return False
+
     def get_top_level_type(self) -> "EikoType":
         """Returns the toplevel super type."""
         if self.super is None:

@@ -452,7 +452,7 @@ class VariableExprAST(ExprAST):
             if not type_expr.type_check(value.type):
                 raise EikoCompilationError(
                     "Variable assigned incompatible type:"
-                    f" given '{value.type}' but expected '{type_expr}'",
+                    f" given value of type '{value.type}' but expected type '{type_expr}'",
                     token=self.token,
                 )
 
