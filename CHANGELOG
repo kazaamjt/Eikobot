@@ -14,3 +14,5 @@
 - Added Path as a base type
 - Added std.file (read_file, render_template)
 - Added IPv4 and IPv6 as typedefs to std
+- Fix a bug mixing index and dot access expressions
+- Rename `std.print` to `std.inspect`

@@ -59,7 +59,8 @@ class EikoTypeDef(EikoBaseType):
             res = self.condition.compile(condition_context)
             if not isinstance(res, EikoBaseType) or not res.truthiness():
                 raise EikoCompilationError(
-                    f"Value '{arg.get_value()}' did not meet typedef condition for '{self.name}'."
+                    f"Value '{arg.get_value()}' did not meet typedef condition for '{self.name}'.",
+                    token=arg_token,
                 )
 
         base_type = self.type.get_top_level_type()

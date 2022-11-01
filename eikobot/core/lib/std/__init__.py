@@ -17,9 +17,9 @@ def debug_msg(msg: str) -> None:
     print(Fore.BLUE + "DEBUG_MSG" + Fore.RESET, msg)
 
 
-@eiko_plugin("print")
-def eiko_print(obj: EikoBaseType) -> None:
-    """Prints messages and objects to the console."""
+@eiko_plugin()
+def inspect(obj: EikoBaseType) -> None:
+    """Objects to the console."""
     if isinstance(obj, EikoStr):
         print("PRINT " + obj.value)
 

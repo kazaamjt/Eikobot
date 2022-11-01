@@ -541,7 +541,7 @@ class DotExprAST(ExprAST):
     An AST expressing a dot expression. eg: 'thing.property'
     """
 
-    lhs: Union["DotExprAST", VariableExprAST]
+    lhs: Union["DotExprAST", VariableExprAST, "IndexExprAst"]
     rhs: VariableExprAST
 
     def __post_init__(self) -> None:
@@ -550,7 +550,14 @@ class DotExprAST(ExprAST):
     def compile(
         self, context: Union[CompilerContext, EikoBaseType, ResourceDefinition]
     ) -> Optional[StorableTypes]:
-        lhs = self.lhs.compile(context)
+        if isinstance(context, CompilerContext):
+            lhs = self.lhs.compile(context)
+        elif isinstance(self.lhs, IndexExprAst):
+            raise EikoInternalError(
+                "Something went wrong parsing a dot expression. Report this bug.",
+                token=self.token,
+            )
+
         if isinstance(lhs, (EikoBaseType, ResourceDefinition, CompilerContext)):
             return self.rhs.compile(lhs)
 
@@ -1514,7 +1521,7 @@ class Parser:
             if bin_op_token.type == TokenType.ASSIGNMENT_OP:
                 lhs = AssignmentExprAST(bin_op_token, lhs, rhs)
             elif bin_op_token.type == TokenType.DOT:
-                if isinstance(lhs, (VariableExprAST, DotExprAST)):
+                if isinstance(lhs, (VariableExprAST, DotExprAST, IndexExprAst)):
                     if not isinstance(rhs, VariableExprAST):
                         raise EikoParserError(
                             "Unexpected token. "
