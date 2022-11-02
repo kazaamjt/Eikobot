@@ -10,18 +10,16 @@ this_directory = Path(__file__).parent
 with open(this_directory / "README.md", encoding="utf-8") as f:
     long_description = f.read()
 
-with open(this_directory / "requirements.txt", encoding="utf-8") as f:
-    lines = f.read().splitlines(keepends=False)
-    requires = []
-    for line in lines:
-        requires.append(line)
-
-with open(this_directory / "VERSION", encoding="utf-8") as f:
-    version = f.read()
+VERSION = "0.2.1"
+REQUIRES = [
+    "click==8.0.2",
+    "colorama==0.4.4",
+    "jinja2==3.1.2",
+]
 
 setuptools.setup(
     name="eikobot",
-    version=version,
+    version=VERSION,
     description="The eikobot desired state engine.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -34,8 +32,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
-    package_data={"": ["**/*.eiko", "**/*.py"]},
+    package_data={"": ["**/*.eiko", "**/*.py", "requirements.xt"]},
+    include_package_data=True,
     python_requires=">=3.10",
-    install_requires=requires,
+    install_requires=REQUIRES,
     entry_points={"console_scripts": ["eikobot=eikobot.__main__:cli"]},
 )
