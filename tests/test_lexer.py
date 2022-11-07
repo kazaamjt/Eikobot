@@ -446,3 +446,16 @@ def test_basic_math(eiko_basic_ops_file: Path) -> None:
     assert lexer.next_token() == Token(
         TokenType.EOF, "EOF", Index(8, 0, eiko_basic_ops_file)
     )
+
+
+def test_comment_end_of_file_lexing(tmp_eiko_file: Path) -> None:
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write("# Test comment")
+
+    lexer = Lexer(tmp_eiko_file)
+    assert lexer.next_token() == Token(
+        TokenType.INDENT, "", Index(0, 0, tmp_eiko_file)
+    )
+    assert lexer.next_token() == Token(
+        TokenType.EOF, "EOF", Index(1, 0, tmp_eiko_file)
+    )

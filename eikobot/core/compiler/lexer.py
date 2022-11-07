@@ -101,7 +101,7 @@ class Lexer:
 
         # skip comments
         if self._current == "#":
-            while self._current != "\n":
+            while self._current not in ["\n", "EOF"]:
                 self._next()
 
         if self._current == "EOF":

@@ -1,3 +1,7 @@
+# 0.3.0
+
+- Fixed a bug where a comment at the end of a file gets the compiler stuck
+
 # 0.2.0
 
 - Added basic tutorial
