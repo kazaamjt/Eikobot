@@ -3,6 +3,10 @@ from std import regex
 typedef string_alias str
 typedef IPv4Address str if regex.match(r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$", self)
 
+str_1: string_alias
+str_1 = "test"
+str_2: string_alias = "test"
+
 a = IPv4Address("10.0.0.0")
 
 resource TestRes:
@@ -11,3 +15,5 @@ resource TestRes:
 res_1 = TestRes("192.168.0.1")
 
 bad_value = IPv4Address("256.0.0.1")
+
+typedef NetworkPort int if 1 <= self and self <= 65535

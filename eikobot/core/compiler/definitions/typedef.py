@@ -43,7 +43,7 @@ class EikoTypeDef(EikoBaseType):
     def truthiness(self) -> bool:
         raise NotImplementedError
 
-    def execute(self, arg: EikoBaseType, arg_token: Token) -> BuiltinTypes:
+    def execute(self, arg: EikoBaseType, arg_token: Optional[Token]) -> BuiltinTypes:
         """
         Cast a value to a type and make sure it fits the given condition expression.
         """
@@ -68,4 +68,4 @@ class EikoTypeDef(EikoBaseType):
         if base_constructor in (EikoBool, EikoFloat, EikoInt, EikoStr):
             return base_constructor(arg.get_value(), self.type)  # type: ignore
 
-        raise NotImplementedError(arg_token)
+        raise NotImplementedError

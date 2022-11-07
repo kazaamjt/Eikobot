@@ -87,6 +87,14 @@ def test_typedef(eiko_typedef: Path) -> None:
     string_alias = compiler.context.get("string_alias")
     assert isinstance(string_alias, EikoTypeDef)
 
+    str_1 = compiler.context.get("str_1")
+    assert isinstance(str_1, EikoStr)
+    assert str_1.type.name == "string_alias"
+
+    str_2 = compiler.context.get("str_2")
+    assert isinstance(str_2, EikoStr)
+    assert str_2.type.name == "string_alias"
+
     ipv4address = compiler.context.get("IPv4Address")
     assert isinstance(ipv4address, EikoTypeDef)
 

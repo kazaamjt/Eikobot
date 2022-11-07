@@ -1,6 +1,7 @@
 # 0.3.0
 
 - Fixed a bug where a comment at the end of a file gets the compiler stuck
+- Added type coersion when assigning Typedef types (previously only in constructors)
 
 # 0.2.0
 

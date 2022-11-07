@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
 from ..decorator import index_decorator
-from ..errors import EikoCompilationError
+from ..errors import EikoCompilationError, EikoInternalError
 from ..importlib import import_python_code
 from ..token import Token
 from .base_types import (
@@ -26,6 +26,7 @@ from .base_types import (
     eiko_none_object,
 )
 from .resource import ResourceDefinition
+from .typedef import EikoTypeDef
 
 if TYPE_CHECKING:
     from ..parser import Parser
@@ -166,6 +167,17 @@ class CompilerContext:
         """Set a value. Throws an error if it's already set."""
         prev_value = self.shallow_get(name)
         if isinstance(prev_value, EikoUnset):
+            if prev_value.type.inverse_type_check(value.type):
+                type_constr = self.get(prev_value.type.name)
+                if isinstance(type_constr, EikoTypeDef):
+                    if isinstance(value, EikoBaseType):
+                        value = type_constr.execute(value, token)
+                    else:
+                        raise EikoInternalError(
+                            "Something went wrong trying to coerce a type to it's typedef.",
+                            token=token,
+                        )
+
             if not prev_value.type.type_check(value.type):
                 raise EikoCompilationError(
                     f"Tried to assign value of type {value.type} "

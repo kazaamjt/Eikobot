@@ -444,16 +444,26 @@ class VariableExprAST(ExprAST):
         value: StorableTypes,
         assign_context: Union[CompilerContext, EikoResource],
         compile_context: CompilerContext,
-        _: Token,
+        token: Token,
     ) -> StorableTypes:
         """Assigns the variable a value."""
         if self.type_expr is not None:
             type_expr = self.type_expr.compile(compile_context)
+            if type_expr.inverse_type_check(value.type):
+                type_constr = compile_context.get(type_expr.name)
+                if isinstance(type_constr, EikoTypeDef):
+                    if isinstance(value, EikoBaseType):
+                        value = type_constr.execute(value, token)
+                    else:
+                        raise EikoInternalError(
+                            "Something went wrong trying to coerce a type to it's typedef.",
+                            token=token,
+                        )
             if not type_expr.type_check(value.type):
                 raise EikoCompilationError(
                     "Variable assigned incompatible type:"
                     f" given value of type '{value.type}' but expected type '{type_expr}'",
-                    token=self.token,
+                    token=token,
                 )
 
             if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):
