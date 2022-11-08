@@ -243,11 +243,11 @@ def test_parse_typedef(eiko_typedef: Path) -> None:
     expr_2 = next(parse_iter)
     assert isinstance(expr_2, TypedefExprAST)
     assert expr_2.name == "string_alias"
-    assert expr_2.super_type_token.content == "str"
+    assert expr_2.super_type_expr.token.content == "str"
     assert expr_2.condition is None
 
     expr_3 = next(parse_iter)
     assert isinstance(expr_3, TypedefExprAST)
     assert expr_3.name == "IPv4Address"
-    assert expr_3.super_type_token.content == "str"
+    assert expr_3.super_type_expr.token.content == "str"
     assert isinstance(expr_3.condition, CallExprAst)

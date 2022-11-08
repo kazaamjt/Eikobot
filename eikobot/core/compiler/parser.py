@@ -1125,22 +1125,24 @@ class TypedefExprAST(ExprAST):
     """A type definition used to alias or restrict types."""
 
     name: str
-    super_type_token: Token
+    super_type_expr: Union[VariableExprAST, DotExprAST]
     condition: Optional[ExprAST]
 
     def compile(self, context: CompilerContext) -> None:
-        super_type = context.get(self.super_type_token.content)
+        super_type = self.super_type_expr.compile(context)
         if isinstance(super_type, type) and issubclass(super_type, EikoBaseType):
-            context.set(
-                self.name,
-                EikoTypeDef(self.name, super_type.type, self.condition, context),
-            )
+            typedef = EikoTypeDef(self.name, super_type.type, self.condition, context)
+
+        elif isinstance(super_type, EikoTypeDef):
+            typedef = EikoTypeDef(self.name, super_type, self.condition, context)
 
         else:
             raise EikoCompilationError(
-                f"Could not find type '{self.super_type_token.content}'.",
-                token=self.super_type_token,
+                f"Could not find type '{self.super_type_expr.identifier}'.",
+                token=self.super_type_expr.get_identifier_token(),
             )
+
+        context.set(self.name, typedef, self.token)
 
 
 eiko_indexable_types = (
@@ -1510,6 +1512,7 @@ class Parser:
                 TokenType.COMMA,
                 TokenType.IMPORT,
                 TokenType.COLON,
+                TokenType.IF,
                 TokenType.EOF,
             ]:
                 return lhs
@@ -1543,7 +1546,7 @@ class Parser:
                     raise EikoParserError(
                         "Unexpected token. "
                         "Expected an identifier on the left side of dot expression.",
-                        token=lhs.token,
+                        token=rhs.token,
                     )
             elif bin_op_token.type == TokenType.COMPARISON_OP:
                 lhs = ComparisonExprAST(bin_op_token, lhs, rhs)
@@ -1866,20 +1869,18 @@ class Parser:
         name = self._current.content
         self._advance()
 
-        if not self._current.type == TokenType.IDENTIFIER:
+        base_type_expr = self._parse_expression()
+        if not isinstance(base_type_expr, (VariableExprAST, DotExprAST)):
             raise EikoParserError(
-                "Expected basetype after identifier for typedef.", token=self._current
+                "Expected a type identifier.", token=base_type_expr.token
             )
-
-        base_type = self._current
-        self._advance()
 
         if_expr = None
         if self._current.type == TokenType.IF:
             self._advance()
             if_expr = self._parse_expression()
 
-        return TypedefExprAST(typedef_token, name, base_type, if_expr)
+        return TypedefExprAST(typedef_token, name, base_type_expr, if_expr)
 
     def _parse_type(self) -> TypeExprAST:
         primary_expr: Union[VariableExprAST, DotExprAST] = self._parse_identifier()

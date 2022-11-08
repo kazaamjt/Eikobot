@@ -88,8 +88,8 @@ def compile_cmd(
                     )
 
     except NotImplementedError as e:
-        logger.error("Congratz, you made something unexpected and terrible happen!")
-        logger.error("Please report this error on https://github.com/kazaamjt/Eikobot")
+        logger.error("PANIC!! Compiler ran in to an unexpected error!")
+        logger.error("Please report this error on github.")
         try:
             token = e.args[0]
             if isinstance(token, Token):

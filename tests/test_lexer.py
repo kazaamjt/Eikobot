@@ -453,9 +453,5 @@ def test_comment_end_of_file_lexing(tmp_eiko_file: Path) -> None:
         f.write("# Test comment")
 
     lexer = Lexer(tmp_eiko_file)
-    assert lexer.next_token() == Token(
-        TokenType.INDENT, "", Index(0, 0, tmp_eiko_file)
-    )
-    assert lexer.next_token() == Token(
-        TokenType.EOF, "EOF", Index(1, 0, tmp_eiko_file)
-    )
+    assert lexer.next_token() == Token(TokenType.INDENT, "", Index(0, 0, tmp_eiko_file))
+    assert lexer.next_token() == Token(TokenType.EOF, "EOF", Index(1, 0, tmp_eiko_file))

@@ -109,6 +109,13 @@ def test_typedef(eiko_typedef: Path) -> None:
     assert isinstance(prop_1, EikoStr)
     assert prop_1.value == "192.168.0.1"
 
+    net_port = compiler.context.get("net_port")
+    assert isinstance(net_port, EikoInt)
+    assert net_port.value == 80
+    assert net_port.type.name == "WellKnownPort"
+    assert net_port.type.super is not None
+    assert net_port.type.super.name == "NetworkPort"
+
 
 def test_resource_compilation(eiko_file_1: Path) -> None:
     compiler = Compiler()

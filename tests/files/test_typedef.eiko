@@ -14,6 +14,8 @@ resource TestRes:
 
 res_1 = TestRes("192.168.0.1")
 
-bad_value = IPv4Address("256.0.0.1")
-
 typedef NetworkPort int if 1 <= self and self <= 65535
+typedef WellKnownPort NetworkPort if 1 <= self and self <= 1024
+
+net_port: WellKnownPort = 80
+bad_value = IPv4Address("256.0.0.1")
