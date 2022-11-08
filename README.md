@@ -75,7 +75,6 @@ Features and bug fixes:
 - [ ] add `for` keyword, to loop over lists and dicts
 - [ ] Expand type system (take module in to account)
 
-
 Code cleanup:
 
 - [ ] Implement an `expects` function for parser, raise if token is not correct type

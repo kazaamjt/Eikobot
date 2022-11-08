@@ -1,11 +1,13 @@
-# 0.3.0
+# CHANGELOG
+
+## 0.3.0
 
 - Fixed a bug where a comment at the end of a file gets the compiler stuck
 - Added type coersion when assigning Typedef types (previously only in constructors)
 - Fixed a bug where typedef expressions did not properly parse dot expressions for the base type
-- Fixed a bug where typedef did could not properly inherit from each other
+- Fixed a bug where typedefs could not properly inherit from each other
 
-# 0.2.0
+## 0.2.0
 
 - Added basic tutorial
 - Added exception handling for plugins

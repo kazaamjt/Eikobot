@@ -36,7 +36,7 @@ eikobot compile -f hello.eiko
 
 This should give us the following output as a result:
 
-```
+```txt
 INFO Compiling hello.eiko
 DEBUG_MSG hello world
 INFO Done
@@ -74,7 +74,7 @@ a = "This is illegal"
 
 and when compiling, this happens:
 
-```
+```txt
 INFO Compiling hello.eiko
 ERROR CompilationError: Illegal operation: Tried to reassign 'a'.
     File "/home/yaron/hello.eiko", line 2
@@ -218,7 +218,7 @@ A property without default value must have a value passed at creation.
 
 Calling the constructor is as simple as just calling the class:
 
-```
+```Python
 car = Car("toyota", 3)
 ```
 
@@ -268,7 +268,7 @@ only basic types.
 
 It's most basic usage is to alias a type like so:  
 
-```
+```Python
 typedef StrAlias str
 ```
 
@@ -276,7 +276,7 @@ Which creates a `StrAlias` type.
 This new type is considered a subtype of `str`,
 meaning that things that accept a str, will accept our new `StrAlias` as well:  
 
-```
+```Python
 typedef StrAlias str
 
 a: str
@@ -288,7 +288,7 @@ a = b
 But, the inverse is not true.  
 When expecting a StrAlias, a value of type `str` will not suffice:  
 
-```
+```Python
 typedef StrAlias str
 
 a: StrAlias = "test"
@@ -302,14 +302,14 @@ Using a type condition, denoted by an `if`-statement following our typedef decla
 we can specify our required condition.  
 Note that this if statement runs inside it's own context where `self` is a reference:
 
-```
+```Python
 typedef NetworkPort int if 1 <= self and self <= 65535
 ```
 
 Now we can use NetworkPort as a type and are safe in the knownledge it's value will always be correct.  
 When used as the type of a property for a resource, the compiler will even try to coerce the type:  
 
-```
+```Python
 typedef NetworkPort int if 1 <= self and self <= 65535
 
 resource Service:
@@ -320,7 +320,7 @@ s = Service(8080)
 
 Further testing will also show our custom resource `Service` does not accept bad values:  
 
-```
+```Python
 s = Service(-1)
 ```
 
@@ -345,7 +345,7 @@ and access `inspect` using a dot, eg: `std.inspect`.
 
 Let's take our earlier car example and inspect it:  
 
-```
+```Python
 import std
 
 resource Wheel:
@@ -371,7 +371,7 @@ std.inspect(car)
 
 This will output something akin to this:  
 
-```
+```txt
 INFO Compiling test.eiko
 INSPECT Car 'Toyota': {
     str 'brand': str "Toyota",
@@ -401,7 +401,7 @@ INFO Compiled in 0:00:00.003875
 Importing somthing from a package is also possible,
 using `from ... import ...` syntax, like so:  
 
-```
+```Python
 from std import inspect
 
 inspect(car)
@@ -420,13 +420,13 @@ The Eikobot compiler automatically picks up files with the `.eiko` extension.
 
 For example, create the file `module_1` and put a variable in it:
 
-```
+```Python
 a = "this is an import test"
 ```
 
 Then, in the `hello.eiko` file, import this variable and print it:
 
-```
+```Python
 from std import debug_msg
 import module_1
 
@@ -440,7 +440,7 @@ This file can be empty, or it can contain code.
 
 As an example let's create the following file structure:  
 
-```
+```txt
 module_2 /
     __init__.eiko
     submodule_1.eiko
@@ -449,13 +449,13 @@ module_2 /
 
 importing from the `__init__.eiko` file can be done like so:  
 
-```
+```Python
 from module_2 import ...
 ```
 
 And to import the submodules, or, import from the submodules:  
 
-```
+```Python
 from module_2 import sumodule_1
 from module_2.submodule_2 import ...
 ```
@@ -463,7 +463,7 @@ from module_2.submodule_2 import ...
 You could also not bother with seperate imports like this and just
 import the top level module and access everything through dots:  
 
-```
+```Python
 import module_2
 
 module_2.submodule_1.something
@@ -486,7 +486,8 @@ for example, we could create a plugin in `hello.py` next to `hello.eiko`,
 that concatenates 2 strings:
 
 NOTE: this plugin ofcourse isn't very usfull as eiko supports string concatination using `+`.
-```
+
+```Python
 from eikobot.core.plugin import eiko_plugin
 
 @eiko_plugin()
@@ -496,7 +497,7 @@ def concat(string_1: str, string_2: str) -> str:
 
 Next, call the plugin, inside `hello.eiko`:
 
-```
+```Python
 from std import inspect
 
 a = concat("ha", "ha")
@@ -525,7 +526,7 @@ We'll use the `EikoPluginException` to do some type checking.
 
 So, let's make a `cars.eiko` file:
 
-```
+```Python
 resource Wheel:
     brand: str
     age: int
@@ -574,7 +575,7 @@ Now, let's make a car with wheels and see if the need to be replaced.
 
 In our `hello.eiko` file:  
 
-```
+```Python
 import std
 
 from cars import Car, Wheel, tires_that_should_be_replaced
@@ -605,7 +606,7 @@ if wheel.properties.get("age").value > 5:  # type: ignore
 
 The plugin will return a list of wheels that need to be replaced:
 
-```
+```txt
 INFO Compiling hello.eiko
 INSPECT [
     Wheel 'Toyota': {
