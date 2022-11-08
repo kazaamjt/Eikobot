@@ -96,13 +96,13 @@ def eiko_typedef() -> Path:
 
 @pytest.fixture
 def eiko_std_regex_match() -> Path:
-    _file = get_std_file("regex_match.eiko")
+    _file = get_std_file("test_regex_match.eiko")
     return _file
 
 
 @pytest.fixture
 def eiko_std_file_file() -> Path:
-    _file = get_std_file("file.eiko")
+    _file = get_std_file("test_std_file.eiko")
     return _file
 
 

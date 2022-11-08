@@ -349,7 +349,7 @@ Let's take our earlier car example and inspect it:
 import std
 
 resource Wheel:
-    Brand: str
+    brand: str
     age: int
 
 resource Car:
@@ -373,7 +373,7 @@ This will output something akin to this:
 
 ```
 INFO Compiling test.eiko
-PRINT Car 'Toyota': {
+INSPECT Car 'Toyota': {
     str 'brand': str "Toyota",
     List[Wheel] 'wheels': [
         Wheel 'Toyota': {
@@ -510,3 +510,117 @@ but it is only able to do so for `str`, `int`, `bool` and `float`.
 
 If you are unsure about what type you will receive as an argument,
 know that most anything in the Eiko language inherits from `eikobot.core.type.EikoBaseType`.  
+
+lastly, plugins can raise an exception to indicate something is up.  
+When raising an exception, use or inherit from `eikobot.core.plugin.EikoPluginException`.  
+
+When a Python plugin raises an exception that isn't an `EikoPluginException`,
+the compiler will catch it and can produce the python stacktrace using the `--enable-plugin-stacktrace` parameter.  
+
+For example, continuing off of our earlier example with cars, we'll make a plugin that calculates
+how long before you have replace a tire.  
+Naturally this plugin will only except resources of type `Car`.  
+We'll use the `EikoPluginException` to do some type checking.  
+(Due to engine limitations, typing for plugins is somewhat limited.)  
+
+So, let's make a `cars.eiko` file:
+
+```
+resource Wheel:
+    brand: str
+    age: int
+
+resource Car:
+    brand: str
+    wheels: List[Wheel]
+```
+
+and then, in our python file `cars.py`, we write the plugin:
+
+```Python
+from eikobot.core.plugin import EikoPluginException, eiko_plugin
+from eikobot.core.types import EikoList, EikoResource
+
+
+@eiko_plugin()
+def tires_that_should_be_replaced(car: EikoResource) -> EikoList:
+    if car.type.name != "Car":
+        raise EikoPluginException("Expected a resource of type 'Car'.")
+
+    wheels: EikoList = car.properties.get("wheels")  # type: ignore
+    wheels_to_replace = EikoList(element_type=wheels.type.element_type)
+    for wheel in wheels.elements:
+        if wheel.properties.get("age") > 5:  # type: ignore
+            wheels_to_replace.append(wheel)
+
+    return wheels_to_replace
+```
+
+Now there's a lot to unpack here.  
+First, we check that the type of the resource passed is a Car.  
+The compiler will make sure it is in fact an Eikoresource.  
+
+Then we get the list of wheels.  
+For `mypy`'s sake, we could do an `isinstance` check here to make sure
+the wheels property is indeed a list.  
+However the eiko compiler already did type checks for us, so we can assume this is correct.  
+
+Then we create a new `EikoList`.  
+But an `EikoList` requires knowing it's element type upon creation.  
+Rather then trying to construct this type manually from scratch,
+we pass a reference to the element type of the wheels list.  
+
+Now, let's make a car with wheels and see if the need to be replaced.  
+
+In our `hello.eiko` file:  
+
+```
+import std
+
+from cars import Car, Wheel, tires_that_should_be_replaced
+
+car = Car(
+    "Toyota",
+    [
+        Wheel("Toyota", 7),
+        Wheel("Toyota", 7),
+        Wheel("Toyota", 7),
+        Wheel("Michelin", 4)
+    ],
+)
+
+std.inspect(tires_that_should_be_replaced(car))
+```
+
+When we compile `hello.eiko` with the command `eikobot compile -f hello.eiko --enable-plugin-stacktrace`,
+it will actually show a stacktrace in this case, because there is a little bug in our plugin.  
+In this case, it's because `Wheel.age` returns an `EikoInt`, not a python `int`.  
+We can access the Python value by accessing `EIkoInt.value`.  
+
+So when fix the problematic line:  
+
+```Python
+if wheel.properties.get("age").value > 5:  # type: ignore
+```
+
+The plugin will return a list of wheels that need to be replaced:
+
+```
+INFO Compiling hello.eiko
+INSPECT [
+    Wheel 'Toyota': {
+        str 'brand': str "Toyota",
+        int 'age': int 7,
+    },
+    Wheel 'Toyota': {
+        str 'brand': str "Toyota",
+        int 'age': int 7,
+    },
+    Wheel 'Toyota': {
+        str 'brand': str "Toyota",
+        int 'age': int 7,
+    },
+]
+INFO Done
+INFO Compiled in 0:00:00.003532
+```

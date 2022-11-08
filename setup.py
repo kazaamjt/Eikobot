@@ -10,7 +10,7 @@ this_directory = Path(__file__).parent
 with open(this_directory / "README.md", encoding="utf-8") as f:
     long_description = f.read()
 
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 REQUIRES = [
     "click==8.0.2",
     "colorama==0.4.4",
