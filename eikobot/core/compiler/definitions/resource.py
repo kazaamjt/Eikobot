@@ -5,6 +5,7 @@ Resource is the base building block of the eiko language model.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional
 
+from ...handlers import Handler
 from ..token import Token
 from .base_types import EikoBaseType, EikoType
 
@@ -41,8 +42,10 @@ class ResourceDefinition(EikoBaseType):
         self.token = token
         self.name = name
         self.default_constructor = default_constructor
+        self.default_constructor.parent = self
         self.properties = properties
         self.index_def = [list(properties.keys())[0]]
+        self.handler: Optional[type[Handler]] = None
 
     def printable(self, indent: str = "") -> str:
         return_str = f"{indent}Resource Definition '{self.name}': " + "{\n"

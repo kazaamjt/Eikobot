@@ -19,6 +19,7 @@ from ..errors import EikoCompilationError, EikoInternalError
 from ..token import Token
 
 if TYPE_CHECKING:
+    from ...handlers import Handler
     from .context import StorableTypes
 
 
@@ -377,9 +378,10 @@ EikoBuiltinTypes = [EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath]
 class EikoResource(EikoBaseType):
     """Represents a custom resource in the Eiko language."""
 
-    def __init__(self, eiko_type: EikoType) -> None:
+    def __init__(self, eiko_type: EikoType, handler: Optional[Type["Handler"]]) -> None:
         super().__init__(eiko_type)
         self._index: str
+        self.handler_ref = handler
         self.properties: Dict[str, EikoBaseType] = {}
 
     def set_index(self, index: str) -> None:

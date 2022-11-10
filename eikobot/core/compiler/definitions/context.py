@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
+from ... import logger
+from ...handlers import CRUDHandler
 from ..decorator import index_decorator
 from ..errors import EikoCompilationError, EikoInternalError
 from ..importlib import import_python_code
@@ -60,6 +62,7 @@ class LazyLoadModule:
     def compile(self) -> "CompilerContext":
         """Imports plugins and compiles eiko code so the module can be used."""
         if not self.context.compiled:
+            logger.debug(f"Importing module '{self.context.get_import_name()}'")
             for expr in self.parser.parse():
                 expr.compile(self.context)
 
@@ -82,15 +85,18 @@ class CompilerContext:
         self,
         name: str,
         super_scope: Optional["CompilerContext"] = None,
+        super_module: Optional["CompilerContext"] = None,
     ) -> None:
         self.name = name
-        self.storage: Dict[
+        self.storage: dict[
             str,
             Union[_StorableTypes, "CompilerContext", LazyLoadModule, EikoUnset, None],
         ] = {}
         self.type = EikoType("eiko_internal_context")
         self.super = super_scope
+        self.super_module = super_module
         self.compiled = False
+        self.handlers: dict[str, Type[CRUDHandler]] = {}
 
     def flag_as_compiled(self) -> None:
         self.compiled = True
@@ -192,6 +198,7 @@ class CompilerContext:
             )
 
         self.storage[name] = value
+        self._connect_handler(name)
 
     def get_or_set_context(
         self, name: str, token: Optional[Token] = None
@@ -204,7 +211,7 @@ class CompilerContext:
             return context
 
         if context is None:
-            new_context = CompilerContext(name)
+            new_context = CompilerContext(name, super_module=self)
             self.set(name, new_context)
             return new_context
 
@@ -219,6 +226,51 @@ class CompilerContext:
         but does not store the new context in the super context.
         """
         return CompilerContext(name, self)
+
+    def register_handler(self, handler: Type[CRUDHandler]) -> None:
+        """
+        Adds a handler to the context for later retrieval.
+        """
+        prev_handler = self.handlers.get(handler.resource)
+        if prev_handler is not None:
+            raise EikoCompilationError(
+                f"A handler for resource type '{handler.resource}' was already registered."
+            )
+
+        self.handlers[handler.resource] = handler
+        self._connect_handler(handler.resource)
+
+    def _connect_handler(self, name: str) -> None:
+        handler = self.handlers.get(name)
+        if handler is None:
+            return
+
+        resource = self.storage.get(name)
+        if resource is None:
+            return
+
+        if not isinstance(resource, ResourceDefinition):
+            raise EikoCompilationError(
+                f"Tried to connect a handler to '{name}', which is not a resource."
+            )
+
+        logger.debug(
+            f"Linking handler {handler} to resource '{self.get_import_name()}.{name}'"
+        )
+        resource.handler = handler
+
+    def get_import_name(self) -> str:
+        """Constructs a name based on inherited contexts."""
+        name = ""
+        if self.name == "__main__":
+            return name
+
+        if self.super_module is not None:
+            super_name = self.super_module.get_import_name()
+            if super_name != "":
+                name += super_name + "."
+
+        return name + self.name
 
 
 StorableTypes = Union[_StorableTypes, "CompilerContext"]

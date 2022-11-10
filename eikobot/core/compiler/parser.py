@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
+from .. import logger
 from .decorator import EikoDecorator
 from .definitions.base_types import (
     EikoBaseType,
@@ -944,7 +945,7 @@ class ResourceDefinitionAST(ExprAST):
     def compile(self, context: CompilerContext) -> ResourceDefinition:
         properties: Dict[str, ResourceProperty] = {}
 
-        default_constructor = ConstructorDefinition(self.name, ".__init__", context)
+        default_constructor = ConstructorDefinition(".__init__", context)
         default_constructor.add_arg(ConstructorArg("self", self.type))
         for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
@@ -1013,6 +1014,7 @@ class ImportExprAST(ExprAST):
             )
 
         if not module.context.compiled:
+            logger.debug(f"Importing module '{'.'.join(import_list)}'.")
             import_python_code(import_list, module.path, module.context)
             parser = Parser(module.path)
             for expr in parser.parse():

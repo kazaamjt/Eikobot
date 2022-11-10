@@ -10,7 +10,7 @@ from types import FunctionType, ModuleType
 from typing import TYPE_CHECKING, List, Optional
 
 from .. import logger
-from ..backend.handlers import CRUDHandler
+from ..handlers import CRUDHandler, Handler
 from .definitions.base_types import EikoBaseType
 from .definitions.function import PluginArg, PluginDefinition
 from .errors import EikoCompilationError
@@ -149,10 +149,11 @@ def import_python_code(
 
             elif (
                 isclass(_obj)
-                and issubclass(_obj, CRUDHandler)
-                and _obj is not CRUDHandler
+                and issubclass(_obj, Handler)
+                and _obj not in (Handler, CRUDHandler)
             ):
                 logger.debug(f"Importing handler '{_obj.__name__}' from {file_path}")
+                context.register_handler(_obj)
     else:
         logger.debug(f"Found no python plugins for eiko file: {eiko_file_path}")
 

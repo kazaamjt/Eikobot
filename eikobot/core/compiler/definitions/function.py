@@ -24,6 +24,7 @@ from .typedef import EikoTypeDef
 if TYPE_CHECKING:
     from ..parser import ExprAST
     from .context import CompilerContext, StorableTypes
+    from .resource import ResourceDefinition
 
 EikoFunctionType = EikoType("function")
 
@@ -41,10 +42,10 @@ class ConstructorDefinition(EikoBaseType):
     """Internal representation of an Eikobot constructor."""
 
     def __init__(
-        self, class_name: str, name: str, execution_context: "CompilerContext"
+        self, name: str, execution_context: "CompilerContext"
     ) -> None:
         super().__init__(EikoFunctionType)
-        self.class_name = class_name
+        self.parent: "ResourceDefinition"
         self.name = name
         self.args: Dict[str, ConstructorArg] = {}
         self.body: List["ExprAST"] = []
@@ -77,7 +78,7 @@ class ConstructorDefinition(EikoBaseType):
 
         handled_args: Dict[str, EikoBaseType] = {}
         self_arg = list(self.args.values())[0]
-        resource = EikoResource(self_arg.type)
+        resource = EikoResource(self_arg.type, self.parent.handler)
         handled_args[self_arg.name] = resource
         self._handle_args(
             handled_args, positional_args, keyword_args, self.execution_context
@@ -103,13 +104,13 @@ class ConstructorDefinition(EikoBaseType):
         res_index = ""
 
         for property_name in self.index_def:
-            if property_name == self.class_name:
+            if property_name == self.parent.name:
                 continue
             index_prop = resource.properties.get(property_name)
             if not isinstance(index_prop, INDEXABLE_TYPES):
                 # Pass a token so we can have a trace.
                 raise EikoCompilationError(
-                    f"Property '{property_name}' of '{self.class_name}' is not an indexable type."
+                    f"Property '{property_name}' of '{self.parent.name}' is not an indexable type."
                 )
 
             res_index += "-" + index_prop.index()

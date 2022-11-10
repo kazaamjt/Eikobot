@@ -86,6 +86,7 @@ def compile_cmd(
                     logger.error(
                         "To view the python plugin stacktrace, use '--enable-plugin-stacktrace'"
                     )
+        sys.exit(1)
 
     except NotImplementedError as e:
         logger.error("PANIC!! Compiler ran in to an unexpected error!")
@@ -97,16 +98,16 @@ def compile_cmd(
                 print_error_trace(token.index)
         except IndexError:
             pass
+        sys.exit(1)
 
-    else:
-        if output_model:
-            logger.info("resulting model context:")
-            print(compiler.context)
+    if output_model:
+        logger.info("resulting model context:")
+        print(compiler.context)
 
-        time_taken = time.process_time() - start
-        time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
-        logger.info("Done")
-        logger.info(f"Compiled in {time_taken_formatted}")
+    time_taken = time.process_time() - start
+    time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+    logger.info("Done")
+    logger.info(f"Compiled in {time_taken_formatted}")
 
 
 if __name__ == "__main__":

@@ -6,8 +6,9 @@ from typing import Union
 
 from jinja2 import Template
 
-from eikobot.core.compiler.definitions.base_types import EikoDict
+from eikobot.core.handlers import CRUDHandler
 from eikobot.core.plugin import EikoPluginException, eiko_plugin
+from eikobot.core.types import EikoDict
 
 
 @eiko_plugin()
@@ -39,3 +40,7 @@ def render_template(template: str, data: EikoDict) -> str:
         _data[key] = converted_value
 
     return jinja_template.render(_data)
+
+
+class FileHandler(CRUDHandler):
+    resource = "File"
