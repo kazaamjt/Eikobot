@@ -6,6 +6,8 @@
 - Added type coersion when assigning Typedef types (previously only in constructors)
 - Fixed a bug where typedef expressions did not properly parse dot expressions for the base type
 - Fixed a bug where typedefs could not properly inherit from each other
+- Added class name to the unique index generated for resources
+- Fixed a bug where the global resource id list would leak between deployments
 
 ## 0.2.0
 

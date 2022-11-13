@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
+from ...errors import EikoCompilationError, EikoPluginError
 from ...plugin import EikoPluginException, EikoPluginTyping
-from ..errors import EikoCompilationError, EikoPluginError
 from ..token import Token
 from .base_types import (
     INDEXABLE_TYPES,
@@ -41,9 +41,7 @@ class ConstructorArg:
 class ConstructorDefinition(EikoBaseType):
     """Internal representation of an Eikobot constructor."""
 
-    def __init__(
-        self, name: str, execution_context: "CompilerContext"
-    ) -> None:
+    def __init__(self, name: str, execution_context: "CompilerContext") -> None:
         super().__init__(EikoFunctionType)
         self.parent: "ResourceDefinition"
         self.name = name
@@ -101,7 +99,7 @@ class ConstructorDefinition(EikoBaseType):
         for expr in self.body:
             expr.compile(context)
 
-        res_index = ""
+        res_index = self.parent.name
 
         for property_name in self.index_def:
             if property_name == self.parent.name:
@@ -110,12 +108,20 @@ class ConstructorDefinition(EikoBaseType):
             if not isinstance(index_prop, INDEXABLE_TYPES):
                 # Pass a token so we can have a trace.
                 raise EikoCompilationError(
-                    f"Property '{property_name}' of '{self.parent.name}' is not an indexable type."
+                    f"Property '{property_name}' of '{self.parent.name}' is not an indexable type.",
+                    token=self.parent.token,
                 )
 
             res_index += "-" + index_prop.index()
 
-        resource.set_index(res_index[1:])
+        resource.set_index(res_index)
+        if resource.index() in context.global_id_list:
+            raise EikoCompilationError(
+                f"A resource of type '{self.parent.name}' with the same index was already created.",
+                token=callee_token,
+            )
+
+        context.global_id_list.append(resource.index())
 
         return resource
 

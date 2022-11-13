@@ -11,7 +11,7 @@ and the language in which eikobot and eikobot plugins are written.
 
 ## Installation
 
-Eikobot requires python 3.10 or up and has 2 external dependencies that can be install using pip.  
+Eikobot requires python 3.10 or up and has 3 external dependencies that can be installed using pip.  
 In fact, Eikobot can be installed using pip as well.  
 
 Here is an example of how to install Eikobot:  
@@ -68,12 +68,12 @@ Features and bug fixes:
 - [x] indexes used to track items
 - [x] constructors for builtin types
 - [x] `Path` type, uses python `Pathlib.Path` underneath
-- [ ] link handlers to resources
+- [x] link handlers to resources
 - [ ] custom constructors
 - [ ] inheritance for `resource`
 - [ ] add `Tuple` data type and automatic unpacking of tuples
-- [ ] add `for` keyword, to loop over lists and dicts
-- [ ] Expand type system (take module in to account)
+- [ ] add `for` keyword, to loop over lists, dicts and tuples
+- [ ] Expand type system to take module in to account when resolving types
 
 Code cleanup:
 
@@ -86,11 +86,13 @@ Code cleanup:
 - [x] add IPv4/IPv6 types
 - [x] File module
 - [x] Templates using jinja
+- [ ] ssh command
 
 ### Backend
 
-- [ ] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
-- [ ] add deployment engine
+- [x] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
+- [ ] add exporter, that generates tasks and links these tasks to each other correctly
+- [ ] add deployer that takes tasks and executes them
 
 ## Linters, type checkers, testing, etc
 

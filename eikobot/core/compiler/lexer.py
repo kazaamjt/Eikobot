@@ -6,7 +6,7 @@ to construct an Abstract Syntax Tree.
 from pathlib import Path
 from typing import Optional
 
-from .errors import EikoSyntaxError
+from ..errors import EikoSyntaxError
 from .misc import Index
 from .token import Token, TokenType
 

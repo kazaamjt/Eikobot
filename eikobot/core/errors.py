@@ -3,8 +3,8 @@ Error types raised by the Eikobot compiler.
 """
 from typing import Optional
 
-from .misc import Index
-from .token import Token
+from .compiler.misc import Index
+from .compiler.token import Token
 
 
 class EikoError(Exception):

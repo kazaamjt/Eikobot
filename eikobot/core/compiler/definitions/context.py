@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
 
 from ... import logger
-from ...handlers import CRUDHandler
+from ...errors import EikoCompilationError, EikoInternalError
+from ...handlers import Handler
 from ..decorator import index_decorator
-from ..errors import EikoCompilationError, EikoInternalError
 from ..importlib import import_python_code
 from ..token import Token
 from .base_types import (
@@ -96,7 +96,15 @@ class CompilerContext:
         self.super = super_scope
         self.super_module = super_module
         self.compiled = False
-        self.handlers: dict[str, Type[CRUDHandler]] = {}
+        self.handlers: dict[str, Type[Handler]] = {}
+
+        self.global_id_list: list[str]
+        if self.super is not None:
+            self.global_id_list = self.super.global_id_list
+        elif self.super_module is not None:
+            self.global_id_list = self.super_module.global_id_list
+        else:
+            self.global_id_list = []
 
     def flag_as_compiled(self) -> None:
         self.compiled = True
@@ -227,7 +235,7 @@ class CompilerContext:
         """
         return CompilerContext(name, self)
 
-    def register_handler(self, handler: Type[CRUDHandler]) -> None:
+    def register_handler(self, handler: Type[Handler]) -> None:
         """
         Adds a handler to the context for later retrieval.
         """
@@ -255,14 +263,14 @@ class CompilerContext:
             )
 
         logger.debug(
-            f"Linking handler {handler} to resource '{self.get_import_name()}.{name}'"
+            f"Linking handler {handler} to resource '{self.get_import_name(include_main=True)}.{name}'"
         )
         resource.handler = handler
 
-    def get_import_name(self) -> str:
+    def get_import_name(self, include_main: bool = False) -> str:
         """Constructs a name based on inherited contexts."""
         name = ""
-        if self.name == "__main__":
+        if self.name == "__main__" and not include_main:
             return name
 
         if self.super_module is not None:

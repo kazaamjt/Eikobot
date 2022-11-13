@@ -18,4 +18,4 @@ def test_decorator(eiko_decorator_file: Path) -> None:
 
     _command_res = compiler.context.get("cmd")
     assert isinstance(_command_res, EikoResource)
-    assert _command_res.index() == "127.0.0.1-echo test"
+    assert _command_res.index() == "TCommand-127.0.0.1-echo test"

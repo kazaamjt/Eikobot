@@ -140,3 +140,9 @@ def eiko_multi_import_file() -> Path:
 def eiko_std_ipaddr() -> Path:
     _file = get_std_file("test_ipaddr.eiko")
     return _file
+
+
+@pytest.fixture
+def eiko_exporter_and_handlers() -> Path:
+    _file = get_file("test_exporter_and_handlers.eiko")
+    return _file

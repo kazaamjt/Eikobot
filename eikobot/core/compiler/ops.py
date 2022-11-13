@@ -7,6 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Callable, Dict, Union
 
+from ..errors import EikoCompilationError, EikoInternalError
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -17,7 +18,6 @@ from .definitions.base_types import (
     EikoResource,
     EikoStr,
 )
-from .errors import EikoCompilationError, EikoInternalError
 from .lexer import Token
 
 

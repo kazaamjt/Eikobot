@@ -12,9 +12,9 @@ import click
 
 from .core import logger
 from .core.compiler import Compiler
-from .core.compiler.errors import EikoError, EikoPluginError
 from .core.compiler.lexer import Token
 from .core.compiler.misc import Index
+from .core.errors import EikoError, EikoPluginError
 
 
 @click.group()

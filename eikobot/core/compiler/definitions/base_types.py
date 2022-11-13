@@ -15,7 +15,7 @@ from typing import (
     Union,
 )
 
-from ..errors import EikoCompilationError, EikoInternalError
+from ...errors import EikoCompilationError, EikoInternalError
 from ..token import Token
 
 if TYPE_CHECKING:

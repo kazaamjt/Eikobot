@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from eikobot.core.compiler.definitions.context import CompilerContext
-from eikobot.core.compiler.errors import EikoParserError
+from eikobot.core.errors import EikoParserError
 from eikobot.core.compiler.parser import (
     AssignmentExprAST,
     BinOP,

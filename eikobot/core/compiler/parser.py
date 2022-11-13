@@ -12,6 +12,12 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 from .. import logger
+from ..errors import (
+    EikoCompilationError,
+    EikoInternalError,
+    EikoParserError,
+    EikoSyntaxError,
+)
 from .decorator import EikoDecorator
 from .definitions.base_types import (
     EikoBaseType,
@@ -49,12 +55,6 @@ from .definitions.function import (
 )
 from .definitions.resource import ResourceDefinition, ResourceProperty
 from .definitions.typedef import EikoTypeDef
-from .errors import (
-    EikoCompilationError,
-    EikoInternalError,
-    EikoParserError,
-    EikoSyntaxError,
-)
 from .importlib import (
     Module,
     import_python_code,

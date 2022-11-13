@@ -1,0 +1,34 @@
+import std
+
+
+resource BotRes:
+    target: str
+    command: str
+
+
+bot_res = BotRes("192.168.0.100", "echo hello")
+
+
+resource MidRes:
+    target: str
+    depends: BotRes
+
+
+mid_res_1 = MidRes("192.168.0.1", bot_res)
+
+
+resource TopRes:
+    target: str
+    depends: MidRes
+
+
+top_res_1 = TopRes("192.168.0.1", mid_res_1)
+top_res_2 = TopRes("192.168.0.2", MidRes("192.168.0.2", bot_res))
+
+
+resource Collector:
+    name: str
+    l: List[TopRes]
+
+
+collector = Collector("collector", [top_res_1, top_res_2])

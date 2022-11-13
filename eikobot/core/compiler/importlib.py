@@ -10,10 +10,10 @@ from types import FunctionType, ModuleType
 from typing import TYPE_CHECKING, List, Optional
 
 from .. import logger
-from ..handlers import CRUDHandler, Handler
+from ..errors import EikoCompilationError
+from ..handlers import AsyncCRUDHandler, CRUDHandler, Handler
 from .definitions.base_types import EikoBaseType
 from .definitions.function import PluginArg, PluginDefinition
-from .errors import EikoCompilationError
 
 if TYPE_CHECKING:
     from .definitions.context import CompilerContext
@@ -150,7 +150,7 @@ def import_python_code(
             elif (
                 isclass(_obj)
                 and issubclass(_obj, Handler)
-                and _obj not in (Handler, CRUDHandler)
+                and _obj not in (Handler, AsyncCRUDHandler, CRUDHandler)
             ):
                 logger.debug(f"Importing handler '{_obj.__name__}' from {file_path}")
                 context.register_handler(_obj)

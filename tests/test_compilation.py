@@ -15,7 +15,7 @@ from eikobot.core.compiler.definitions.base_types import (
 )
 from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler.definitions.typedef import EikoTypeDef
-from eikobot.core.compiler.errors import EikoCompilationError
+from eikobot.core.errors import EikoCompilationError
 from eikobot.core.compiler.parser import Parser
 
 

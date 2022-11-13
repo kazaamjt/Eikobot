@@ -8,7 +8,7 @@ import pytest
 
 from eikobot.core.compiler import Compiler
 from eikobot.core.compiler.definitions.base_types import EikoBool
-from eikobot.core.compiler.errors import EikoCompilationError
+from eikobot.core.errors import EikoCompilationError
 
 
 def test_equals(tmp_eiko_file: Path) -> None:

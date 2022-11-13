@@ -4,7 +4,7 @@ They can alias types and even put restrictions on them.
 """
 from typing import TYPE_CHECKING, Optional, Union
 
-from ..errors import EikoCompilationError
+from ...errors import EikoCompilationError
 from ..token import Token
 from .base_types import (
     BuiltinTypes,
