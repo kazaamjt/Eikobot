@@ -182,10 +182,10 @@ class CompilerContext:
         prev_value = self.shallow_get(name)
         if isinstance(prev_value, EikoUnset):
             if prev_value.type.inverse_type_check(value.type):
-                type_constr = self.get(prev_value.type.name)
-                if isinstance(type_constr, EikoTypeDef):
+                constr = self.get(prev_value.type.name)
+                if isinstance(constr, EikoTypeDef):
                     if isinstance(value, EikoBaseType):
-                        value = type_constr.execute(value, token)
+                        value = constr.execute(value, token)
                     else:
                         raise EikoInternalError(
                             "Something went wrong trying to coerce a type to it's typedef.",

@@ -18,6 +18,7 @@ class HandlerContext:
         self.changes: dict[str, Any] = {}
         self.deployed = False
         self.updated = False
+        self.failed = False
 
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value
@@ -27,6 +28,9 @@ class Handler:
     """A handler implements methods for a resource to be managed."""
 
     resource: str
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        raise NotImplementedError
 
 
 class EikoCRUDHanlderMethodNotImplemented(Exception):
@@ -38,6 +42,18 @@ class CRUDHandler(Handler):
     A crud resource handler implements python code that handles
     the deployment and updating of resources in python code.
     """
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        ctx.failed = False
+        self.read(ctx)
+        if not ctx.deployed:
+            self.create(ctx)
+        else:
+            if ctx.changes:
+                self.update(ctx)
+
+        if not ctx.deployed:
+            ctx.failed = True
 
     def create(self, ctx: HandlerContext) -> None:
         raise EikoCRUDHanlderMethodNotImplemented
@@ -57,6 +73,18 @@ class AsyncCRUDHandler(Handler):
     An async crud resource handler is like a CRUDHandler,
     but it's methods are async.
     """
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        ctx.failed = False
+        await self.read(ctx)
+        if not ctx.deployed:
+            await self.create(ctx)
+        else:
+            if ctx.changes:
+                await self.update(ctx)
+
+        if not ctx.deployed:
+            ctx.failed = True
 
     async def create(self, ctx: HandlerContext) -> None:
         raise EikoCRUDHanlderMethodNotImplemented

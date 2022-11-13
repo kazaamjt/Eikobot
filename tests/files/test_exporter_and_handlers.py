@@ -1,3 +1,6 @@
+"""
+This file is purely used for testing purposes.
+"""
 import asyncio
 import time
 from datetime import datetime
@@ -7,6 +10,11 @@ from eikobot.core.handlers import AsyncCRUDHandler, CRUDHandler, HandlerContext
 
 
 class BotHandler(AsyncCRUDHandler):
+    """
+    The BotRes or bottom resource should not depend on anything.
+    It should be a base tasks.
+    """
+
     resource = "BotRes"
 
     def __init__(self) -> None:
@@ -23,6 +31,11 @@ class BotHandler(AsyncCRUDHandler):
 
 
 class TopHandler(CRUDHandler):
+    """
+    The TopRes depends on MidRes, but MidRes doesn't have
+    a handler, so it doesn't need to be added to the task model.
+    """
+
     resource = "TopRes"
 
     def __init__(self) -> None:

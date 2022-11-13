@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Optional, Union
 
 from . import logger
-from .compiler import Compiler
+from .compiler import Compiler, CompilerContext
+from .errors import EikoInternalError
 from .handlers import Handler, HandlerContext
 from .types import EikoDict, EikoList, EikoResource
 
@@ -23,6 +24,30 @@ class Task:
     def __post_init__(self) -> None:
         self.dependants: list["Task"] = []
         self.depends_on: list["Task"] = []
+        self.depends_on_copy: list["Task"] = []
+
+    def init(self) -> None:
+        """Resets a task and it's sub tasks so they can run again."""
+        self.depends_on_copy = self.depends_on.copy()
+        for dependant in self.dependants:
+            dependant.init()
+
+    async def execute(self) -> None:
+        """Executes the task, than let's it's dependants know it's done."""
+        logger.debug(f"Executing task {self.task_id}")
+        if self.handler is not None and self.ctx is not None:
+            await self.handler.execute(self.ctx)
+        else:
+            raise EikoInternalError(
+                "Deployer failed to execute a task because a handler or context was missing. "
+            )
+
+        for sub_task in self.dependants:
+            sub_task.remove_dep(self)
+        logger.debug(f"Done executing task {self.task_id}")
+
+    def remove_dep(self, task: "Task") -> None:
+        self.depends_on_copy.remove(task)
 
     def process_sub_task(self, sub_task: "Task") -> None:
         """
@@ -50,12 +75,18 @@ class Exporter:
         self.task_index: dict[str, Task] = {}
         self.base_tasks: list[Task] = []
 
-    def export(self, file: Path) -> list[Task]:
+    def export_from_file(self, file: Path) -> list[Task]:
         """Compiles a file and exports the tasks."""
         logger.debug("Constructing task dependency trees.")
         compiler = Compiler()
         compiler.compile(file)
-        for value in compiler.context.storage.values():
+        return self.export_from_context(compiler.context)
+
+    def export_from_context(self, context: CompilerContext) -> list[Task]:
+        """
+        Walks through a compiler context and exports it as a set fo tasks.
+        """
+        for value in context.storage.values():
             if isinstance(value, EikoResource):
                 self._parse_task(value)
             elif isinstance(value, (EikoList, EikoDict)):

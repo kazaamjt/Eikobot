@@ -86,13 +86,13 @@ Code cleanup:
 - [x] add IPv4/IPv6 types
 - [x] File module
 - [x] Templates using jinja
-- [ ] ssh command
+- [ ] add ssh commands
 
 ### Backend
 
 - [x] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
-- [ ] add exporter, that generates tasks and links these tasks to each other correctly
-- [ ] add deployer that takes tasks and executes them
+- [x] add exporter, that generates tasks and links these tasks to each other correctly
+- [x] add deployer that takes tasks and executes them
 
 ## Linters, type checkers, testing, etc
 

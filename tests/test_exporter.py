@@ -10,7 +10,7 @@ from eikobot.core.handlers import AsyncCRUDHandler, CRUDHandler
 
 def test_exporter(eiko_exporter_and_handlers: Path) -> None:
     exporter = Exporter()
-    tasks = exporter.export(eiko_exporter_and_handlers)
+    tasks = exporter.export_from_file(eiko_exporter_and_handlers)
     assert len(tasks) == 1
 
     bot_task = tasks[0]
