@@ -1,6 +1,6 @@
 import std
 from std.file import File, read_file, render_template
 
-a = __file__ / "../test.txt"
+a = __file__ / "../test.j2"
 b = read_file(a)
 c = render_template(b, {"value": "test_value"})
