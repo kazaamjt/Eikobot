@@ -169,12 +169,12 @@ Currently one can append after a list has been accessed, but this might change i
 
 A list also has typing.  
 When not typed, it takes all it's initial values and expresses the value as a union of those types.  
-Its typing is expressed as `List[element_type]`, where `element_type` is a type expression of any kind.  
+Its typing is expressed as `list[element_type]`, where `element_type` is a type expression of any kind.  
 
 So a list of integers would be typed like this:
 
 ```Python
-new_list: List[int] = [1, 2, 3]
+new_list: list[int] = [1, 2, 3]
 ```
 
 This also means that a list needs either values OR typing when initialized.  
@@ -185,7 +185,7 @@ Dictionaries are mappings. They map a key to a value.
 Both keys and values can be any type.  
 
 ```Python
-new_dict: Dict[str, str] = {
+new_dict: dict[str, str] = {
     "key_1": "value_1",
     "key_2": "value_2",
     "key_3": "value_3",
@@ -193,7 +193,7 @@ new_dict: Dict[str, str] = {
 ```
 
 Just like variables, keys cannot be reassigned, nor can keys or values be deleted.  
-Note the typing, expressed as `Dict[key_type, value_type]`.  
+Note the typing, expressed as `dict[key_type, value_type]`.  
 When not typed, it takes all it's initial keys and values,
 and expresses the value as a union of those types.  
 
@@ -237,7 +237,7 @@ resource Wheel:
 
 resource Car:
     brand: str
-    wheels: List[Wheel]
+    wheels: list[Wheel]
 
 car = Car(
     "Toyota",
@@ -354,7 +354,7 @@ resource Wheel:
 
 resource Car:
     brand: str
-    wheels: List[Wheel]
+    wheels: list[Wheel]
 
 car = Car(
     "Toyota",
@@ -375,7 +375,7 @@ This will output something akin to this:
 INFO Compiling test.eiko
 INSPECT Car 'Toyota': {
     str 'brand': str "Toyota",
-    List[Wheel] 'wheels': [
+    list[Wheel] 'wheels': [
         Wheel 'Toyota': {
             str 'Brand': str "Toyota",
             int 'age': int 3,
@@ -533,7 +533,7 @@ resource Wheel:
 
 resource Car:
     brand: str
-    wheels: List[Wheel]
+    wheels: list[Wheel]
 ```
 
 and then, in our python file `cars.py`, we write the plugin:

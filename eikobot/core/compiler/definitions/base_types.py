@@ -4,16 +4,7 @@ strings, integers, floats, and booleans, in a way that makes sense to the compil
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
 
 from ...errors import EikoCompilationError, EikoInternalError
 from ..token import Token
@@ -82,7 +73,7 @@ EikoType.type = EikoType("Type")
 EikoObjectType = EikoType("Object")
 
 
-def type_list_to_type(types: List[EikoType]) -> EikoType:
+def type_list_to_type(types: list[EikoType]) -> EikoType:
     """Turns a list of Eiko types in to a single usable type."""
     if len(types) == 1:
         _type = types[0]
@@ -101,7 +92,7 @@ class EikoUnion(EikoType):
     def __init__(
         self,
         name: str,
-        types: List[EikoType],
+        types: list[EikoType],
     ) -> None:
         self.types = types
         super().__init__(name)
@@ -123,7 +114,7 @@ class EikoUnion(EikoType):
 
 
 # Implement this once mypy supports it
-# PyTypes = Union[None, bool, float, int, str, dict["PyTypes", "PyTypes"], List["PyTypes"]]
+# PyTypes = Union[None, bool, float, int, str, dict["PyTypes", "PyTypes"], list["PyTypes"]]
 PyTypes = Union[None, bool, float, int, str, dict, list, Path]
 
 
@@ -382,7 +373,7 @@ class EikoResource(EikoBaseType):
         super().__init__(eiko_type)
         self._index: str
         self.handler_ref = handler
-        self.properties: Dict[str, EikoBaseType] = {}
+        self.properties: dict[str, EikoBaseType] = {}
 
     def set_index(self, index: str) -> None:
         self._index = index
@@ -473,7 +464,7 @@ class EikoBuiltinFunction(EikoBaseType):
     def __init__(
         self,
         identifier: str,
-        args: List[BuiltinFunctionArg],
+        args: list[BuiltinFunctionArg],
         body: Callable[..., Optional[EikoBaseType]],
     ) -> None:
         super().__init__(_builtin_function_type)
@@ -482,7 +473,7 @@ class EikoBuiltinFunction(EikoBaseType):
         self.body = body
 
     def execute(
-        self, callee_token: Token, args: List[PassedArg]
+        self, callee_token: Token, args: list[PassedArg]
     ) -> Optional[EikoBaseType]:
         """Execute the builtin function."""
         if len(args) != len(self.args):
@@ -491,7 +482,7 @@ class EikoBuiltinFunction(EikoBaseType):
                 token=callee_token,
             )
 
-        validated_args: List[EikoBaseType] = []
+        validated_args: list[EikoBaseType] = []
         for passed_arg, expected_arg in zip(args, self.args):
             if not expected_arg.type.type_check(passed_arg.value.type):
                 raise EikoCompilationError(
@@ -511,7 +502,7 @@ class EikoListType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
 
     def __init__(self, element_type: EikoType) -> None:
-        super().__init__(f"List[{element_type.name}]")
+        super().__init__(f"list[{element_type.name}]")
         self.element_type = element_type
 
     def type_check(self, expected_type: "EikoType") -> bool:
@@ -529,11 +520,11 @@ class EikoList(EikoBaseType):
     def __init__(
         self,
         element_type: EikoType,
-        elements: Optional[List[EikoBaseType]] = None,
+        elements: Optional[list[EikoBaseType]] = None,
     ) -> None:
         super().__init__(EikoListType(element_type))
         if elements is None:
-            self.elements: List[EikoBaseType] = []
+            self.elements: list[EikoBaseType] = []
         else:
             self.elements = elements
 
@@ -592,7 +583,7 @@ class EikoDictType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
 
     def __init__(self, key_type: EikoType, value_type: EikoType) -> None:
-        super().__init__(f"Dict[{key_type.name}, {value_type.name}]")
+        super().__init__(f"dict[{key_type.name}, {value_type.name}]")
         self.key_type = key_type
         self.value_type = value_type
 

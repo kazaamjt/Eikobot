@@ -5,7 +5,7 @@ of Eikobot builtin types.
 """
 from enum import Enum, auto
 from pathlib import Path
-from typing import Callable, Dict, Union
+from typing import Callable, Union
 
 from ..errors import EikoCompilationError, EikoInternalError
 from .definitions.base_types import (
@@ -139,7 +139,7 @@ BinOpCallable = Union[
     Callable[[EikoPath, Union[EikoPath, EikoStr]], EikoBaseType],
 ]
 
-BinOpMatrix = Dict[BinOP, BinOpCallable]
+BinOpMatrix = dict[BinOP, BinOpCallable]
 
 _float_matrix: BinOpMatrix = {
     BinOP.ADD: add_float,
@@ -150,7 +150,7 @@ _float_matrix: BinOpMatrix = {
     BinOP.EXPONENTIATION: exponentiate_float,
 }
 
-BINOP_MATRIX: Dict[str, Dict[str, BinOpMatrix]] = {
+BINOP_MATRIX: dict[str, dict[str, BinOpMatrix]] = {
     "int": {
         "int": {
             BinOP.ADD: add_int,

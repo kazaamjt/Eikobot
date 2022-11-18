@@ -4,7 +4,7 @@ Used both by files/modules and fucntions.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Optional, Type, Union
 
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 _StorableTypes = Union[
     EikoBaseType, ResourceDefinition, Type[EikoBaseType], EikoType, Type[EikoType]
 ]
-_builtins: Dict[str, _StorableTypes] = {
+_builtins: dict[str, _StorableTypes] = {
     "int": EikoInt,
     "float": EikoFloat,
     "bool": EikoBool,
@@ -57,7 +57,7 @@ class LazyLoadModule:
 
     context: "CompilerContext"
     parser: "Parser"
-    import_path: List[str]
+    import_path: list[str]
 
     def compile(self) -> "CompilerContext":
         """Imports plugins and compiles eiko code so the module can be used."""

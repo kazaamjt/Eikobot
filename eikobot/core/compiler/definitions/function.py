@@ -4,7 +4,7 @@ constructors and plugins do, and they need some kind of representation.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Optional, Type, Union
 
 from ...errors import EikoCompilationError, EikoPluginError
 from ...plugin import EikoPluginException, EikoPluginTyping
@@ -45,10 +45,10 @@ class ConstructorDefinition(EikoBaseType):
         super().__init__(EikoFunctionType)
         self.parent: "ResourceDefinition"
         self.name = name
-        self.args: Dict[str, ConstructorArg] = {}
-        self.body: List["ExprAST"] = []
+        self.args: dict[str, ConstructorArg] = {}
+        self.body: list["ExprAST"] = []
         self.execution_context = execution_context
-        self.index_def: List[str] = []
+        self.index_def: list[str] = []
 
     def printable(self, _: str = "") -> str:
         raise NotImplementedError
@@ -62,8 +62,8 @@ class ConstructorDefinition(EikoBaseType):
     def execute(
         self,
         callee_token: Token,
-        positional_args: List[PassedArg],
-        keyword_args: Dict[str, PassedArg],
+        positional_args: list[PassedArg],
+        keyword_args: dict[str, PassedArg],
     ) -> EikoResource:
         """
         Executes a function call based on a premade constructor spec.
@@ -74,7 +74,7 @@ class ConstructorDefinition(EikoBaseType):
                 token=callee_token,
             )
 
-        handled_args: Dict[str, EikoBaseType] = {}
+        handled_args: dict[str, EikoBaseType] = {}
         self_arg = list(self.args.values())[0]
         resource = EikoResource(self_arg.type, self.parent.handler)
         handled_args[self_arg.name] = resource
@@ -127,9 +127,9 @@ class ConstructorDefinition(EikoBaseType):
 
     def _handle_args(
         self,
-        handled_args: Dict[str, EikoBaseType],
-        positional_args: List[PassedArg],
-        keyword_args: Dict[str, PassedArg],
+        handled_args: dict[str, EikoBaseType],
+        positional_args: list[PassedArg],
+        keyword_args: dict[str, PassedArg],
         context: "CompilerContext",
     ) -> None:
         for passed_arg, arg in zip(positional_args, list(self.args.values())[1:]):
@@ -208,7 +208,7 @@ class PluginDefinition(EikoBaseType):
         self.body = body
         self.return_type = to_eiko_type(return_type)
         self._body_return_type = return_type
-        self.args: List[PluginArg] = []
+        self.args: list[PluginArg] = []
         self.identifier = identifier
         self.module = module
 
@@ -219,7 +219,7 @@ class PluginDefinition(EikoBaseType):
         self.args.append(arg)
 
     def execute(
-        self, args: List["ExprAST"], context: "CompilerContext", token: Optional[Token]
+        self, args: list["ExprAST"], context: "CompilerContext", token: Optional[Token]
     ) -> Optional[EikoBaseType]:
         """Execute the stored function and coerces types."""
 

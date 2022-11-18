@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from inspect import getfullargspec, getmembers, isclass, isfunction
 from pathlib import Path
 from types import FunctionType, ModuleType
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from .. import logger
 from ..errors import EikoCompilationError
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .definitions.context import CompilerContext
 
 INTERNAL_LIB_PATH = Path(__file__).parent.parent.resolve() / "lib"
-PATHS: List[Path] = [INTERNAL_LIB_PATH, Path(".")]
+PATHS: list[Path] = [INTERNAL_LIB_PATH, Path(".")]
 
 
 @dataclass
@@ -31,12 +31,12 @@ class Module:
     context: "CompilerContext"
 
     def __post_init__(self) -> None:
-        self.submodules: List["Module"] = []
+        self.submodules: list["Module"] = []
         self.context.set_path(self.path)
 
 
 def resolve_import(
-    import_path: List[str], main_context: "CompilerContext"
+    import_path: list[str], main_context: "CompilerContext"
 ) -> Optional[Module]:
     """
     Tries to import a given path.
@@ -50,7 +50,7 @@ def resolve_import(
 
 
 def _resolve_import(
-    import_path: List[str], parent: Path, context: "CompilerContext"
+    import_path: list[str], parent: Path, context: "CompilerContext"
 ) -> Optional[Module]:
     current = import_path[0]
     import_path.remove(current)
@@ -80,7 +80,7 @@ def _resolve_import(
 
 
 def resolve_from_import(
-    import_path: List[str], context: "CompilerContext"
+    import_path: list[str], context: "CompilerContext"
 ) -> Optional[Module]:
     """
     Tries to from import a given path list.
@@ -94,7 +94,7 @@ def resolve_from_import(
 
 
 def _resolve_from_import(
-    import_path: List[str], parent: Path, context: "CompilerContext"
+    import_path: list[str], parent: Path, context: "CompilerContext"
 ) -> Optional[Module]:
     current = import_path[0]
     import_path.remove(current)
@@ -124,7 +124,7 @@ def _resolve_from_import(
 
 
 def import_python_code(
-    module_path: List[str], eiko_file_path: Path, context: "CompilerContext"
+    module_path: list[str], eiko_file_path: Path, context: "CompilerContext"
 ) -> None:
     """
     Resolves and exposes python code that is tagged as eiko-plugins.
