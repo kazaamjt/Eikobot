@@ -1176,7 +1176,7 @@ class TypeExprAST(ExprAST):
             return primary_type
 
         if isinstance(primary_type, ResourceDefinition):
-            return primary_type.type
+            return primary_type.instance_type
 
         if isinstance(primary_type, EikoTypeDef):
             return primary_type.type

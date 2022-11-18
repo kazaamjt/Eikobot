@@ -86,7 +86,10 @@ class Exporter:
         """
         Walks through a compiler context and exports it as a set fo tasks.
         """
-        for value in context.storage.values():
+        values = list(context.storage.values())
+        values.extend(context.orphans)
+
+        for value in values:
             if isinstance(value, EikoResource):
                 self._parse_task(value)
             elif isinstance(value, (EikoList, EikoDict)):

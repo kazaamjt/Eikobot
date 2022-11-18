@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 
 from ...handlers import Handler
 from ..token import Token
-from .base_types import EikoBaseType, EikoType
+from .base_types import EikoBaseType, EikoObjectType, EikoType
 
 if TYPE_CHECKING:
     from .function import ConstructorDefinition
@@ -38,9 +38,10 @@ class ResourceDefinition(EikoBaseType):
         default_constructor: "ConstructorDefinition",
         properties: Dict[str, ResourceProperty],
     ) -> None:
-        super().__init__(EikoType(name, EikoResourceDefinitionType))
+        super().__init__(EikoResourceDefinitionType)
         self.token = token
         self.name = name
+        self.instance_type = EikoType(name, EikoObjectType)
         self.default_constructor = default_constructor
         self.default_constructor.parent = self
         self.properties = properties

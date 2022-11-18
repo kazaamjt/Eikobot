@@ -45,8 +45,8 @@ _builtins: Dict[str, _StorableTypes] = {
     "None": eiko_none_object,
     "Union": EikoUnion,
     "Optional": EikoOptional,
-    "List": EikoListType,
-    "Dict": EikoDictType,
+    "list": EikoListType,
+    "dict": EikoDictType,
     "index": index_decorator,
 }
 
@@ -97,6 +97,7 @@ class CompilerContext:
         self.super_module = super_module
         self.compiled = False
         self.handlers: dict[str, Type[Handler]] = {}
+        self.orphans: list[EikoBaseType] = []
 
         self.global_id_list: list[str]
         if self.super is not None:

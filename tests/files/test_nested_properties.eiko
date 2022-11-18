@@ -4,7 +4,7 @@ resource Res_1:
 
 resource Res_2:
     name: str
-    res_1: List[Res_1]
+    res_1: list[Res_1]
 
 
 a = Res_2("test", [Res_1("res_1_prop_1")])

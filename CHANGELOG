@@ -8,6 +8,9 @@
 - Fixed a bug where typedefs could not properly inherit from each other
 - Added class name to the unique index generated for resources
 - Fixed a bug where the global resource id list would leak between deployments
+- Change `List` and `Dict`, to `list` and `dict`, because python deprecated the former
+- Fixed a bug in the type system where a resource class had itself as a type instead of `ResourceDefinition`
+- Fixed a bug where resource instances inherited from `ResourceDefinition` instead of the base object
 
 ## 0.2.0
 

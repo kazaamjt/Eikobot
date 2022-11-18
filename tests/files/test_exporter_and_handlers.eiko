@@ -28,7 +28,7 @@ top_res_2 = TopRes("192.168.0.2", MidRes("192.168.0.2", bot_res))
 
 resource Collector:
     name: str
-    l: List[TopRes]
+    l: list[TopRes]
 
 
 collector = Collector("collector", [top_res_1, top_res_2])

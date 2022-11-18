@@ -5,6 +5,7 @@ Handlers are a way to describe to Eikobot how something should be deployed.
 from dataclasses import dataclass
 from typing import Any
 
+from . import logger
 from .compiler.definitions.base_types import EikoResource
 
 
@@ -39,18 +40,36 @@ class EikoCRUDHanlderMethodNotImplemented(Exception):
 
 class CRUDHandler(Handler):
     """
-    A crud resource handler implements python code that handles
+    A CRUD resource handler implements python code that handles
     the deployment and updating of resources in python code.
+    This handler is blocking. It is highly recommended to use
+    the non blocking AsyncCrudHandler instead.
     """
 
     async def execute(self, ctx: HandlerContext) -> None:
         ctx.failed = False
-        self.read(ctx)
+        try:
+            self.read(ctx)
+        except EikoCRUDHanlderMethodNotImplemented:
+            pass
+
         if not ctx.deployed:
-            self.create(ctx)
+            try:
+                self.create(ctx)
+            except EikoCRUDHanlderMethodNotImplemented:
+                logger.error(
+                    "Tried to deploy resource, but handler is missing a create method."
+                )
+                return
         else:
             if ctx.changes:
-                self.update(ctx)
+                try:
+                    ctx.deployed = False
+                    self.update(ctx)
+                except EikoCRUDHanlderMethodNotImplemented:
+                    logger.warning(
+                        "Read method returned changes for handler without update method."
+                    )
 
         if not ctx.deployed:
             ctx.failed = True
@@ -76,12 +95,29 @@ class AsyncCRUDHandler(Handler):
 
     async def execute(self, ctx: HandlerContext) -> None:
         ctx.failed = False
-        await self.read(ctx)
+        ctx.deployed = False
+        try:
+            await self.read(ctx)
+        except EikoCRUDHanlderMethodNotImplemented:
+            pass
+
         if not ctx.deployed:
-            await self.create(ctx)
+            try:
+                await self.create(ctx)
+            except EikoCRUDHanlderMethodNotImplemented:
+                logger.error(
+                    "Tried to deploy resource, but handler is missing a create method."
+                )
+                return
         else:
             if ctx.changes:
-                await self.update(ctx)
+                try:
+                    ctx.deployed = False
+                    await self.update(ctx)
+                except EikoCRUDHanlderMethodNotImplemented:
+                    logger.warning(
+                        "Read method returned changes for handler without update method."
+                    )
 
         if not ctx.deployed:
             ctx.failed = True

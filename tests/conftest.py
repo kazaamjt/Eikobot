@@ -24,125 +24,109 @@ def get_std_file(name: str) -> Path:
 @pytest.fixture
 def tmp_eiko_file(tmp_path: Path) -> Path:
     """Temporary file using tmp_path fixture"""
-    tmp_file = tmp_path / (str(uuid.uuid4()) + ".eiko")
-    return tmp_file
+    return tmp_path / (str(uuid.uuid4()) + ".eiko")
 
 
 @pytest.fixture
 def eiko_file_1() -> Path:
-    _file = get_file("file_1.eiko")
-    return _file
+    return get_file("file_1.eiko")
 
 
 @pytest.fixture
 def eiko_file_2() -> Path:
-    _file = get_file("file_2.eiko")
-    return _file
+    return get_file("file_2.eiko")
 
 
 @pytest.fixture
 def eiko_file_3() -> Path:
-    _file = get_file("file_3.eiko")
-    return _file
+    return get_file("file_3.eiko")
 
 
 @pytest.fixture
 def eiko_base_type_file() -> Path:
-    _file = get_file("test_base_types.eiko")
-    return _file
+    return get_file("test_base_types.eiko")
 
 
 @pytest.fixture
 def eiko_basic_ops_file() -> Path:
-    _file = get_file("test_basic_ops.eiko")
-    return _file
+    return get_file("test_basic_ops.eiko")
 
 
 @pytest.fixture
 def eiko_std_file() -> Path:
-    _file = get_file("test_std.eiko")
-    return _file
+    return get_file("test_std.eiko")
 
 
 @pytest.fixture
 def eiko_from_import_file() -> Path:
-    _file = get_file("test_from_import.eiko")
-    return _file
+    return get_file("test_from_import.eiko")
 
 
 @pytest.fixture
 def eiko_f_string_file() -> Path:
-    _file = get_file("test_f_string.eiko")
-    return _file
+    return get_file("test_f_string.eiko")
 
 
 @pytest.fixture
 def nested_properties_file() -> Path:
-    _file = get_file("test_nested_properties.eiko")
-    return _file
+    return get_file("test_nested_properties.eiko")
 
 
 @pytest.fixture
 def eiko_if_elif_else_file() -> Path:
-    _file = get_file("test_if_elif_else.eiko")
-    return _file
+    return get_file("test_if_elif_else.eiko")
 
 
 @pytest.fixture
 def eiko_typedef() -> Path:
-    _file = get_file("test_typedef.eiko")
-    return _file
+    return get_file("test_typedef.eiko")
 
 
 @pytest.fixture
 def eiko_std_regex_match() -> Path:
-    _file = get_std_file("test_regex_match.eiko")
-    return _file
+    return get_std_file("test_regex_match.eiko")
 
 
 @pytest.fixture
 def eiko_std_file_file() -> Path:
-    _file = get_std_file("test_std_file.eiko")
-    return _file
+    return get_std_file("test_std_file.eiko")
 
 
 @pytest.fixture
 def eiko_union_file() -> Path:
-    _file = get_file("test_union.eiko")
-    return _file
+    return get_file("test_union.eiko")
 
 
 @pytest.fixture
 def eiko_list_file() -> Path:
-    _file = get_file("test_list.eiko")
-    return _file
+    return get_file("test_list.eiko")
 
 
 @pytest.fixture
 def eiko_dict_file() -> Path:
-    _file = get_file("test_dict.eiko")
-    return _file
+    return get_file("test_dict.eiko")
 
 
 @pytest.fixture
 def eiko_decorator_file() -> Path:
-    _file = get_file("test_decorator.eiko")
-    return _file
+    return get_file("test_decorator.eiko")
 
 
 @pytest.fixture
 def eiko_multi_import_file() -> Path:
-    _file = get_file("test_multi_import.eiko")
-    return _file
+    return get_file("test_multi_import.eiko")
 
 
 @pytest.fixture
 def eiko_std_ipaddr() -> Path:
-    _file = get_std_file("test_ipaddr.eiko")
-    return _file
+    return get_std_file("test_ipaddr.eiko")
 
 
 @pytest.fixture
 def eiko_exporter_and_handlers() -> Path:
-    _file = get_file("test_exporter_and_handlers.eiko")
-    return _file
+    return get_file("test_exporter_and_handlers.eiko")
+
+
+@pytest.fixture
+def eiko_deploy_file() -> Path:
+    return get_file("deployer_test.eiko")
