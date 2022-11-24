@@ -23,6 +23,7 @@ KEYWORDS = {
     "from": TokenType.FROM,
     "and": TokenType.AND,
     "or": TokenType.OR,
+    "def": TokenType.DEF,
 }
 
 SPECIAL_CHARS = {

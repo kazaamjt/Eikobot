@@ -14,9 +14,10 @@ from eikobot.core.compiler.definitions.base_types import (
     EikoStr,
 )
 from eikobot.core.compiler.definitions.context import CompilerContext
+from eikobot.core.compiler.definitions.resource import ResourceDefinition
 from eikobot.core.compiler.definitions.typedef import EikoTypeDef
-from eikobot.core.errors import EikoCompilationError
 from eikobot.core.compiler.parser import Parser
+from eikobot.core.errors import EikoCompilationError
 
 
 def test_basic_ops(eiko_basic_ops_file: Path) -> None:
@@ -155,3 +156,26 @@ def test_forward_declare(tmp_eiko_file: Path) -> None:
     var_a = compiler.context.get("a")
     assert isinstance(var_a, EikoStr)
     assert var_a.value == "test_string"
+
+
+def test_custom_constructor(eiko_constructor_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_constructor_file)
+
+    res_def = compiler.context.get("ConstructorTestResource")
+    assert isinstance(res_def, ResourceDefinition)
+
+    var_a = var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoResource)
+
+    prop_1 = var_a.get("prop_1")
+    assert isinstance(prop_1, EikoStr)
+    assert prop_1.value == "test"
+
+    prop_2 = var_a.get("prop_2")
+    assert isinstance(prop_2, EikoInt)
+    assert prop_2.value == 1
+
+    prop_3 = var_a.get("prop_3")
+    assert isinstance(prop_3, EikoStr)
+    assert prop_3.value == "testtest"

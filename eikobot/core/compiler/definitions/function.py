@@ -14,6 +14,7 @@ from .base_types import (
     EikoBaseType,
     EikoResource,
     EikoType,
+    EikoUnset,
     PassedArg,
     to_eiko,
     to_eiko_type,
@@ -59,7 +60,7 @@ class ConstructorDefinition(EikoBaseType):
     def add_body_expr(self, expr: "ExprAST") -> None:
         self.body.append(expr)
 
-    def execute(
+    def execute(  # pylint: disable=too-many-locals
         self,
         callee_token: Token,
         positional_args: list[PassedArg],
@@ -70,13 +71,15 @@ class ConstructorDefinition(EikoBaseType):
         """
         if len(positional_args) + len(keyword_args) > len(self.args) - 1:
             raise EikoCompilationError(
-                "Too many arguments given to function call.",
+                "Too many arguments given to function call. "
+                f"Expected {len(self.args) - 1}, "
+                f"got {len(positional_args) + len(keyword_args)}.",
                 token=callee_token,
             )
 
         handled_args: dict[str, EikoBaseType] = {}
         self_arg = list(self.args.values())[0]
-        resource = EikoResource(self_arg.type, self.parent.handler)
+        resource = EikoResource(self_arg.type, self.parent)
         handled_args[self_arg.name] = resource
         self._handle_args(
             handled_args, positional_args, keyword_args, self.execution_context
@@ -92,15 +95,27 @@ class ConstructorDefinition(EikoBaseType):
 
                 handled_args[arg_name] = arg.default_value
 
-        context = self.execution_context.get_subcontext(f"{self.name}-execution")
+        context = self.execution_context.get_subcontext(
+            f"{self.parent.name}.{self.name}"
+        )
+        for prop in self.parent.properties.values():
+            resource.populate_property(prop.name, prop.type)
+
         for arg_name, value in handled_args.items():
             context.set(arg_name, value)
 
         for expr in self.body:
             expr.compile(context)
 
-        res_index = self.parent.name
+        for prop in self.parent.properties.values():
+            res_prop = resource.properties.get(prop.name)
+            if isinstance(res_prop, EikoUnset):
+                raise EikoCompilationError(
+                    f"Property '{self.parent.name}.{prop.name}' was not set in the constructor.",
+                    token=callee_token,
+                )
 
+        res_index = self.parent.name
         for property_name in self.index_def:
             if property_name == self.parent.name:
                 continue

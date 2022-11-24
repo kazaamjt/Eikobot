@@ -49,26 +49,29 @@ class CRUDHandler(Handler):
     async def execute(self, ctx: HandlerContext) -> None:
         ctx.failed = False
         try:
+            logger.debug(f"Reading resource '{ctx.resource.index()}'.")
             self.read(ctx)
         except EikoCRUDHanlderMethodNotImplemented:
             pass
 
         if not ctx.deployed:
             try:
+                logger.debug(f"Deploying resource '{ctx.resource.index()}'.")
                 self.create(ctx)
             except EikoCRUDHanlderMethodNotImplemented:
                 logger.error(
-                    "Tried to deploy resource, but handler is missing a create method."
+                    "Tried to deploy resource, but the handler does not have a create method."
                 )
                 return
         else:
             if ctx.changes:
                 try:
                     ctx.deployed = False
+                    logger.debug(f"Updating resource '{ctx.resource.index()}'.")
                     self.update(ctx)
                 except EikoCRUDHanlderMethodNotImplemented:
                     logger.warning(
-                        "Read method returned changes for handler without update method."
+                        "Read returned changes for handler without update method."
                     )
 
         if not ctx.deployed:
@@ -97,12 +100,14 @@ class AsyncCRUDHandler(Handler):
         ctx.failed = False
         ctx.deployed = False
         try:
+            logger.debug(f"Reading resource '{ctx.resource.index()}'.")
             await self.read(ctx)
         except EikoCRUDHanlderMethodNotImplemented:
             pass
 
         if not ctx.deployed:
             try:
+                logger.debug(f"Deploying resource '{ctx.resource.index()}'.")
                 await self.create(ctx)
             except EikoCRUDHanlderMethodNotImplemented:
                 logger.error(
@@ -113,6 +118,7 @@ class AsyncCRUDHandler(Handler):
             if ctx.changes:
                 try:
                     ctx.deployed = False
+                    logger.debug(f"Updating resource '{ctx.resource.index()}'.")
                     await self.update(ctx)
                 except EikoCRUDHanlderMethodNotImplemented:
                     logger.warning(

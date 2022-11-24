@@ -120,8 +120,8 @@ class Exporter:
             return pre_task
 
         handler = None
-        if resource.handler_ref is not None:
-            handler = resource.handler_ref()
+        if resource.class_ref.handler is not None:
+            handler = resource.class_ref.handler()
 
         task = Task(
             resource.index(),

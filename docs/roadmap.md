@@ -1,6 +1,8 @@
 # Roadmap
 
-## Engine Frontend
+## Phase 1
+
+### Compiler
 
 Features and bug fixes:
 
@@ -39,16 +41,18 @@ Code cleanup:
 
 - [ ] Implement an `expects` function for parser, raise if token is not correct type
 
-## STD
+### STD
 
 - [x] add basic regex.match
 - [x] add debug_msg (requires `None`)
 - [x] add IPv4/IPv6 types
 - [x] File module
 - [x] Templates using jinja
-- [ ] add ssh commands
+- [ ] add `Host`, a resource that represents a machine.
+- [ ] add `std.ssh.Command`. Run a command on a machine.
+- [ ] add `File` and `FileHandler`
 
-## Engine Backend
+### Engine
 
 - [x] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
 - [x] add exporter, that generates tasks and links these tasks to each other correctly

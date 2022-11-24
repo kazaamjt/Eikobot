@@ -130,3 +130,8 @@ def eiko_exporter_and_handlers() -> Path:
 @pytest.fixture
 def eiko_deploy_file() -> Path:
     return get_file("deployer_test.eiko")
+
+
+@pytest.fixture
+def eiko_constructor_file() -> Path:
+    return get_file("test_constructor.eiko")

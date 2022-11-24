@@ -934,6 +934,7 @@ class ResourceDefinitionAST(ExprAST):
 
     name: str
     decorators: list[DecoratorExprAST]
+    constructor: Optional["ConstructorExprAST"] = None
 
     def __post_init__(self) -> None:
         self.type = EikoType(self.name, EikoObjectType)
@@ -944,9 +945,6 @@ class ResourceDefinitionAST(ExprAST):
 
     def compile(self, context: CompilerContext) -> ResourceDefinition:
         properties: dict[str, ResourceProperty] = {}
-
-        default_constructor = ConstructorDefinition(".__init__", context)
-        default_constructor.add_arg(ConstructorArg("self", self.type))
         for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
             _prop = properties.get(prop.name)
@@ -956,25 +954,31 @@ class ResourceDefinitionAST(ExprAST):
                     token=property_ast.token,
                 )
             properties[prop.name] = prop
-            default_constructor.add_arg(
-                ConstructorArg(prop.name, prop.type, prop.default_value)
-            )
-            token = property_ast.token
-            if token is None:
-                token = Token(TokenType.IDENTIFIER, prop.name, self.token.index)
-            default_constructor.add_body_expr(
-                AssignmentExprAST(
-                    self.token,
-                    DotExprAST(
-                        Token(TokenType.DOT, ".", token.index),
-                        VariableExprAST(
-                            Token(TokenType.IDENTIFIER, "self", token.index)
+        if self.constructor is None:
+            default_constructor = ConstructorDefinition("__init__", context)
+            default_constructor.add_arg(ConstructorArg("self", self.type))
+            for prop in properties.values():
+                default_constructor.add_arg(
+                    ConstructorArg(prop.name, prop.type, prop.default_value)
+                )
+                token = self.properties[prop.name].token
+                if token is None:
+                    token = Token(TokenType.IDENTIFIER, prop.name, self.token.index)
+                default_constructor.add_body_expr(
+                    AssignmentExprAST(
+                        self.token,
+                        DotExprAST(
+                            Token(TokenType.DOT, ".", token.index),
+                            VariableExprAST(
+                                Token(TokenType.IDENTIFIER, "self", token.index)
+                            ),
+                            VariableExprAST(token),
                         ),
                         VariableExprAST(token),
                     ),
-                    VariableExprAST(token),
-                ),
-            )
+                )
+        else:
+            default_constructor = self.constructor.compile(context)
 
         resource_def = ResourceDefinition(
             self.name, self.token, default_constructor, properties
@@ -989,6 +993,92 @@ class ResourceDefinitionAST(ExprAST):
         context.set(self.name, resource_def, self.token)
 
         return resource_def
+
+
+@dataclass
+class ConstructorArgExprAST:
+    """An AST expressing an arg for a Constructor."""
+
+    expr: Union[VariableExprAST, AssignmentExprAST]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.expr, VariableExprAST):
+            self.token = self.expr.token
+        else:
+            self.token = self.expr.lhs.token
+
+        self.name = self.token.content
+
+    def compile(self, context: CompilerContext) -> ConstructorArg:
+        """Compile the ResourceProperty to something the ResourceDefinitionAST understands."""
+        if isinstance(self.expr, VariableExprAST):
+            if self.expr.type_expr is None:
+                raise EikoCompilationError(
+                    f"Arg {self.name} requires a type definition.",
+                    token=self.expr.token,
+                )
+
+            return ConstructorArg(self.name, self.expr.type_expr.compile(context))
+
+        if not isinstance(self.expr.lhs, VariableExprAST):
+            raise EikoCompilationError(
+                "Unexpected expression. Resource property expected an identifier.",
+                token=self.expr.lhs.token,
+            )
+
+        if self.expr.lhs.type_expr is None:
+            raise EikoCompilationError(
+                f"Arg {self.name} reqquires a type definition.",
+                token=self.expr.lhs.token,
+            )
+
+        _type = self.expr.lhs.type_expr.compile(context)
+        default_value = self.expr.rhs.compile(context)
+        if not isinstance(default_value, EikoBaseType):
+            raise EikoCompilationError(
+                f"Arg {self.name} did not get a valid default value.",
+                token=self.expr.rhs.token,
+            )
+
+        if not _type.type_check(default_value.type):
+            raise EikoCompilationError(
+                f"The default value of arg {self.name} does not fit type described in its type expression.",
+            )
+
+        return ConstructorArg(self.name, _type, default_value)
+
+
+@dataclass
+class ConstructorExprAST(ExprAST):
+    """
+    Represents a custom constructor.
+    """
+
+    identifier: VariableExprAST
+    self_arg: VariableExprAST
+    args: list[ConstructorArgExprAST]
+    body: list[ExprAST]
+
+    def __post_init__(self) -> None:
+        self.return_type: EikoType
+
+    def compile(self, context: CompilerContext) -> ConstructorDefinition:
+        args: dict[str, ConstructorArg] = {}
+        constructor = ConstructorDefinition(self.identifier.identifier, context)
+        constructor.add_arg(ConstructorArg(self.self_arg.identifier, self.return_type))
+        for arg_ast in self.args:
+            arg = arg_ast.compile(context)
+            _arg = args.get(arg.name)
+            if _arg is not None:
+                raise EikoCompilationError(
+                    f"Property '{arg.name}' already defined.",
+                    token=arg_ast.token,
+                )
+            constructor.add_arg(arg)
+
+        constructor.body = self.body
+
+        return constructor
 
 
 @dataclass
@@ -1685,32 +1775,50 @@ class Parser:
         self._advance()
         self._advance()
 
-        if self._current.content != ":":
+        if self._current.type != TokenType.COLON:
             raise EikoParserError(
                 f"Unexpected token {self._current.content}.",
                 token=self._current,
             )
-
         self._advance()
-        if self._current.type != TokenType.INDENT:
+
+        while self._next.type == TokenType.INDENT:
+            self._advance()
+
+        if self._current.content == "":
             raise EikoParserError(
                 f"Unexpected token {self._current.content}, "
                 "expected indented code block.",
                 token=self._current,
             )
-
         indent = self._current.content
-        while self._current.type == TokenType.INDENT:
-            if self._current.content == "":
-                break
+        constructor: Optional[ConstructorExprAST] = None
+        while True:
+            while self._next.type == TokenType.INDENT:
+                self._advance()
             if self._current.content != indent:
-                raise EikoParserError(
-                    "Unexpected indentation.",
-                    token=self._current,
-                )
+                break
             self._advance()
-            prop = self._parse_resource_property()
-            rd_ast.add_property(prop)
+
+            if self._current.type == TokenType.DEF:
+                constructor = self._parse_constructor()
+                constructor.return_type = rd_ast.type
+            elif self._current.type == TokenType.IDENTIFIER:
+                rd_ast.add_property(self._parse_resource_property())
+            elif self._current.type == TokenType.INDENT:
+                pass
+            else:
+                raise EikoSyntaxError(
+                    f"Unexpected token in resource definition '{rd_ast.name}'",
+                    index=rd_ast.token.index,
+                )
+
+        if not rd_ast.properties:
+            raise EikoSyntaxError(
+                "A resource must have atleast 1 property.",
+                index=rd_ast.token.index,
+            )
+        rd_ast.constructor = constructor
 
         return rd_ast
 
@@ -1734,6 +1842,59 @@ class Parser:
             )
 
         return ResourcePropertyAST(expr)
+
+    def _parse_constructor(self) -> ConstructorExprAST:
+        def_token = self._current
+        self._advance()
+        identifier = self._parse_identifier()
+
+        if self._current.type != TokenType.LEFT_PAREN:
+            raise EikoSyntaxError("Expected a '('.", index=self._current.index)
+        self._advance()
+
+        self_arg = VariableExprAST(self._current)
+        self._advance()
+
+        args: list[ConstructorArgExprAST] = []
+        while True:
+            if self._current.type == TokenType.RIGHT_PAREN:
+                self._advance()
+                break
+            if self._current.type != TokenType.COMMA:
+                raise EikoSyntaxError(
+                    "Expected a ',' or a ')'.", index=self._current.index
+                )
+            self._advance()
+            args.append(self._parse_consructor_arg())
+
+        if self._current.type != TokenType.COLON:
+            raise EikoSyntaxError("Expected a ':'.", index=self._current.index)
+        self._advance()
+
+        body = self._parse_body()
+
+        return ConstructorExprAST(def_token, identifier, self_arg, args, body)
+
+    def _parse_consructor_arg(self) -> ConstructorArgExprAST:
+        identifier = self._parse_identifier()
+        if not self._current.type == TokenType.COLON:
+            raise EikoSyntaxError(
+                "Expected type identifier for arg.",
+                index=self._current.index,
+            )
+
+        self._advance()
+        identifier.type_expr = self._parse_type()
+
+        expr = self._parse_bin_op_rhs(0, identifier)
+
+        if not isinstance(expr, (VariableExprAST, AssignmentExprAST)):
+            raise EikoParserError(
+                "Unexpected expression.",
+                token=expr.token,
+            )
+
+        return ConstructorArgExprAST(expr)
 
     def _parse_import(self) -> ImportExprAST:
         token = self._current
@@ -1848,6 +2009,8 @@ class Parser:
         body: list[ExprAST] = []
         while True:
             body.append(self._parse_expression())
+            while self._next.type == TokenType.INDENT:
+                self._advance()
             if self._current.type != TokenType.INDENT:
                 raise EikoInternalError(
                     "Unexpected issue, please report this on github."

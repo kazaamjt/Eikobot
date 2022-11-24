@@ -10,8 +10,8 @@ from ...errors import EikoCompilationError, EikoInternalError
 from ..token import Token
 
 if TYPE_CHECKING:
-    from ...handlers import Handler
     from .context import StorableTypes
+    from .resource import ResourceDefinition
 
 
 class EikoType:
@@ -67,6 +67,14 @@ class EikoUnset:
     """
 
     type: EikoType
+
+    @staticmethod
+    def get_value() -> str:
+        return "Unset"
+
+    @staticmethod
+    def printable(_: str) -> str:
+        return "Unset"
 
 
 EikoType.type = EikoType("Type")
@@ -369,18 +377,22 @@ EikoBuiltinTypes = [EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath]
 class EikoResource(EikoBaseType):
     """Represents a custom resource in the Eiko language."""
 
-    def __init__(self, eiko_type: EikoType, handler: Optional[Type["Handler"]]) -> None:
+    def __init__(
+        self,
+        eiko_type: EikoType,
+        class_ref: "ResourceDefinition",
+    ) -> None:
         super().__init__(eiko_type)
         self._index: str
-        self.handler_ref = handler
-        self.properties: dict[str, EikoBaseType] = {}
+        self.properties: dict[str, Union[EikoBaseType, EikoUnset]] = {}
+        self.class_ref = class_ref
 
     def set_index(self, index: str) -> None:
         self._index = index
 
     def get(self, name: str, token: Optional[Token] = None) -> EikoBaseType:
         value = self.properties.get(name)
-        if value is None:
+        if value is None or isinstance(value, EikoUnset):
             raise EikoCompilationError(
                 "Tried to access a property that does not exist.",
                 token=token,
@@ -390,6 +402,9 @@ class EikoResource(EikoBaseType):
 
     def get_value(self) -> dict[str, PyTypes]:
         return {key: value.get_value() for key, value in self.properties.items()}
+
+    def populate_property(self, name: str, value_type: EikoType) -> None:
+        self.properties[name] = EikoUnset(value_type)
 
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
         """Set the value of a property, if the value wasn't already assigned."""
@@ -401,7 +416,15 @@ class EikoResource(EikoBaseType):
             )
 
         prop = self.properties.get(name)
-        if prop is not None:
+        if isinstance(prop, EikoUnset):
+            if not value.type_check(prop.type):
+                raise EikoCompilationError(
+                    f"Type error: Tried to assign value of type '{value.type}' "
+                    f"to a property of type '{prop.type}'.",
+                    token=token,
+                )
+
+        elif prop is not None:
             raise EikoCompilationError(
                 "Attempted to reassign a property that was already assigned.",
                 token=token,

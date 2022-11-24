@@ -1,0 +1,11 @@
+resource ConstructorTestResource:
+    prop_1: str
+    prop_2: int
+    prop_3: str
+
+    def __init__(self, prop_1: str, prop_2: int):
+        self.prop_1 = prop_1
+        self.prop_2 = prop_2
+        self.prop_3 = prop_1 + prop_1
+
+a = ConstructorTestResource("test", 1)
