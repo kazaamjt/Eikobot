@@ -571,6 +571,7 @@ class EikoList(EikoBaseType):
         self.elements.extend(other.elements)
 
     def update_typing(self, new_type: EikoListType) -> None:
+        """Update the typing of a list after it was created."""
         self.type = new_type
         self.extend_func = EikoBuiltinFunction(
             "extend",

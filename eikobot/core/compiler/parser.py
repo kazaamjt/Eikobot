@@ -1626,7 +1626,9 @@ class Parser:
             if bin_op_token.type == TokenType.ASSIGNMENT_OP:
                 lhs = AssignmentExprAST(bin_op_token, lhs, rhs)
             elif bin_op_token.type == TokenType.DOT:
-                if isinstance(lhs, (VariableExprAST, DotExprAST, IndexExprAst, CallExprAst)):
+                if isinstance(
+                    lhs, (VariableExprAST, DotExprAST, IndexExprAst, CallExprAst)
+                ):
                     if not isinstance(rhs, VariableExprAST):
                         raise EikoParserError(
                             "Unexpected token. "
