@@ -384,7 +384,9 @@ class EikoResource(EikoBaseType):
     ) -> None:
         super().__init__(eiko_type)
         self._index: str
-        self.properties: dict[str, Union[EikoBaseType, EikoUnset]] = {}
+        self.properties: dict[str, Union[EikoBaseType, EikoUnset]] = {
+            "__depends_on__": EikoList(EikoObjectType)
+        }
         self.class_ref = class_ref
 
     def set_index(self, index: str) -> None:
@@ -551,6 +553,11 @@ class EikoList(EikoBaseType):
         else:
             self.elements = elements
 
+        self.extend_func = EikoBuiltinFunction(
+            "extend",
+            [BuiltinFunctionArg("other", self.type)],
+            body=self.extend,
+        )
         self.append_func = EikoBuiltinFunction(
             "append",
             [BuiltinFunctionArg("element", element_type)],
@@ -560,8 +567,16 @@ class EikoList(EikoBaseType):
     def append(self, element: EikoBaseType) -> None:
         self.elements.append(element)
 
+    def extend(self, other: "EikoList") -> None:
+        self.elements.extend(other.elements)
+
     def update_typing(self, new_type: EikoListType) -> None:
         self.type = new_type
+        self.extend_func = EikoBuiltinFunction(
+            "extend",
+            [BuiltinFunctionArg("other", new_type)],
+            body=self.extend,
+        )
         self.append_func = EikoBuiltinFunction(
             "append",
             [BuiltinFunctionArg("element", new_type.element_type)],
@@ -571,6 +586,9 @@ class EikoList(EikoBaseType):
     def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
         if name == "append":
             return self.append_func
+
+        if name == "extend":
+            return self.extend_func
 
         return super().get(name, token)
 

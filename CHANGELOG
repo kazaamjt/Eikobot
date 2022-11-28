@@ -11,6 +11,8 @@
 - Change `List` and `Dict`, to `list` and `dict`, because python deprecated the former
 - Fixed a bug in the type system where a resource class had itself as a type instead of `ResourceDefinition`
 - Fixed a bug where resource instances inherited from `ResourceDefinition` instead of the base object
+- Added a builtin `__depends_on__` property to `EikoResource`
+- Added `list.extend`, which does the same as in python
 
 ## 0.2.0
 

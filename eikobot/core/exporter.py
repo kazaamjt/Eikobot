@@ -44,7 +44,7 @@ class Task:
 
         for sub_task in self.dependants:
             sub_task.remove_dep(self)
-        logger.debug(f"Done executing task {self.task_id}")
+        logger.debug(f"Done executing task '{self.task_id}'")
 
     def remove_dep(self, task: "Task") -> None:
         self.depends_on_copy.remove(task)
