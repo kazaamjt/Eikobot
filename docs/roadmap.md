@@ -30,12 +30,13 @@ Features and bug fixes:
 - [x] constructors for builtin types
 - [x] `Path` type, uses python `Pathlib.Path` underneath
 - [x] link handlers to resources
-- [ ] custom constructors
+- [x] custom constructors
+- [x] add relative imports
+- [ ] implement `isinstance`
 - [ ] inheritance for `resource`
 - [ ] add `Tuple` data type and automatic unpacking of tuples
 - [ ] add `for` keyword, to loop over lists, dicts and tuples
 - [ ] expand type system to take module in to account when resolving types
-- [ ] add relative imports
 
 Code cleanup:
 
@@ -49,7 +50,7 @@ Code cleanup:
 - [x] File module
 - [x] Templates using jinja
 - [ ] add `Host`, a resource that represents a machine.
-- [ ] add `std.ssh.Command`. Run a command on a machine.
+- [ ] add `std.ssh.Command`. Runs a command on a machine.
 - [ ] add `File` and `FileHandler`
 
 ### Engine

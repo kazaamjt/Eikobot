@@ -92,6 +92,7 @@ class CompilerContext:
             str,
             Union[_StorableTypes, "CompilerContext", LazyLoadModule, EikoUnset, None],
         ] = {}
+        self.path: Path
         self.type = EikoType("eiko_internal_context")
         self.super = super_scope
         self.super_module = super_module
@@ -111,6 +112,7 @@ class CompilerContext:
         self.compiled = True
 
     def set_path(self, path: Path) -> None:
+        self.path = path
         self.storage["__file__"] = EikoPath(path)
 
     def __repr__(self, indent: str = "") -> str:

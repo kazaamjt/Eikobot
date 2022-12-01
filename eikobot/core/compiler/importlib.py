@@ -14,6 +14,7 @@ from ..errors import EikoCompilationError
 from ..handlers import AsyncCRUDHandler, CRUDHandler, Handler
 from .definitions.base_types import EikoBaseType
 from .definitions.function import PluginArg, PluginDefinition
+from .token import Token
 
 if TYPE_CHECKING:
     from .definitions.context import CompilerContext
@@ -79,12 +80,30 @@ def _resolve_import(
     return None
 
 
+def test_path_is_module(path: Path, token: Optional[Token]) -> None:
+    if not (path / "__init__.eiko").exists():
+        raise EikoCompilationError(
+            "Import path not valid.", token=token,
+        )
+
+
 def resolve_from_import(
-    import_path: list[str], context: "CompilerContext"
+    import_path: list[str], context: "CompilerContext", dots: list[Token]
 ) -> Optional[Module]:
     """
     Tries to from import a given path list.
     """
+    if dots:
+        anchor = context.path.absolute()
+        for token in dots:
+            anchor = anchor.parent
+            test_path_is_module(anchor, token)
+
+        if not import_path:
+            import_path.append("__init__")
+
+        return _resolve_from_import(import_path.copy(), anchor, context)
+
     for _path in PATHS:
         module = _resolve_from_import(import_path.copy(), _path, context)
         if module is not None:

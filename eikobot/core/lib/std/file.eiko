@@ -1,3 +1,5 @@
+from . import Host, inspect
+
 @index(["target", "path"])
 resource File:
     target: str

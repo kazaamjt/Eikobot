@@ -1120,8 +1120,9 @@ class FromImportExprAST(ExprAST):
     Represents a from ... import ... construct.
     """
 
-    lhs: Union["DotExprAST", VariableExprAST]
+    lhs: Union["DotExprAST", VariableExprAST, None]
     import_items: list[VariableExprAST]
+    dots: list[Token]
 
     def compile(self, context: CompilerContext) -> None:
         import_module: list[str] = []
@@ -1129,11 +1130,11 @@ class FromImportExprAST(ExprAST):
         if isinstance(self.lhs, VariableExprAST):
             import_module.append(self.lhs.identifier)
             from_import_list.append(self.lhs.identifier)
-        else:
+        elif isinstance(self.lhs, DotExprAST):
             self.lhs.to_import_traversable_list(import_module)
             self.lhs.to_import_traversable_list(from_import_list)
 
-        module = resolve_from_import(import_module, context)
+        module = resolve_from_import(import_module, context, self.dots)
         if module is None:
             raise EikoCompilationError(
                 f"Module '{'.'.join(from_import_list)}' not found.",
@@ -1914,14 +1915,30 @@ class Parser:
     def _parse_from_import(self) -> FromImportExprAST:
         import_token = self._current
         self._advance()
-        lhs = self._parse_expression()
-        if not isinstance(lhs, (DotExprAST, VariableExprAST)):
-            raise EikoParserError(
-                "Invalid expression in import statement.",
-                token=lhs.token,
-            )
 
-        self._advance()
+        dots: list[Token] = []
+        while self._current.type == TokenType.DOT:
+            dots.append(self._current)
+            self._advance()
+
+        lhs: Union[DotExprAST, VariableExprAST, None] = None
+        if self._current.type == TokenType.IMPORT:
+            if not dots:
+                raise EikoParserError(
+                    "Expected an expression between 'from' and 'import'.",
+                    token=import_token,
+                )
+            self._advance()
+        else:
+            _lhs = self._parse_expression()
+            if not isinstance(_lhs, (DotExprAST, VariableExprAST)):
+                raise EikoParserError(
+                    "Invalid expression in import statement.",
+                    token=_lhs.token,
+                )
+            lhs = _lhs
+            self._advance()
+
         import_items: list[VariableExprAST] = []
         while True:
             rhs = self._parse_expression()
@@ -1937,7 +1954,7 @@ class Parser:
             else:
                 break
 
-        return FromImportExprAST(import_token, lhs, import_items)
+        return FromImportExprAST(import_token, lhs, import_items, dots)
 
     def _parse_if(self) -> IfExprAST:
         if_token = self._current
