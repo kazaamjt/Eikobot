@@ -12,9 +12,10 @@ with open(this_directory / "README.md", encoding="utf-8") as f:
 
 VERSION = "0.3.0"
 REQUIRES = [
-    "click==8.0.2",
-    "colorama==0.4.4",
+    "click==8.1.3",
+    "colorama==0.4.6",
     "jinja2==3.1.2",
+    "pydantic==1.10.2",
 ]
 
 setuptools.setup(

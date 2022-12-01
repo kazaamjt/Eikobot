@@ -58,3 +58,4 @@ Code cleanup:
 - [x] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
 - [x] add exporter, that generates tasks and links these tasks to each other correctly
 - [x] add deployer that takes tasks and executes them
+- [ ] Add linked pydantic classes
