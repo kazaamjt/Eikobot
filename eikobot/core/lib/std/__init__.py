@@ -2,13 +2,15 @@
 The Eiko standard library contains various quality of life
 plugins and resources.
 """
+import asyncio
+from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import Type, Union
+from typing import Optional, Type, Union
 
 from colorama import Fore
 
 from eikobot.core.plugin import eiko_plugin
-from eikobot.core.types import EikoBaseType
+from eikobot.core.helpers import EikoBaseModel, EikoBaseType
 
 
 @eiko_plugin()
@@ -43,3 +45,52 @@ def _is_ipaddr(addr: str, ip_type: Union[Type[IPv4Address], Type[IPv6Address]]) 
         pass
 
     return False
+
+
+class HostModel(EikoBaseModel):
+    """Respresents a host to which you can deploy a resource."""
+
+    __eiko_resource__ = "Host"
+
+    target: str
+    user_name: Optional[str] = None
+    password: Optional[str] = None
+
+
+@dataclass
+class CmdResult:
+    """The result of a command that was run."""
+
+    return_code: Optional[int]
+    stdout: bytes
+    stderr: bytes
+
+
+@dataclass
+class AsyncSSHCmd:
+    """Executes a single SSH command."""
+
+    host: HostModel
+    cmd: str
+
+    async def execute(self) -> CmdResult:
+        """Run the command."""
+
+        cmd_str = "ssh "
+        if self.host.user_name is not None:
+            cmd_str += self.host.user_name
+            if self.host.password:
+                cmd_str += ":" + self.host.password
+            cmd_str += "@"
+        cmd_str += self.host.target + " "
+        cmd_str += "'" + self.cmd.replace("'", r"\'") + "'"
+
+        process = await asyncio.create_subprocess_shell(
+            cmd_str,
+            stderr=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await process.communicate()
+
+        return CmdResult(process.returncode, stdout, stderr)

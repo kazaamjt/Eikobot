@@ -4,9 +4,9 @@ Decorators enhance an eiko resource definition in some way.
 from typing import Callable, Type, Union
 
 from ..errors import EikoCompilationError
+from ._token import Token
+from .definitions._resource import ResourceDefinition
 from .definitions.base_types import EikoBaseType, EikoList, EikoStr, EikoType
-from .definitions.resource import ResourceDefinition
-from .token import Token
 
 decorator_type = EikoType("Decorator")
 

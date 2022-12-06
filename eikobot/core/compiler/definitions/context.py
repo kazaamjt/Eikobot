@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, Optional, Type, Union
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
 from ...handlers import Handler
+from .._token import Token
 from ..decorator import index_decorator
 from ..importlib import import_python_code
-from ..token import Token
+from ._resource import EikoBaseModel, ResourceDefinition
 from .base_types import (
     EikoBaseType,
     EikoBool,
@@ -27,11 +28,10 @@ from .base_types import (
     EikoUnset,
     eiko_none_object,
 )
-from .resource import ResourceDefinition
 from .typedef import EikoTypeDef
 
 if TYPE_CHECKING:
-    from ..parser import Parser
+    from .._parser import Parser
 
 _StorableTypes = Union[
     EikoBaseType, ResourceDefinition, Type[EikoBaseType], EikoType, Type[EikoType]
@@ -98,6 +98,7 @@ class CompilerContext:
         self.super_module = super_module
         self.compiled = False
         self.handlers: dict[str, Type[Handler]] = {}
+        self.models: dict[str, Type[EikoBaseModel]] = {}
         self.orphans: list[EikoBaseType] = []
 
         self.global_id_list: list[str]
@@ -210,6 +211,7 @@ class CompilerContext:
 
         self.storage[name] = value
         self._connect_handler(name)
+        self._connect_model(name)
 
     def get_or_set_context(
         self, name: str, token: Optional[Token] = None
@@ -239,9 +241,7 @@ class CompilerContext:
         return CompilerContext(name, self)
 
     def register_handler(self, handler: Type[Handler]) -> None:
-        """
-        Adds a handler to the context for later retrieval.
-        """
+        """Adds a handler to the context for later retrieval."""
         prev_handler = self.handlers.get(handler.resource)
         if prev_handler is not None:
             raise EikoCompilationError(
@@ -262,7 +262,7 @@ class CompilerContext:
 
         if not isinstance(resource, ResourceDefinition):
             raise EikoCompilationError(
-                f"Tried to connect a handler to '{name}', which is not a resource."
+                f"Tried to connect a handler to '{name}', which is not a resource definition."
             )
 
         logger.debug(
@@ -282,6 +282,38 @@ class CompilerContext:
                 name += super_name + "."
 
         return name + self.name
+
+    def register_model(self, model: Type[EikoBaseModel]) -> None:
+        """Adds a model to the context for later retrieval."""
+        res_name = model.get_resource_name()
+        prev_model = self.models.get(res_name)
+
+        if prev_model is not None:
+            raise EikoCompilationError(
+                f"A Python model for resource type '{res_name}' was already registered."
+            )
+
+        self.models[res_name] = model
+        self._connect_model(res_name)
+
+    def _connect_model(self, name: str) -> None:
+        model = self.models.get(name)
+        if model is None:
+            return
+
+        resource_cls = self.storage.get(name)
+        if resource_cls is None:
+            return
+
+        if not isinstance(resource_cls, ResourceDefinition):
+            raise EikoCompilationError(
+                f"Tried to connect a Python model to '{name}', which is not a resource definition."
+            )
+
+        logger.debug(
+            f"Linking model {model} to resource '{self.get_import_name(include_main=True)}.{name}'"
+        )
+        model.link(resource_cls)
 
 
 StorableTypes = Union[_StorableTypes, "CompilerContext"]

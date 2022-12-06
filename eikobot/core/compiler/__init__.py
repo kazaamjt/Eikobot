@@ -5,10 +5,10 @@ and uses the resulting asts to create a model.
 """
 from pathlib import Path
 
+from ._parser import AssignmentExprAST, Parser
 from .definitions.base_types import EikoResource
 from .definitions.context import CompilerContext
 from .importlib import import_python_code
-from .parser import AssignmentExprAST, Parser
 
 
 class Compiler:

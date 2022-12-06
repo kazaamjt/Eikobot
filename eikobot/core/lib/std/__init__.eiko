@@ -4,3 +4,5 @@ typedef IPv6Address str if is_ipv6(self)
 
 resource Host:
     target: str
+    user_name: Optional[str] = None
+    password: Optional[str] = None

@@ -5,7 +5,7 @@ They can alias types and even put restrictions on them.
 from typing import TYPE_CHECKING, Optional, Union
 
 from ...errors import EikoCompilationError
-from ..token import Token
+from .._token import Token
 from .base_types import (
     BuiltinTypes,
     EikoBaseType,
@@ -18,7 +18,7 @@ from .base_types import (
 )
 
 if TYPE_CHECKING:
-    from ..parser import ExprAST
+    from .._parser import ExprAST
     from .context import CompilerContext
 
 

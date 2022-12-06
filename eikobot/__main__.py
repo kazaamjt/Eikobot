@@ -91,7 +91,7 @@ def _compile(
                 logger.error("Python error: " + str(e.python_exception))
                 if enable_plugin_stacktrace:
                     logger.error("Python plugin stacktrace (ignore the first line):")
-                    traceback.print_exception(e.python_exception)  # type: ignore
+                    traceback.print_exception(e.python_exception)
                 else:
                     logger.error(
                         "To view the python plugin stacktrace, use '--enable-plugin-stacktrace'"

@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from eikobot.core.compiler.definitions.context import CompilerContext
-from eikobot.core.compiler.parser import (
+from eikobot.core.compiler._parser import (
     AssignmentExprAST,
     BinOP,
     BinOpExprAST,
@@ -26,7 +25,8 @@ from eikobot.core.compiler.parser import (
     UnaryNegExprAST,
     VariableExprAST,
 )
-from eikobot.core.compiler.token import Index, Token, TokenType
+from eikobot.core.compiler._token import Index, Token, TokenType
+from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.errors import EikoParserError
 
 

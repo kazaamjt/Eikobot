@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Optional
 from .. import logger
 from ..errors import EikoCompilationError
 from ..handlers import AsyncCRUDHandler, CRUDHandler, Handler
-from .definitions.base_types import EikoBaseType
+from ._token import Token
+from .definitions._resource import EikoBaseModel
 from .definitions.function import PluginArg, PluginDefinition
-from .token import Token
 
 if TYPE_CHECKING:
     from .definitions.context import CompilerContext
@@ -83,7 +83,8 @@ def _resolve_import(
 def test_path_is_module(path: Path, token: Optional[Token]) -> None:
     if not (path / "__init__.eiko").exists():
         raise EikoCompilationError(
-            "Import path not valid.", token=token,
+            "Import path not valid.",
+            token=token,
         )
 
 
@@ -166,13 +167,21 @@ def import_python_code(
                         plugin_name, _load_plugin(module_name, plugin_name, _obj)
                     )
 
-            elif (
-                isclass(_obj)
-                and issubclass(_obj, Handler)
-                and _obj not in (Handler, AsyncCRUDHandler, CRUDHandler)
-            ):
-                logger.debug(f"Importing handler '{_obj.__name__}' from {file_path}")
-                context.register_handler(_obj)
+            if isclass(_obj):
+                if issubclass(_obj, Handler) and _obj not in (
+                    Handler,
+                    AsyncCRUDHandler,
+                    CRUDHandler,
+                ):
+                    logger.debug(
+                        f"Importing handler '{_obj.__name__}' from {file_path}"
+                    )
+                    context.register_handler(_obj)
+                elif issubclass(_obj, EikoBaseModel) and _obj is not EikoBaseModel:
+                    logger.debug(
+                        f"Importing Python BaseModel '{_obj.__name__}' from {file_path}"
+                    )
+                    context.register_model(_obj)
     else:
         logger.debug(f"Found no python plugins for eiko file: {eiko_file_path}")
 
@@ -205,12 +214,6 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
         if arg_annotation is None:
             raise EikoCompilationError(
                 f"Plugin '{module}.{name}' has no type annotation for argument '{arg_name}'."
-            )
-        if not issubclass(arg_annotation, (EikoBaseType, bool, float, int, str, Path)):
-            print(type(arg_annotation))
-            raise EikoCompilationError(
-                f"Plugin '{module}.{name}' type annotation for argument '{arg_name}' must be "
-                "'bool', 'float', 'int', 'str' or an eiko type.",
             )
 
         plugin_definition.add_arg(

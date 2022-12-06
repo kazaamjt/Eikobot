@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 from eikobot.core.compiler import Compiler
+from eikobot.core.compiler._parser import Parser
+from eikobot.core.compiler.definitions._resource import ResourceDefinition
 from eikobot.core.compiler.definitions.base_types import (
     EikoInt,
     EikoNone,
@@ -14,9 +16,7 @@ from eikobot.core.compiler.definitions.base_types import (
     EikoStr,
 )
 from eikobot.core.compiler.definitions.context import CompilerContext
-from eikobot.core.compiler.definitions.resource import ResourceDefinition
 from eikobot.core.compiler.definitions.typedef import EikoTypeDef
-from eikobot.core.compiler.parser import Parser
 from eikobot.core.errors import EikoCompilationError
 
 

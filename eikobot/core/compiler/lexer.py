@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Optional
 
 from ..errors import EikoSyntaxError
+from ._token import Token, TokenType
 from .misc import Index
-from .token import Token, TokenType
 
 KEYWORDS = {
     "resource": TokenType.RESOURCE,

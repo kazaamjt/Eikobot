@@ -1,4 +1,3 @@
-# pylint: disable=no-self-use
 """
 Handlers are a way to describe to Eikobot how something should be deployed.
 """
@@ -13,9 +12,10 @@ from .compiler.definitions.base_types import EikoResource
 class HandlerContext:
     """A HandlerContext keeps track of things required for a deployment."""
 
-    resource: EikoResource
+    raw_resource: EikoResource
 
     def __post_init__(self) -> None:
+        self.resource = self.raw_resource.to_py()
         self.changes: dict[str, Any] = {}
         self.deployed = False
         self.updated = False
@@ -49,14 +49,14 @@ class CRUDHandler(Handler):
     async def execute(self, ctx: HandlerContext) -> None:
         ctx.failed = False
         try:
-            logger.debug(f"Reading resource '{ctx.resource.index()}'.")
+            logger.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
             self.read(ctx)
         except EikoCRUDHanlderMethodNotImplemented:
             pass
 
         if not ctx.deployed:
             try:
-                logger.debug(f"Deploying resource '{ctx.resource.index()}'.")
+                logger.debug(f"Deploying resource '{ctx.raw_resource.index()}'.")
                 self.create(ctx)
             except EikoCRUDHanlderMethodNotImplemented:
                 logger.error(
@@ -64,18 +64,24 @@ class CRUDHandler(Handler):
                 )
                 return
         else:
+            logger.debug(f"Resource '{ctx.raw_resource.index()}' exists.")
             if ctx.changes:
                 try:
                     ctx.deployed = False
-                    logger.debug(f"Updating resource '{ctx.resource.index()}'.")
+                    logger.debug(f"Updating resource '{ctx.raw_resource.index()}'.")
                     self.update(ctx)
                 except EikoCRUDHanlderMethodNotImplemented:
                     logger.warning(
                         "Read returned changes for handler without update method."
                     )
+            else:
+                logger.debug(
+                    f"Resource '{ctx.raw_resource.index()}' is in its desired state."
+                )
 
         if not ctx.deployed:
             ctx.failed = True
+            logger.error(f"Failed to deploy resource '{ctx.raw_resource.index()}'.")
 
     def create(self, ctx: HandlerContext) -> None:
         raise EikoCRUDHanlderMethodNotImplemented
@@ -100,14 +106,14 @@ class AsyncCRUDHandler(Handler):
         ctx.failed = False
         ctx.deployed = False
         try:
-            logger.debug(f"Reading resource '{ctx.resource.index()}'.")
+            logger.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
             await self.read(ctx)
         except EikoCRUDHanlderMethodNotImplemented:
             pass
 
         if not ctx.deployed:
             try:
-                logger.debug(f"Deploying resource '{ctx.resource.index()}'.")
+                logger.debug(f"Deploying resource '{ctx.raw_resource.index()}'.")
                 await self.create(ctx)
             except EikoCRUDHanlderMethodNotImplemented:
                 logger.error(
@@ -118,12 +124,16 @@ class AsyncCRUDHandler(Handler):
             if ctx.changes:
                 try:
                     ctx.deployed = False
-                    logger.debug(f"Updating resource '{ctx.resource.index()}'.")
+                    logger.debug(f"Updating resource '{ctx.raw_resource.index()}'.")
                     await self.update(ctx)
                 except EikoCRUDHanlderMethodNotImplemented:
                     logger.warning(
                         "Read method returned changes for handler without update method."
                     )
+            else:
+                logger.debug(
+                    f"Resource '{ctx.raw_resource.index()}' is already in its desired state."
+                )
 
         if not ctx.deployed:
             ctx.failed = True

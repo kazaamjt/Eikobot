@@ -2,6 +2,7 @@
 """
 Eikobot base types easy access.
 """
+from .compiler.definitions._resource import EikoBaseModel
 from .compiler.definitions.base_types import (
     EikoBaseType,
     EikoBool,

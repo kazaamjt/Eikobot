@@ -1,7 +1,10 @@
 from . import Host, inspect
 
-@index(["target", "path"])
+@index(["host.target", "path"])
 resource File:
-    target: str
+    host: Host
     path: Path
     content: str
+    owner: Optional[str] = None
+    group: Optional[str] = None
+    mode: int = 664

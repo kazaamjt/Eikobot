@@ -18,7 +18,9 @@ from ..errors import (
     EikoParserError,
     EikoSyntaxError,
 )
+from ._token import Token, TokenType, token_to_char
 from .decorator import EikoDecorator
+from .definitions._resource import ResourceDefinition, ResourceProperty
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -53,7 +55,6 @@ from .definitions.function import (
     PassedArg,
     PluginDefinition,
 )
-from .definitions.resource import ResourceDefinition, ResourceProperty
 from .definitions.typedef import EikoTypeDef
 from .importlib import (
     Module,
@@ -64,7 +65,6 @@ from .importlib import (
 from .lexer import Lexer
 from .misc import Index
 from .ops import BINOP_MATRIX, BinOP, ComparisonOP, compare
-from .token import Token, TokenType, token_to_char
 
 
 @dataclass

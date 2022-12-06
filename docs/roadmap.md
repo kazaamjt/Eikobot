@@ -41,6 +41,7 @@ Features and bug fixes:
 Code cleanup:
 
 - [ ] Implement an `expects` function for parser, raise if token is not correct type
+- [ ] Implement a `to_py` function on eiko objects, instead of using a conversion table
 
 ### STD
 

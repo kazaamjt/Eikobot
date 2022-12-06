@@ -6,12 +6,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
 
+from pydantic import BaseModel, ValidationError
+
+from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
-from ..token import Token
+from .._token import Token
 
 if TYPE_CHECKING:
+    from ._resource import ResourceDefinition
     from .context import StorableTypes
-    from .resource import ResourceDefinition
 
 
 class EikoType:
@@ -76,6 +79,9 @@ class EikoUnset:
     def printable(_: str) -> str:
         return "Unset"
 
+    def to_py(self) -> None:
+        return None
+
 
 EikoType.type = EikoType("Type")
 EikoObjectType = EikoType("Object")
@@ -121,14 +127,12 @@ class EikoUnion(EikoType):
         return False
 
 
-# Implement this once mypy supports it
-# PyTypes = Union[None, bool, float, int, str, dict["PyTypes", "PyTypes"], list["PyTypes"]]
-PyTypes = Union[None, bool, float, int, str, dict, list, Path]
+PyTypes = Union[None, bool, float, int, str, dict, list, Path, BaseModel]
 
 
 class EikoBaseType:
     """
-    The base type represents all objects, it is inherited from by all other types.
+    The base type represents all objects, it is inherited from by all other object classes.
     It shouldn't show up naturally anywhere though.
     """
 
@@ -156,6 +160,9 @@ class EikoBaseType:
         return expected_type.type_check(self.type)
 
     def index(self) -> str:
+        raise NotImplementedError
+
+    def to_py(self) -> PyTypes:
         raise NotImplementedError
 
 
@@ -200,6 +207,9 @@ class EikoNone(EikoBaseType):
     def index(self) -> str:
         return str(self.value)
 
+    def to_py(self) -> None:
+        return None
+
 
 eiko_none_object = EikoNone()
 EikoIntType = EikoType("int")
@@ -237,6 +247,9 @@ class EikoInt(EikoBaseType):
 
         raise ValueError
 
+    def to_py(self) -> int:
+        return self.value
+
 
 EikoFloatType = EikoType("float")
 
@@ -273,6 +286,9 @@ class EikoFloat(EikoBaseType):
 
         raise ValueError
 
+    def to_py(self) -> float:
+        return self.value
+
 
 EikoNumber = Union[EikoInt, EikoFloat]
 
@@ -304,6 +320,9 @@ class EikoBool(EikoBaseType):
     def convert(cls, obj: EikoBaseType) -> "EikoBool":
         return EikoBool(bool(obj.get_value()))
 
+    def to_py(self) -> bool:
+        return self.value
+
 
 EikoStrType = EikoType("str")
 
@@ -332,6 +351,9 @@ class EikoStr(EikoBaseType):
     @classmethod
     def convert(cls, obj: "BuiltinTypes") -> "EikoStr":
         return cls(str(obj.get_value()))
+
+    def to_py(self) -> str:
+        return self.value
 
 
 EikoPathType = EikoType("Path")
@@ -369,6 +391,9 @@ class EikoPath(EikoBaseType):
 
         raise ValueError
 
+    def to_py(self) -> Path:
+        return self.value
+
 
 BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone]
 EikoBuiltinTypes = [EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath]
@@ -379,15 +404,14 @@ class EikoResource(EikoBaseType):
 
     def __init__(
         self,
-        eiko_type: EikoType,
         class_ref: "ResourceDefinition",
     ) -> None:
-        super().__init__(eiko_type)
+        super().__init__(class_ref.instance_type)
         self._index: str
+        self.class_ref = class_ref
         self.properties: dict[str, Union[EikoBaseType, EikoUnset]] = {
             "__depends_on__": EikoList(EikoObjectType)
         }
-        self.class_ref = class_ref
 
     def set_index(self, index: str) -> None:
         self._index = index
@@ -452,6 +476,23 @@ class EikoResource(EikoBaseType):
 
     def index(self) -> str:
         return self._index
+
+    def to_py(self) -> Union[BaseModel, dict]:
+        new_dict: dict[str, PyTypes] = {}
+        for name, value in self.properties.items():
+            new_dict[name] = value.to_py()
+
+        if self.class_ref.linked_basemodel is not None:
+            try:
+                return self.class_ref.linked_basemodel(**new_dict)
+            except ValidationError as e:
+                logger.warning(
+                    f"Failed to convert resource of type '{self.class_ref.name}' to "
+                    "its linked basemodel.\n"
+                )
+                logger.warning(f"Reason: {e}")
+
+        return new_dict
 
 
 INDEXABLE_TYPES = (
@@ -620,6 +661,9 @@ class EikoList(EikoBaseType):
     def index(self) -> str:
         raise NotImplementedError
 
+    def to_py(self) -> list[PyTypes]:
+        return [element.to_py() for element in self.elements]
+
 
 class EikoDictType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
@@ -774,6 +818,19 @@ class EikoDict(EikoBaseType):
     def index(self) -> str:
         raise NotImplementedError
 
+    def to_py(self) -> dict[PyTypes, PyTypes]:
+        py_dict: dict[PyTypes, PyTypes] = {}
+        for key, value in self.elements.items():
+            _key: PyTypes
+            if isinstance(key, EikoBaseType):
+                _key = key.to_py()
+            else:
+                _key = key
+
+            py_dict[_key] = value.to_py()
+
+        return py_dict
+
 
 def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     """
@@ -826,13 +883,5 @@ def to_eiko(value: Any) -> EikoBaseType:
 
     if value is None:
         return eiko_none_object
-
-    raise ValueError
-
-
-def to_py(value: Any) -> Union[bool, float, int, str, Path]:
-    """Takes an Eikobot type and tries to coerce it to a python type."""
-    if isinstance(value, (EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath)):
-        return value.value
 
     raise ValueError

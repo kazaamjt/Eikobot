@@ -4,9 +4,9 @@
 # pylint: disable=too-many-statements
 from pathlib import Path
 
+from eikobot.core.compiler._token import Token, TokenType
 from eikobot.core.compiler.lexer import Lexer
 from eikobot.core.compiler.misc import Index
-from eikobot.core.compiler.token import Token, TokenType
 
 
 def test_char_generator(eiko_file_1: Path) -> None:

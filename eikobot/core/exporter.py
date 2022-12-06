@@ -4,13 +4,13 @@ and turns it in tasks the deployer understands.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 from . import logger
 from .compiler import Compiler, CompilerContext
 from .errors import EikoInternalError
 from .handlers import Handler, HandlerContext
-from .types import EikoDict, EikoList, EikoResource
+from .helpers import EikoDict, EikoList, EikoResource
 
 
 @dataclass
@@ -25,12 +25,14 @@ class Task:
         self.dependants: list["Task"] = []
         self.depends_on: list["Task"] = []
         self.depends_on_copy: list["Task"] = []
+        self.done_cb: Optional[Callable[[], None]] = None
 
-    def init(self) -> None:
+    def init(self, done_cb: Optional[Callable[[], None]] = None) -> None:
         """Resets a task and it's sub tasks so they can run again."""
+        self.done_cb = done_cb
         self.depends_on_copy = self.depends_on.copy()
         for dependant in self.dependants:
-            dependant.init()
+            dependant.init(done_cb)
 
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
@@ -42,9 +44,12 @@ class Task:
                 "Deployer failed to execute a task because a handler or context was missing. "
             )
 
-        for sub_task in self.dependants:
-            sub_task.remove_dep(self)
-        logger.debug(f"Done executing task '{self.task_id}'")
+        if not self.ctx.failed:
+            for sub_task in self.dependants:
+                sub_task.remove_dep(self)
+            logger.debug(f"Done executing task '{self.task_id}'")
+            if self.done_cb is not None:
+                self.done_cb()
 
     def remove_dep(self, task: "Task") -> None:
         self.depends_on_copy.remove(task)
