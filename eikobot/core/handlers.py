@@ -132,7 +132,7 @@ class AsyncCRUDHandler(Handler):
                     )
             else:
                 logger.debug(
-                    f"Resource '{ctx.raw_resource.index()}' is already in its desired state."
+                    f"Resource '{ctx.raw_resource.index()}' is in its desired state."
                 )
 
         if not ctx.deployed:

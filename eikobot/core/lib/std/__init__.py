@@ -9,8 +9,8 @@ from typing import Optional, Type, Union
 
 from colorama import Fore
 
-from eikobot.core.plugin import eiko_plugin
 from eikobot.core.helpers import EikoBaseModel, EikoBaseType
+from eikobot.core.plugin import eiko_plugin
 
 
 @eiko_plugin()

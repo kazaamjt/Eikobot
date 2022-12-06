@@ -7,9 +7,9 @@ from typing import Optional, Union
 from jinja2 import Template
 
 from eikobot.core.handlers import AsyncCRUDHandler, HandlerContext
+from eikobot.core.helpers import EikoBaseModel
 from eikobot.core.lib.std import AsyncSSHCmd, HostModel
 from eikobot.core.plugin import EikoPluginException, eiko_plugin
-from eikobot.core.helpers import EikoBaseModel
 
 
 @eiko_plugin()
@@ -81,6 +81,31 @@ class FileHandler(AsyncCRUDHandler):
             ctx.failed = True
             return
 
+        result = await AsyncSSHCmd(
+            ctx.resource.host, f"chmod {ctx.resource.mode} {ctx.resource.path}"
+        ).execute()
+        if result.return_code != 0:
+            ctx.failed = True
+            return
+
+        if ctx.resource.owner is not None:
+            result = await AsyncSSHCmd(
+                ctx.resource.host, f"chown {ctx.resource.owner} {ctx.resource.path}"
+            ).execute()
+            if result.return_code != 0:
+                ctx.failed = True
+                return
+
+        if ctx.resource.group is not None:
+            result = await AsyncSSHCmd(
+                ctx.resource.host, f"chgrp {ctx.resource.group} {ctx.resource.path}"
+            ).execute()
+            if result.return_code != 0:
+                ctx.failed = True
+                return
+
+        ctx.deployed = True
+
     async def read(self, ctx: HandlerContext) -> None:
         if not isinstance(ctx.resource, FileModel):
             ctx.failed = True
@@ -98,3 +123,14 @@ class FileHandler(AsyncCRUDHandler):
         if not isinstance(ctx.resource, FileModel):
             ctx.failed = True
             return
+
+        if ctx.changes.get("content") is not None:
+            result = await AsyncSSHCmd(
+                ctx.resource.host,
+                f"echo -n {ctx.resource.content} > {ctx.resource.path}",
+            ).execute()
+            if result.return_code != 0:
+                ctx.failed = True
+                return
+
+        ctx.deployed = True

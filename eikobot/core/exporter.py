@@ -36,7 +36,7 @@ class Task:
 
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
-        logger.debug(f"Executing task {self.task_id}")
+        logger.debug(f"Executing task '{self.task_id}'")
         if self.handler is not None and self.ctx is not None:
             await self.handler.execute(self.ctx)
         else:
@@ -44,7 +44,9 @@ class Task:
                 "Deployer failed to execute a task because a handler or context was missing. "
             )
 
-        if not self.ctx.failed:
+        if self.ctx.failed:
+            logger.error(f"Failed task '{self.task_id}'")
+        else:
             for sub_task in self.dependants:
                 sub_task.remove_dep(self)
             logger.debug(f"Done executing task '{self.task_id}'")
