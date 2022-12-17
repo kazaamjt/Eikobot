@@ -4,9 +4,10 @@ and goes through the tasks of deploying.
 """
 import asyncio
 from dataclasses import dataclass
+from pathlib import Path
 
 from . import logger
-from .exporter import Task
+from .exporter import Exporter, Task
 
 
 @dataclass
@@ -44,6 +45,12 @@ class Deployer:
         while self.current_tasks:
             await asyncio.gather(*self.current_tasks)
         self.log_progress = False
+
+    async def deploy_from_file(self, eiko_file: Path) -> None:
+        """Helper funcion meant mostly for testing."""
+        exporter = Exporter()
+        tasks = exporter.export_from_file(eiko_file)
+        await self.deploy(tasks)
 
     def _create_task(self, task: Task) -> None:
         asyncio_task = asyncio.create_task(self._execute_task(task))

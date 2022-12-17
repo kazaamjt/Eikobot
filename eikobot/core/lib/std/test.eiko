@@ -1,2 +1,2 @@
 resource CompileTestResource:
-	property_1: str
+    property_1: str

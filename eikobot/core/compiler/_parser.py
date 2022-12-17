@@ -699,7 +699,9 @@ class CallExprAst(ExprAST):
 
         if isinstance(eiko_callable, PluginDefinition):
             plugin_context = CompilerContext(
-                f"{self.identifier}-plugin-call-context", context
+                f"{self.identifier}-plugin-call-context",
+                context._context_cache,  # pylint: disable=protected-access
+                context,
             )
             return eiko_callable.execute(
                 self.args.elements, plugin_context, token=self.token
@@ -890,9 +892,18 @@ class ResourcePropertyAST:
             )
 
         if not _type.type_check(default_value.type):
-            raise EikoCompilationError(
-                f"The default value of {res_name}.{self.name} does not fit type described in its type expression.",
-            )
+            if _type.inverse_type_check(default_value.type):
+                _typedef = context.get(_type.name)
+                if not isinstance(_typedef, EikoTypeDef):
+                    raise EikoInternalError(
+                        "Something went wrong trying to coerce a type to it's typedef.",
+                        token=self.expr.token,
+                    )
+                default_value = _typedef.execute(default_value, self.expr.rhs.token)
+            else:
+                raise EikoCompilationError(
+                    f"The default value of {res_name}.{self.name} does not fit type described in its type expression.",
+                )
 
         return ResourceProperty(self.name, _type, default_value)
 
@@ -1096,6 +1107,12 @@ class ImportExprAST(ExprAST):
         else:
             self.rhs.to_import_traversable_list(import_list)
 
+        _context = context.get_cached_context(import_list)
+        if _context is not None:
+            tlc = _context.get_top_level_context()
+            context.storage[tlc.name] = tlc
+            return
+
         module = resolve_import(import_list, context)
         if module is None:
             raise EikoCompilationError(
@@ -1134,35 +1151,52 @@ class FromImportExprAST(ExprAST):
             self.lhs.to_import_traversable_list(import_module)
             self.lhs.to_import_traversable_list(from_import_list)
 
-        module = resolve_from_import(import_module, context, self.dots)
-        if module is None:
-            raise EikoCompilationError(
-                f"Module '{'.'.join(from_import_list)}' not found.",
-                token=self.token,
-            )
+        _full_import_list = [x for x in from_import_list[::-1]]
+        _parent: Optional[CompilerContext] = context
+        for _ in self.dots:
+            if _parent is not None:
+                _parent = _parent.super_module
+                if _parent is not None:
+                    _full_import_list.append(_parent.name)
 
-        if not module.context.compiled:
-            import_python_code(import_module, module.path, module.context)
-            parser = Parser(module.path)
-            for expr in parser.parse():
-                expr.import_context = module.context
-                expr.compile(module.context)
+        _full_import_list.reverse()
+        _context = context.get_cached_context(_full_import_list)
+        if _context is not None and not _context.compiled:
+            _context = None
 
-            module.context.flag_as_compiled()
+        if _context is None:
+            module = resolve_from_import(import_module, context, self.dots)
+            if module is None:
+                raise EikoCompilationError(
+                    f"Module '{'.'.join(from_import_list)}' not found.",
+                    token=self.token,
+                )
 
-        init_lazy_load_submodules(module, import_module)
+            if not module.context.compiled:
+                import_python_code(import_module, module.path, module.context)
+                parser = Parser(module.path)
+                for expr in parser.parse():
+                    expr.import_context = module.context
+                    expr.compile(module.context)
+
+                module.context.flag_as_compiled()
+
+            init_lazy_load_submodules(module, import_module)
+            _context = module.context
+
         for item in self.import_items:
             if item.identifier in import_module:
-                context.set(item.identifier, module.context, self.token)
+                context.set(item.identifier, _context, self.token)
             else:
-                imported_item = module.context.get(item.identifier)
+                imported_item = _context.get(item.identifier)
                 if isinstance(
                     imported_item, (EikoBaseType, ResourceDefinition, CompilerContext)
                 ):
                     context.set(item.identifier, imported_item)
                 elif imported_item is None:
                     raise EikoCompilationError(
-                        f"Failed to import '{item.identifier}' from '{'.'.join(from_import_list)}'.",
+                        f"Failed to import '{item.identifier}' from '{'.' * len(self.dots)}"
+                        f"{'.'.join(from_import_list)}'.",
                         token=item.token,
                     )
                 else:

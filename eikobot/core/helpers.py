@@ -2,6 +2,8 @@
 """
 Eikobot base types easy access.
 """
+from pathlib import Path
+
 from .compiler.definitions._resource import EikoBaseModel
 from .compiler.definitions.base_types import (
     EikoBaseType,

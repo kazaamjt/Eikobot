@@ -5,13 +5,15 @@
 from pathlib import Path
 
 from eikobot.core.compiler import Compiler
+from eikobot.core.compiler.definitions._resource import ResourceDefinition
 from eikobot.core.compiler.definitions.base_types import EikoResource
 from eikobot.core.compiler.definitions.context import CompilerContext
+from eikobot.core.compiler.definitions.function import PluginDefinition
 from eikobot.core.compiler.importlib import resolve_import
 
 
 def test_import_std() -> None:
-    context = CompilerContext("__main__")
+    context = CompilerContext("__main__", {})
     resolve_import(["std"], context)
     std_context = context.get("std")
     assert isinstance(std_context, CompilerContext)
@@ -48,3 +50,18 @@ def test_from_import(eiko_from_import_file: Path) -> None:
 def test_multi_import(eiko_multi_import_file: Path) -> None:
     compiler = Compiler()
     compiler.compile(eiko_multi_import_file)
+
+    std = compiler.context.get("std")
+    assert isinstance(std, CompilerContext)
+
+    inspect = compiler.context.get("inspect")
+    assert isinstance(inspect, PluginDefinition)
+
+    file = compiler.context.get("file")
+    assert isinstance(file, CompilerContext)
+
+    file_definition = compiler.context.get("File")
+    assert isinstance(file_definition, ResourceDefinition)
+
+    read_file = compiler.context.get("read_file")
+    assert isinstance(read_file, PluginDefinition)

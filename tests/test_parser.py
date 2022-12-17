@@ -229,7 +229,7 @@ def test_f_string_parser(eiko_f_string_file: Path) -> None:
     expr_2 = f_string_expr.expressions.get("{3 + 3}")
     assert isinstance(expr_2, BinOpExprAST)
 
-    compiled_f_string = f_string_expr.compile(CompilerContext("f-string-test"))
+    compiled_f_string = f_string_expr.compile(CompilerContext("f-string-test", {}))
     assert compiled_f_string.value == f"This is an f-string test: {3 + 3}, {4 + 4}"
 
 

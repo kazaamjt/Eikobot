@@ -62,7 +62,7 @@ class LazyLoadModule:
     def compile(self) -> "CompilerContext":
         """Imports plugins and compiles eiko code so the module can be used."""
         if not self.context.compiled:
-            logger.debug(f"Importing module '{self.context.get_import_name()}'")
+            logger.debug(f"Importing module '{'.'.join(self.import_path)}'")
             for expr in self.parser.parse():
                 expr.compile(self.context)
 
@@ -84,8 +84,10 @@ class CompilerContext:
     def __init__(
         self,
         name: str,
+        context_cache: dict[str, "CompilerContext"],
         super_scope: Optional["CompilerContext"] = None,
         super_module: Optional["CompilerContext"] = None,
+        is_root: bool = False,
     ) -> None:
         self.name = name
         self.storage: dict[
@@ -95,7 +97,13 @@ class CompilerContext:
         self.path: Path
         self.type = EikoType("eiko_internal_context")
         self.super = super_scope
+        self.is_root = is_root
+
+        if super_module is not None and super_module.is_root:
+            super_module = None
         self.super_module = super_module
+        self._context_cache: dict[str, CompilerContext] = context_cache
+
         self.compiled = False
         self.handlers: dict[str, Type[Handler]] = {}
         self.models: dict[str, Type[EikoBaseModel]] = {}
@@ -224,8 +232,10 @@ class CompilerContext:
             return context
 
         if context is None:
-            new_context = CompilerContext(name, super_module=self)
+            new_context = CompilerContext(name, self._context_cache, super_module=self)
             self.set(name, new_context)
+            if self.is_root:
+                self.add_tl_context(name, new_context)
             return new_context
 
         raise EikoCompilationError(
@@ -238,7 +248,7 @@ class CompilerContext:
         Creates a new context, with the given context as its super context,
         but does not store the new context in the super context.
         """
-        return CompilerContext(name, self)
+        return CompilerContext(name, self._context_cache, self)
 
     def register_handler(self, handler: Type[Handler]) -> None:
         """Adds a handler to the context for later retrieval."""
@@ -314,6 +324,37 @@ class CompilerContext:
             f"Linking model {model} to resource '{self.get_import_name(include_main=True)}.{name}'"
         )
         model.link(resource_cls)
+
+    def get_top_level_context(self) -> "CompilerContext":
+        """Returns the recursivly retrieved top level parent context/module."""
+        if self.super_module is not None:
+            return self.super_module.get_top_level_context()
+
+        return self
+
+    def get_cached_context(self, import_path: list[str]) -> Optional["CompilerContext"]:
+        """Checks to see if a given context already exists."""
+        context = self._context_cache.get(import_path[0])
+        if context is None:
+            return None
+
+        for name in import_path[1:]:
+            _context = context.get(name)
+            if isinstance(_context, CompilerContext):
+                context = _context
+            elif isinstance(_context, LazyLoadModule):
+                context = _context.context
+            else:
+                break
+
+        if isinstance(context, LazyLoadModule):
+            context = context.compile()
+
+        return context
+
+    def add_tl_context(self, name: str, context: "CompilerContext") -> None:
+        """Add a top level context to the cache."""
+        self._context_cache[name] = context
 
 
 StorableTypes = Union[_StorableTypes, "CompilerContext"]

@@ -13,6 +13,19 @@
 - Fixed a bug where resource instances inherited from `ResourceDefinition` instead of the base object
 - Added a builtin `__depends_on__` property to `EikoResource`
 - Added `list.extend`, which does the same as in python
+- Added relative imports
+- Added `EikoBaseModel` Class in Python, that allows for using python dataclass like classes
+linked to Eikobot `Resources`
+- Added `Exporter` The part of the engine that creates tasks and calculates dependencies
+- Added `Handler`, `CRUDHandler` and `AsyncCRUDHandler`. Handlers describe how to
+deploy and maintain a resource
+- Added `Deployer` and `Deploy`-command, finaly allowing resources to actually be deployed
+- Expanded the `std.file` module, including the first deployable resource: `File`
+- Renamed a some internals (mostly compiler modules) so they don't conflict with python builtins
+- Added a module cache, so a module does not get compiled more than once
+- Expose the python `std` module as `eikobot.core.std`
+- Added type coersion for default values of resource properties (like in the constructor)
+- Added caching of imports
 
 ## 0.2.0
 

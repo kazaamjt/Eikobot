@@ -41,7 +41,7 @@ Features and bug fixes:
 Code cleanup:
 
 - [ ] Implement an `expects` function for parser, raise if token is not correct type
-- [ ] Implement a `to_py` function on eiko objects, instead of using a conversion table
+- [x] Implement a `to_py` function on eiko objects, instead of using a conversion table
 
 ### STD
 
@@ -50,13 +50,14 @@ Code cleanup:
 - [x] add IPv4/IPv6 types
 - [x] File module
 - [x] Templates using jinja
-- [ ] add `Host`, a resource that represents a machine.
-- [ ] add `std.ssh.Command`. Runs a command on a machine.
-- [ ] add `File` and `FileHandler`
+- [x] add `Host`, a resource that represents a machine.
+- [x] add `std.ssh.Command`. Runs a command on a machine.
+- [x] add `File` and `FileHandler`
 
 ### Engine
 
 - [x] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
 - [x] add exporter, that generates tasks and links these tasks to each other correctly
 - [x] add deployer that takes tasks and executes them
-- [ ] Add linked pydantic classes
+- [x] add linked pydantic classes
+- [ ] add logging to HandlerContext

@@ -142,7 +142,8 @@ class ConstructorDefinition(EikoBaseType):
         resource.set_index(res_index)
         if resource.index() in context.global_id_list:
             raise EikoCompilationError(
-                f"A resource of type '{self.parent.name}' with the same index was already created.",
+                f"A resource of type '{self.parent.name}' with index "
+                f"'{resource.index()}' was already created.",
                 token=callee_token,
             )
 

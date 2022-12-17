@@ -18,10 +18,13 @@ class Compiler:
     """
 
     def __init__(self) -> None:
-        self.context = CompilerContext("__main__")
+        self.context = CompilerContext("__main__", {}, is_root=True)
 
     def compile(self, file: Path) -> None:
-        """Compiles an Eikobot file given a path."""
+        """
+        Compiles an Eikobot file given a path.
+        Note that this is not threadsafe.
+        """
         self.context.set_path(file)
         import_python_code(["__main__"], file, self.context)
 
@@ -34,4 +37,4 @@ class Compiler:
 
     def reset(self) -> None:
         """Resets the compiler context for reuse."""
-        self.context = CompilerContext("__main__")
+        self.context = CompilerContext("__main__", {}, is_root=True)

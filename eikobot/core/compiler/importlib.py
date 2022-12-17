@@ -37,13 +37,13 @@ class Module:
 
 
 def resolve_import(
-    import_path: list[str], main_context: "CompilerContext"
+    import_path: list[str], context: "CompilerContext"
 ) -> Optional[Module]:
     """
     Tries to import a given path.
     """
     for _path in PATHS:
-        result = _resolve_import(import_path.copy(), _path, main_context)
+        result = _resolve_import(import_path.copy(), _path, context)
         if result is not None:
             return result
 
@@ -101,9 +101,9 @@ def resolve_from_import(
             test_path_is_module(anchor, token)
 
         if not import_path:
-            import_path.append("__init__")
+            import_path.append(anchor.name)
 
-        return _resolve_from_import(import_path.copy(), anchor, context)
+        return _resolve_from_import(import_path.copy(), anchor.parent, context)
 
     for _path in PATHS:
         module = _resolve_from_import(import_path.copy(), _path, context)
@@ -123,8 +123,12 @@ def _resolve_from_import(
     if current_dir.exists() and current_dir.is_dir():
         init_file = current_dir / "__init__.eiko"
         if init_file.exists():
-            new_context = context.get_or_set_context(current)
-            new_context.set_path(init_file)
+            import_path_copy = import_path.copy()
+            import_path_copy.append(current)
+            new_context = context.get_cached_context(import_path_copy)
+            if new_context is None:
+                new_context = context.get_or_set_context(current)
+                new_context.set_path(init_file)
             if len(import_path) == 0:
                 module = Module(current_dir.stem, init_file, new_context)
                 _get_submodules(module)
@@ -177,9 +181,16 @@ def import_python_code(
                         f"Importing handler '{_obj.__name__}' from {file_path}"
                     )
                     context.register_handler(_obj)
-                elif issubclass(_obj, EikoBaseModel) and _obj is not EikoBaseModel:
+                elif (
+                    issubclass(_obj, EikoBaseModel)
+                    and _obj is not EikoBaseModel
+                    and (
+                        _obj.__module__ == module_name
+                        or _obj.__module__ == "eikobot.core.lib." + module_name
+                    )
+                ):
                     logger.debug(
-                        f"Importing Python BaseModel '{_obj.__name__}' from {file_path}"
+                        f"Importing Python Model '{_obj.__name__}' from {file_path}"
                     )
                     context.register_model(_obj)
     else:

@@ -23,7 +23,7 @@ from eikobot.core.errors import EikoCompilationError
 def test_basic_ops(eiko_basic_ops_file: Path) -> None:
     parser = Parser(eiko_basic_ops_file)
     ast_list = list(parser.parse())
-    context = CompilerContext("__test__")
+    context = CompilerContext("__test__", {})
 
     result_1 = ast_list[0].compile(context)
     assert isinstance(result_1, EikoInt)
