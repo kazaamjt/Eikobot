@@ -36,7 +36,7 @@ eikobot compile -f hello.eiko
 
 This should give us the following output as a result:
 
-```
+```txt
 INFO Compiling hello.eiko
 DEBUG_MSG hello world
 INFO Done
@@ -74,7 +74,7 @@ a = "This is illegal"
 
 and when compiling, this happens:
 
-```
+```txt
 INFO Compiling hello.eiko
 ERROR CompilationError: Illegal operation: Tried to reassign 'a'.
     File "/home/yaron/hello.eiko", line 2
@@ -169,12 +169,12 @@ Currently one can append after a list has been accessed, but this might change i
 
 A list also has typing.  
 When not typed, it takes all it's initial values and expresses the value as a union of those types.  
-Its typing is expressed as `List[element_type]`, where `element_type` is a type expression of any kind.  
+Its typing is expressed as `list[element_type]`, where `element_type` is a type expression of any kind.  
 
 So a list of integers would be typed like this:
 
 ```Python
-new_list: List[int] = [1, 2, 3]
+new_list: list[int] = [1, 2, 3]
 ```
 
 This also means that a list needs either values OR typing when initialized.  
@@ -185,7 +185,7 @@ Dictionaries are mappings. They map a key to a value.
 Both keys and values can be any type.  
 
 ```Python
-new_dict: Dict[str, str] = {
+new_dict: dict[str, str] = {
     "key_1": "value_1",
     "key_2": "value_2",
     "key_3": "value_3",
@@ -193,7 +193,7 @@ new_dict: Dict[str, str] = {
 ```
 
 Just like variables, keys cannot be reassigned, nor can keys or values be deleted.  
-Note the typing, expressed as `Dict[key_type, value_type]`.  
+Note the typing, expressed as `dict[key_type, value_type]`.  
 When not typed, it takes all it's initial keys and values,
 and expresses the value as a union of those types.  
 
@@ -218,7 +218,7 @@ A property without default value must have a value passed at creation.
 
 Calling the constructor is as simple as just calling the class:
 
-```
+```Python
 car = Car("toyota", 3)
 ```
 
@@ -237,7 +237,7 @@ resource Wheel:
 
 resource Car:
     brand: str
-    wheels: List[Wheel]
+    wheels: list[Wheel]
 
 car = Car(
     "Toyota",
@@ -268,7 +268,7 @@ only basic types.
 
 It's most basic usage is to alias a type like so:  
 
-```
+```Python
 typedef StrAlias str
 ```
 
@@ -276,7 +276,7 @@ Which creates a `StrAlias` type.
 This new type is considered a subtype of `str`,
 meaning that things that accept a str, will accept our new `StrAlias` as well:  
 
-```
+```Python
 typedef StrAlias str
 
 a: str
@@ -288,7 +288,7 @@ a = b
 But, the inverse is not true.  
 When expecting a StrAlias, a value of type `str` will not suffice:  
 
-```
+```Python
 typedef StrAlias str
 
 a: StrAlias = "test"
@@ -302,14 +302,14 @@ Using a type condition, denoted by an `if`-statement following our typedef decla
 we can specify our required condition.  
 Note that this if statement runs inside it's own context where `self` is a reference:
 
-```
+```Python
 typedef NetworkPort int if 1 <= self and self <= 65535
 ```
 
 Now we can use NetworkPort as a type and are safe in the knownledge it's value will always be correct.  
 When used as the type of a property for a resource, the compiler will even try to coerce the type:  
 
-```
+```Python
 typedef NetworkPort int if 1 <= self and self <= 65535
 
 resource Service:
@@ -320,7 +320,7 @@ s = Service(8080)
 
 Further testing will also show our custom resource `Service` does not accept bad values:  
 
-```
+```Python
 s = Service(-1)
 ```
 
@@ -345,16 +345,16 @@ and access `inspect` using a dot, eg: `std.inspect`.
 
 Let's take our earlier car example and inspect it:  
 
-```
+```Python
 import std
 
 resource Wheel:
-    Brand: str
+    brand: str
     age: int
 
 resource Car:
     brand: str
-    wheels: List[Wheel]
+    wheels: list[Wheel]
 
 car = Car(
     "Toyota",
@@ -371,11 +371,11 @@ std.inspect(car)
 
 This will output something akin to this:  
 
-```
+```txt
 INFO Compiling test.eiko
-PRINT Car 'Toyota': {
+INSPECT Car 'Toyota': {
     str 'brand': str "Toyota",
-    List[Wheel] 'wheels': [
+    list[Wheel] 'wheels': [
         Wheel 'Toyota': {
             str 'Brand': str "Toyota",
             int 'age': int 3,
@@ -401,7 +401,7 @@ INFO Compiled in 0:00:00.003875
 Importing somthing from a package is also possible,
 using `from ... import ...` syntax, like so:  
 
-```
+```Python
 from std import inspect
 
 inspect(car)
@@ -420,13 +420,13 @@ The Eikobot compiler automatically picks up files with the `.eiko` extension.
 
 For example, create the file `module_1` and put a variable in it:
 
-```
+```Python
 a = "this is an import test"
 ```
 
 Then, in the `hello.eiko` file, import this variable and print it:
 
-```
+```Python
 from std import debug_msg
 import module_1
 
@@ -440,7 +440,7 @@ This file can be empty, or it can contain code.
 
 As an example let's create the following file structure:  
 
-```
+```txt
 module_2 /
     __init__.eiko
     submodule_1.eiko
@@ -449,13 +449,13 @@ module_2 /
 
 importing from the `__init__.eiko` file can be done like so:  
 
-```
+```Python
 from module_2 import ...
 ```
 
 And to import the submodules, or, import from the submodules:  
 
-```
+```Python
 from module_2 import sumodule_1
 from module_2.submodule_2 import ...
 ```
@@ -463,7 +463,7 @@ from module_2.submodule_2 import ...
 You could also not bother with seperate imports like this and just
 import the top level module and access everything through dots:  
 
-```
+```Python
 import module_2
 
 module_2.submodule_1.something
@@ -486,7 +486,8 @@ for example, we could create a plugin in `hello.py` next to `hello.eiko`,
 that concatenates 2 strings:
 
 NOTE: this plugin ofcourse isn't very usfull as eiko supports string concatination using `+`.
-```
+
+```Python
 from eikobot.core.plugin import eiko_plugin
 
 @eiko_plugin()
@@ -496,7 +497,7 @@ def concat(string_1: str, string_2: str) -> str:
 
 Next, call the plugin, inside `hello.eiko`:
 
-```
+```Python
 from std import inspect
 
 a = concat("ha", "ha")
@@ -510,3 +511,117 @@ but it is only able to do so for `str`, `int`, `bool` and `float`.
 
 If you are unsure about what type you will receive as an argument,
 know that most anything in the Eiko language inherits from `eikobot.core.type.EikoBaseType`.  
+
+lastly, plugins can raise an exception to indicate something is up.  
+When raising an exception, use or inherit from `eikobot.core.plugin.EikoPluginException`.  
+
+When a Python plugin raises an exception that isn't an `EikoPluginException`,
+the compiler will catch it and can produce the python stacktrace using the `--enable-plugin-stacktrace` parameter.  
+
+For example, continuing off of our earlier example with cars, we'll make a plugin that calculates
+how long before you have replace a tire.  
+Naturally this plugin will only except resources of type `Car`.  
+We'll use the `EikoPluginException` to do some type checking.  
+(Due to engine limitations, typing for plugins is somewhat limited.)  
+
+So, let's make a `cars.eiko` file:
+
+```Python
+resource Wheel:
+    brand: str
+    age: int
+
+resource Car:
+    brand: str
+    wheels: list[Wheel]
+```
+
+and then, in our python file `cars.py`, we write the plugin:
+
+```Python
+from eikobot.core.plugin import EikoPluginException, eiko_plugin
+from eikobot.core.types import EikoList, EikoResource
+
+
+@eiko_plugin()
+def tires_that_should_be_replaced(car: EikoResource) -> EikoList:
+    if car.type.name != "Car":
+        raise EikoPluginException("Expected a resource of type 'Car'.")
+
+    wheels: EikoList = car.properties.get("wheels")  # type: ignore
+    wheels_to_replace = EikoList(element_type=wheels.type.element_type)
+    for wheel in wheels.elements:
+        if wheel.properties.get("age") > 5:  # type: ignore
+            wheels_to_replace.append(wheel)
+
+    return wheels_to_replace
+```
+
+Now there's a lot to unpack here.  
+First, we check that the type of the resource passed is a Car.  
+The compiler will make sure it is in fact an Eikoresource.  
+
+Then we get the list of wheels.  
+For `mypy`'s sake, we could do an `isinstance` check here to make sure
+the wheels property is indeed a list.  
+However the eiko compiler already did type checks for us, so we can assume this is correct.  
+
+Then we create a new `EikoList`.  
+But an `EikoList` requires knowing it's element type upon creation.  
+Rather then trying to construct this type manually from scratch,
+we pass a reference to the element type of the wheels list.  
+
+Now, let's make a car with wheels and see if the need to be replaced.  
+
+In our `hello.eiko` file:  
+
+```Python
+import std
+
+from cars import Car, Wheel, tires_that_should_be_replaced
+
+car = Car(
+    "Toyota",
+    [
+        Wheel("Toyota", 7),
+        Wheel("Toyota", 7),
+        Wheel("Toyota", 7),
+        Wheel("Michelin", 4)
+    ],
+)
+
+std.inspect(tires_that_should_be_replaced(car))
+```
+
+When we compile `hello.eiko` with the command `eikobot compile -f hello.eiko --enable-plugin-stacktrace`,
+it will actually show a stacktrace in this case, because there is a little bug in our plugin.  
+In this case, it's because `Wheel.age` returns an `EikoInt`, not a python `int`.  
+We can access the Python value by accessing `EIkoInt.value`.  
+
+So when fix the problematic line:  
+
+```Python
+if wheel.properties.get("age").value > 5:  # type: ignore
+```
+
+The plugin will return a list of wheels that need to be replaced:
+
+```txt
+INFO Compiling hello.eiko
+INSPECT [
+    Wheel 'Toyota': {
+        str 'brand': str "Toyota",
+        int 'age': int 7,
+    },
+    Wheel 'Toyota': {
+        str 'brand': str "Toyota",
+        int 'age': int 7,
+    },
+    Wheel 'Toyota': {
+        str 'brand': str "Toyota",
+        int 'age': int 7,
+    },
+]
+INFO Done
+INFO Compiled in 0:00:00.003532
+```

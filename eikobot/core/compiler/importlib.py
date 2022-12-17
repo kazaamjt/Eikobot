@@ -7,19 +7,20 @@ from dataclasses import dataclass
 from inspect import getfullargspec, getmembers, isclass, isfunction
 from pathlib import Path
 from types import FunctionType, ModuleType
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from .. import logger
-from ..backend.handlers import CRUDHandler
-from .definitions.base_types import EikoBaseType
+from ..errors import EikoCompilationError
+from ..handlers import AsyncCRUDHandler, CRUDHandler, Handler
+from ._token import Token
+from .definitions._resource import EikoBaseModel
 from .definitions.function import PluginArg, PluginDefinition
-from .errors import EikoCompilationError
 
 if TYPE_CHECKING:
     from .definitions.context import CompilerContext
 
 INTERNAL_LIB_PATH = Path(__file__).parent.parent.resolve() / "lib"
-PATHS: List[Path] = [INTERNAL_LIB_PATH, Path(".")]
+PATHS: list[Path] = [INTERNAL_LIB_PATH, Path(".")]
 
 
 @dataclass
@@ -31,18 +32,18 @@ class Module:
     context: "CompilerContext"
 
     def __post_init__(self) -> None:
-        self.submodules: List["Module"] = []
+        self.submodules: list["Module"] = []
         self.context.set_path(self.path)
 
 
 def resolve_import(
-    import_path: List[str], main_context: "CompilerContext"
+    import_path: list[str], context: "CompilerContext"
 ) -> Optional[Module]:
     """
     Tries to import a given path.
     """
     for _path in PATHS:
-        result = _resolve_import(import_path.copy(), _path, main_context)
+        result = _resolve_import(import_path.copy(), _path, context)
         if result is not None:
             return result
 
@@ -50,7 +51,7 @@ def resolve_import(
 
 
 def _resolve_import(
-    import_path: List[str], parent: Path, context: "CompilerContext"
+    import_path: list[str], parent: Path, context: "CompilerContext"
 ) -> Optional[Module]:
     current = import_path[0]
     import_path.remove(current)
@@ -79,12 +80,31 @@ def _resolve_import(
     return None
 
 
+def test_path_is_module(path: Path, token: Optional[Token]) -> None:
+    if not (path / "__init__.eiko").exists():
+        raise EikoCompilationError(
+            "Import path not valid.",
+            token=token,
+        )
+
+
 def resolve_from_import(
-    import_path: List[str], context: "CompilerContext"
+    import_path: list[str], context: "CompilerContext", dots: list[Token]
 ) -> Optional[Module]:
     """
     Tries to from import a given path list.
     """
+    if dots:
+        anchor = context.path.absolute()
+        for token in dots:
+            anchor = anchor.parent
+            test_path_is_module(anchor, token)
+
+        if not import_path:
+            import_path.append(anchor.name)
+
+        return _resolve_from_import(import_path.copy(), anchor.parent, context)
+
     for _path in PATHS:
         module = _resolve_from_import(import_path.copy(), _path, context)
         if module is not None:
@@ -94,7 +114,7 @@ def resolve_from_import(
 
 
 def _resolve_from_import(
-    import_path: List[str], parent: Path, context: "CompilerContext"
+    import_path: list[str], parent: Path, context: "CompilerContext"
 ) -> Optional[Module]:
     current = import_path[0]
     import_path.remove(current)
@@ -103,8 +123,12 @@ def _resolve_from_import(
     if current_dir.exists() and current_dir.is_dir():
         init_file = current_dir / "__init__.eiko"
         if init_file.exists():
-            new_context = context.get_or_set_context(current)
-            new_context.set_path(init_file)
+            import_path_copy = import_path.copy()
+            import_path_copy.append(current)
+            new_context = context.get_cached_context(import_path_copy)
+            if new_context is None:
+                new_context = context.get_or_set_context(current)
+                new_context.set_path(init_file)
             if len(import_path) == 0:
                 module = Module(current_dir.stem, init_file, new_context)
                 _get_submodules(module)
@@ -124,7 +148,7 @@ def _resolve_from_import(
 
 
 def import_python_code(
-    module_path: List[str], eiko_file_path: Path, context: "CompilerContext"
+    module_path: list[str], eiko_file_path: Path, context: "CompilerContext"
 ) -> None:
     """
     Resolves and exposes python code that is tagged as eiko-plugins.
@@ -147,12 +171,28 @@ def import_python_code(
                         plugin_name, _load_plugin(module_name, plugin_name, _obj)
                     )
 
-            elif (
-                isclass(_obj)
-                and issubclass(_obj, CRUDHandler)
-                and _obj is not CRUDHandler
-            ):
-                logger.debug(f"Importing handler '{_obj.__name__}' from {file_path}")
+            if isclass(_obj):
+                if issubclass(_obj, Handler) and _obj not in (
+                    Handler,
+                    AsyncCRUDHandler,
+                    CRUDHandler,
+                ):
+                    logger.debug(
+                        f"Importing handler '{_obj.__name__}' from {file_path}"
+                    )
+                    context.register_handler(_obj)
+                elif (
+                    issubclass(_obj, EikoBaseModel)
+                    and _obj is not EikoBaseModel
+                    and (
+                        _obj.__module__ == module_name
+                        or _obj.__module__ == "eikobot.core.lib." + module_name
+                    )
+                ):
+                    logger.debug(
+                        f"Importing Python Model '{_obj.__name__}' from {file_path}"
+                    )
+                    context.register_model(_obj)
     else:
         logger.debug(f"Found no python plugins for eiko file: {eiko_file_path}")
 
@@ -185,12 +225,6 @@ def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefini
         if arg_annotation is None:
             raise EikoCompilationError(
                 f"Plugin '{module}.{name}' has no type annotation for argument '{arg_name}'."
-            )
-        if not issubclass(arg_annotation, (EikoBaseType, bool, float, int, str, Path)):
-            print(type(arg_annotation))
-            raise EikoCompilationError(
-                f"Plugin '{module}.{name}' type annotation for argument '{arg_name}' must be "
-                "'bool', 'float', 'int', 'str' or an eiko type.",
             )
 
         plugin_definition.add_arg(

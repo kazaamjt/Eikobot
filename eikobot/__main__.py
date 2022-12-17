@@ -2,6 +2,7 @@
 The entrypoint to the client application.
 Schould only contain things related to the client cli.
 """
+import asyncio
 import datetime
 import sys
 import time
@@ -12,9 +13,11 @@ import click
 
 from .core import logger
 from .core.compiler import Compiler
-from .core.compiler.errors import EikoError, EikoPluginError
 from .core.compiler.lexer import Token
 from .core.compiler.misc import Index
+from .core.deployer import Deployer
+from .core.errors import EikoError, EikoPluginError
+from .core.exporter import Exporter
 
 
 @click.group()
@@ -59,7 +62,14 @@ def compile_cmd(
     """
     Compile an eikobot file.
     """
-    start = time.process_time()
+    _compile(file, output_model, enable_plugin_stacktrace)
+
+
+def _compile(
+    file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False
+) -> Compiler:
+    start = time.time()
+    pc_start = time.process_time()
     compiler = Compiler()
 
     file_path = Path(file)
@@ -81,15 +91,16 @@ def compile_cmd(
                 logger.error("Python error: " + str(e.python_exception))
                 if enable_plugin_stacktrace:
                     logger.error("Python plugin stacktrace (ignore the first line):")
-                    traceback.print_exception(e.python_exception)  # type: ignore
+                    traceback.print_exception(e.python_exception)
                 else:
                     logger.error(
                         "To view the python plugin stacktrace, use '--enable-plugin-stacktrace'"
                     )
+        sys.exit(1)
 
     except NotImplementedError as e:
-        logger.error("Congratz, you made something unexpected and terrible happen!")
-        logger.error("Please report this error on https://github.com/kazaamjt/Eikobot")
+        logger.error("PANIC!! Compiler ran in to an unexpected error!")
+        logger.error("Please report this error on github.")
         try:
             token = e.args[0]
             if isinstance(token, Token):
@@ -97,16 +108,47 @@ def compile_cmd(
                 print_error_trace(token.index)
         except IndexError:
             pass
+        sys.exit(1)
 
-    else:
-        if output_model:
-            logger.info("resulting model context:")
-            print(compiler.context)
+    if output_model:
+        logger.info("resulting model context:")
+        print(compiler.context)
 
-        time_taken = time.process_time() - start
-        time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
-        logger.info("Done")
-        logger.info(f"Compiled in {time_taken_formatted}")
+    time_taken = time.time() - start
+    time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+    pc_time_taken = time.process_time() - pc_start
+    pc_time_taken_formatted = str(datetime.timedelta(seconds=pc_time_taken))
+    logger.info(
+        f"Compiled in {time_taken_formatted} "
+        f"(Process time: {pc_time_taken_formatted})"
+    )
+
+    return compiler
+
+
+@cli.command()
+@click.option("-f", "--file", prompt="File", help="Path to entrypoint file.")
+@click.option(
+    "--enable-plugin-stacktrace",
+    is_flag=True,
+    help="Outputs a plugins stacktrace if it raises an exception.",
+)
+def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
+    """
+    Compile, export and deploy a model from a given file.
+    """
+    start = time.time()
+    compiler = _compile(file, False, enable_plugin_stacktrace)
+    logger.info("Exporting model.")
+    exporter = Exporter()
+    exporter.export_from_context(compiler.context)
+    logger.info("Deploying model.")
+    deployer = Deployer()
+    asyncio.run(deployer.deploy(exporter.base_tasks))
+
+    time_taken = time.time() - start
+    time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+    logger.info(f"Deployed in {time_taken_formatted}")
 
 
 if __name__ == "__main__":

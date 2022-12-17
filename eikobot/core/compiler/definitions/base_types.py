@@ -4,21 +4,16 @@ strings, integers, floats, and booleans, in a way that makes sense to the compil
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
 
-from ..errors import EikoCompilationError, EikoInternalError
-from ..token import Token
+from pydantic import BaseModel, ValidationError
+
+from ... import logger
+from ...errors import EikoCompilationError, EikoInternalError
+from .._token import Token
 
 if TYPE_CHECKING:
+    from ._resource import ResourceDefinition
     from .context import StorableTypes
 
 
@@ -76,12 +71,23 @@ class EikoUnset:
 
     type: EikoType
 
+    @staticmethod
+    def get_value() -> str:
+        return "Unset"
+
+    @staticmethod
+    def printable(_: str) -> str:
+        return "Unset"
+
+    def to_py(self) -> None:
+        return None
+
 
 EikoType.type = EikoType("Type")
 EikoObjectType = EikoType("Object")
 
 
-def type_list_to_type(types: List[EikoType]) -> EikoType:
+def type_list_to_type(types: list[EikoType]) -> EikoType:
     """Turns a list of Eiko types in to a single usable type."""
     if len(types) == 1:
         _type = types[0]
@@ -100,7 +106,7 @@ class EikoUnion(EikoType):
     def __init__(
         self,
         name: str,
-        types: List[EikoType],
+        types: list[EikoType],
     ) -> None:
         self.types = types
         super().__init__(name)
@@ -121,14 +127,12 @@ class EikoUnion(EikoType):
         return False
 
 
-# Implement this once mypy supports it
-# PyTypes = Union[None, bool, float, int, str, dict["PyTypes", "PyTypes"], List["PyTypes"]]
-PyTypes = Union[None, bool, float, int, str, dict, list, Path]
+PyTypes = Union[None, bool, float, int, str, dict, list, Path, BaseModel]
 
 
 class EikoBaseType:
     """
-    The base type represents all objects, it is inherited from by all other types.
+    The base type represents all objects, it is inherited from by all other object classes.
     It shouldn't show up naturally anywhere though.
     """
 
@@ -156,6 +160,9 @@ class EikoBaseType:
         return expected_type.type_check(self.type)
 
     def index(self) -> str:
+        raise NotImplementedError
+
+    def to_py(self) -> PyTypes:
         raise NotImplementedError
 
 
@@ -200,6 +207,9 @@ class EikoNone(EikoBaseType):
     def index(self) -> str:
         return str(self.value)
 
+    def to_py(self) -> None:
+        return None
+
 
 eiko_none_object = EikoNone()
 EikoIntType = EikoType("int")
@@ -237,6 +247,9 @@ class EikoInt(EikoBaseType):
 
         raise ValueError
 
+    def to_py(self) -> int:
+        return self.value
+
 
 EikoFloatType = EikoType("float")
 
@@ -273,6 +286,9 @@ class EikoFloat(EikoBaseType):
 
         raise ValueError
 
+    def to_py(self) -> float:
+        return self.value
+
 
 EikoNumber = Union[EikoInt, EikoFloat]
 
@@ -304,6 +320,9 @@ class EikoBool(EikoBaseType):
     def convert(cls, obj: EikoBaseType) -> "EikoBool":
         return EikoBool(bool(obj.get_value()))
 
+    def to_py(self) -> bool:
+        return self.value
+
 
 EikoStrType = EikoType("str")
 
@@ -332,6 +351,9 @@ class EikoStr(EikoBaseType):
     @classmethod
     def convert(cls, obj: "BuiltinTypes") -> "EikoStr":
         return cls(str(obj.get_value()))
+
+    def to_py(self) -> str:
+        return self.value
 
 
 EikoPathType = EikoType("Path")
@@ -369,6 +391,9 @@ class EikoPath(EikoBaseType):
 
         raise ValueError
 
+    def to_py(self) -> Path:
+        return self.value
+
 
 BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone]
 EikoBuiltinTypes = [EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath]
@@ -377,17 +402,23 @@ EikoBuiltinTypes = [EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath]
 class EikoResource(EikoBaseType):
     """Represents a custom resource in the Eiko language."""
 
-    def __init__(self, eiko_type: EikoType) -> None:
-        super().__init__(eiko_type)
+    def __init__(
+        self,
+        class_ref: "ResourceDefinition",
+    ) -> None:
+        super().__init__(class_ref.instance_type)
         self._index: str
-        self.properties: Dict[str, EikoBaseType] = {}
+        self.class_ref = class_ref
+        self.properties: dict[str, Union[EikoBaseType, EikoUnset]] = {
+            "__depends_on__": EikoList(EikoObjectType)
+        }
 
     def set_index(self, index: str) -> None:
         self._index = index
 
     def get(self, name: str, token: Optional[Token] = None) -> EikoBaseType:
         value = self.properties.get(name)
-        if value is None:
+        if value is None or isinstance(value, EikoUnset):
             raise EikoCompilationError(
                 "Tried to access a property that does not exist.",
                 token=token,
@@ -397,6 +428,9 @@ class EikoResource(EikoBaseType):
 
     def get_value(self) -> dict[str, PyTypes]:
         return {key: value.get_value() for key, value in self.properties.items()}
+
+    def populate_property(self, name: str, value_type: EikoType) -> None:
+        self.properties[name] = EikoUnset(value_type)
 
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
         """Set the value of a property, if the value wasn't already assigned."""
@@ -408,7 +442,15 @@ class EikoResource(EikoBaseType):
             )
 
         prop = self.properties.get(name)
-        if prop is not None:
+        if isinstance(prop, EikoUnset):
+            if not value.type_check(prop.type):
+                raise EikoCompilationError(
+                    f"Type error: Tried to assign value of type '{value.type}' "
+                    f"to a property of type '{prop.type}'.",
+                    token=token,
+                )
+
+        elif prop is not None:
             raise EikoCompilationError(
                 "Attempted to reassign a property that was already assigned.",
                 token=token,
@@ -434,6 +476,23 @@ class EikoResource(EikoBaseType):
 
     def index(self) -> str:
         return self._index
+
+    def to_py(self) -> Union[BaseModel, dict]:
+        new_dict: dict[str, PyTypes] = {}
+        for name, value in self.properties.items():
+            new_dict[name] = value.to_py()
+
+        if self.class_ref.linked_basemodel is not None:
+            try:
+                return self.class_ref.linked_basemodel(**new_dict)
+            except ValidationError as e:
+                logger.warning(
+                    f"Failed to convert resource of type '{self.class_ref.name}' to "
+                    "its linked basemodel.\n"
+                )
+                logger.warning(f"Reason: {e}")
+
+        return new_dict
 
 
 INDEXABLE_TYPES = (
@@ -471,7 +530,7 @@ class EikoBuiltinFunction(EikoBaseType):
     def __init__(
         self,
         identifier: str,
-        args: List[BuiltinFunctionArg],
+        args: list[BuiltinFunctionArg],
         body: Callable[..., Optional[EikoBaseType]],
     ) -> None:
         super().__init__(_builtin_function_type)
@@ -480,7 +539,7 @@ class EikoBuiltinFunction(EikoBaseType):
         self.body = body
 
     def execute(
-        self, callee_token: Token, args: List[PassedArg]
+        self, callee_token: Token, args: list[PassedArg]
     ) -> Optional[EikoBaseType]:
         """Execute the builtin function."""
         if len(args) != len(self.args):
@@ -489,7 +548,7 @@ class EikoBuiltinFunction(EikoBaseType):
                 token=callee_token,
             )
 
-        validated_args: List[EikoBaseType] = []
+        validated_args: list[EikoBaseType] = []
         for passed_arg, expected_arg in zip(args, self.args):
             if not expected_arg.type.type_check(passed_arg.value.type):
                 raise EikoCompilationError(
@@ -509,7 +568,7 @@ class EikoListType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
 
     def __init__(self, element_type: EikoType) -> None:
-        super().__init__(f"List[{element_type.name}]")
+        super().__init__(f"list[{element_type.name}]")
         self.element_type = element_type
 
     def type_check(self, expected_type: "EikoType") -> bool:
@@ -527,14 +586,19 @@ class EikoList(EikoBaseType):
     def __init__(
         self,
         element_type: EikoType,
-        elements: Optional[List[EikoBaseType]] = None,
+        elements: Optional[list[EikoBaseType]] = None,
     ) -> None:
         super().__init__(EikoListType(element_type))
         if elements is None:
-            self.elements: List[EikoBaseType] = []
+            self.elements: list[EikoBaseType] = []
         else:
             self.elements = elements
 
+        self.extend_func = EikoBuiltinFunction(
+            "extend",
+            [BuiltinFunctionArg("other", self.type)],
+            body=self.extend,
+        )
         self.append_func = EikoBuiltinFunction(
             "append",
             [BuiltinFunctionArg("element", element_type)],
@@ -544,8 +608,17 @@ class EikoList(EikoBaseType):
     def append(self, element: EikoBaseType) -> None:
         self.elements.append(element)
 
+    def extend(self, other: "EikoList") -> None:
+        self.elements.extend(other.elements)
+
     def update_typing(self, new_type: EikoListType) -> None:
+        """Update the typing of a list after it was created."""
         self.type = new_type
+        self.extend_func = EikoBuiltinFunction(
+            "extend",
+            [BuiltinFunctionArg("other", new_type)],
+            body=self.extend,
+        )
         self.append_func = EikoBuiltinFunction(
             "append",
             [BuiltinFunctionArg("element", new_type.element_type)],
@@ -555,6 +628,9 @@ class EikoList(EikoBaseType):
     def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
         if name == "append":
             return self.append_func
+
+        if name == "extend":
+            return self.extend_func
 
         return super().get(name, token)
 
@@ -585,12 +661,15 @@ class EikoList(EikoBaseType):
     def index(self) -> str:
         raise NotImplementedError
 
+    def to_py(self) -> list[PyTypes]:
+        return [element.to_py() for element in self.elements]
+
 
 class EikoDictType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
 
     def __init__(self, key_type: EikoType, value_type: EikoType) -> None:
-        super().__init__(f"Dict[{key_type.name}, {value_type.name}]")
+        super().__init__(f"dict[{key_type.name}, {value_type.name}]")
         self.key_type = key_type
         self.value_type = value_type
 
@@ -739,6 +818,19 @@ class EikoDict(EikoBaseType):
     def index(self) -> str:
         raise NotImplementedError
 
+    def to_py(self) -> dict[PyTypes, PyTypes]:
+        py_dict: dict[PyTypes, PyTypes] = {}
+        for key, value in self.elements.items():
+            _key: PyTypes
+            if isinstance(key, EikoBaseType):
+                _key = key.to_py()
+            else:
+                _key = key
+
+            py_dict[_key] = value.to_py()
+
+        return py_dict
+
 
 def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     """
@@ -791,13 +883,5 @@ def to_eiko(value: Any) -> EikoBaseType:
 
     if value is None:
         return eiko_none_object
-
-    raise ValueError
-
-
-def to_py(value: Any) -> Union[bool, float, int, str, Path]:
-    """Takes an Eikobot type and tries to coerce it to a python type."""
-    if isinstance(value, (EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath)):
-        return value.value
 
     raise ValueError

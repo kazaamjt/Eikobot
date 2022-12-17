@@ -23,6 +23,7 @@ class TokenType(Enum):
     ELSE = auto()
     AND = auto()
     OR = auto()
+    DEF = auto()
 
     IDENTIFIER = auto()
 

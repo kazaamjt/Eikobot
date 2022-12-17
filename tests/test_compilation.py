@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 from eikobot.core.compiler import Compiler
+from eikobot.core.compiler._parser import Parser
+from eikobot.core.compiler.definitions._resource import ResourceDefinition
 from eikobot.core.compiler.definitions.base_types import (
     EikoInt,
     EikoNone,
@@ -15,14 +17,13 @@ from eikobot.core.compiler.definitions.base_types import (
 )
 from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler.definitions.typedef import EikoTypeDef
-from eikobot.core.compiler.errors import EikoCompilationError
-from eikobot.core.compiler.parser import Parser
+from eikobot.core.errors import EikoCompilationError
 
 
 def test_basic_ops(eiko_basic_ops_file: Path) -> None:
     parser = Parser(eiko_basic_ops_file)
     ast_list = list(parser.parse())
-    context = CompilerContext("__test__")
+    context = CompilerContext("__test__", {})
 
     result_1 = ast_list[0].compile(context)
     assert isinstance(result_1, EikoInt)
@@ -87,6 +88,14 @@ def test_typedef(eiko_typedef: Path) -> None:
     string_alias = compiler.context.get("string_alias")
     assert isinstance(string_alias, EikoTypeDef)
 
+    str_1 = compiler.context.get("str_1")
+    assert isinstance(str_1, EikoStr)
+    assert str_1.type.name == "string_alias"
+
+    str_2 = compiler.context.get("str_2")
+    assert isinstance(str_2, EikoStr)
+    assert str_2.type.name == "string_alias"
+
     ipv4address = compiler.context.get("IPv4Address")
     assert isinstance(ipv4address, EikoTypeDef)
 
@@ -100,6 +109,13 @@ def test_typedef(eiko_typedef: Path) -> None:
     prop_1 = res_1.get("prop_1")
     assert isinstance(prop_1, EikoStr)
     assert prop_1.value == "192.168.0.1"
+
+    net_port = compiler.context.get("net_port")
+    assert isinstance(net_port, EikoInt)
+    assert net_port.value == 80
+    assert net_port.type.name == "WellKnownPort"
+    assert net_port.type.super is not None
+    assert net_port.type.super.name == "NetworkPort"
 
 
 def test_resource_compilation(eiko_file_1: Path) -> None:
@@ -140,3 +156,26 @@ def test_forward_declare(tmp_eiko_file: Path) -> None:
     var_a = compiler.context.get("a")
     assert isinstance(var_a, EikoStr)
     assert var_a.value == "test_string"
+
+
+def test_custom_constructor(eiko_constructor_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_constructor_file)
+
+    res_def = compiler.context.get("ConstructorTestResource")
+    assert isinstance(res_def, ResourceDefinition)
+
+    var_a = var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoResource)
+
+    prop_1 = var_a.get("prop_1")
+    assert isinstance(prop_1, EikoStr)
+    assert prop_1.value == "test"
+
+    prop_2 = var_a.get("prop_2")
+    assert isinstance(prop_2, EikoInt)
+    assert prop_2.value == 1
+
+    prop_3 = var_a.get("prop_3")
+    assert isinstance(prop_3, EikoStr)
+    assert prop_3.value == "testtest"

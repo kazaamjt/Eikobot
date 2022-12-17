@@ -6,9 +6,9 @@ to construct an Abstract Syntax Tree.
 from pathlib import Path
 from typing import Optional
 
-from .errors import EikoSyntaxError
+from ..errors import EikoSyntaxError
+from ._token import Token, TokenType
 from .misc import Index
-from .token import Token, TokenType
 
 KEYWORDS = {
     "resource": TokenType.RESOURCE,
@@ -23,6 +23,7 @@ KEYWORDS = {
     "from": TokenType.FROM,
     "and": TokenType.AND,
     "or": TokenType.OR,
+    "def": TokenType.DEF,
 }
 
 SPECIAL_CHARS = {
@@ -101,7 +102,7 @@ class Lexer:
 
         # skip comments
         if self._current == "#":
-            while self._current != "\n":
+            while self._current not in ["\n", "EOF"]:
                 self._next()
 
         if self._current == "EOF":

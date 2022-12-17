@@ -1,12 +1,12 @@
 """
 Decorators enhance an eiko resource definition in some way.
 """
-from typing import Callable, List, Type, Union
+from typing import Callable, Type, Union
 
+from ..errors import EikoCompilationError
+from ._token import Token
+from .definitions._resource import ResourceDefinition
 from .definitions.base_types import EikoBaseType, EikoList, EikoStr, EikoType
-from .definitions.resource import ResourceDefinition
-from .errors import EikoCompilationError
-from .token import Token
 
 decorator_type = EikoType("Decorator")
 
@@ -19,8 +19,8 @@ class EikoDecorator(EikoBaseType):
     def __init__(
         self,
         identifier: str,
-        func: Callable[[ResourceDefinition, List, Token], None],
-        arg_spec: List[Type],
+        func: Callable[[ResourceDefinition, list, Token], None],
+        arg_spec: list[Type],
     ) -> None:
         super().__init__(decorator_type)
         self.identifier = identifier
@@ -29,7 +29,7 @@ class EikoDecorator(EikoBaseType):
         self.arg_spec = arg_spec
 
     def execute(
-        self, res_def: ResourceDefinition, args: List, call_token: Token
+        self, res_def: ResourceDefinition, args: list, call_token: Token
     ) -> None:
         """Execute the decorator on the given resource."""
         if len(args) != len(self.arg_spec):
@@ -61,10 +61,10 @@ class EikoDecorator(EikoBaseType):
 
 
 def _index_decorator(
-    res_def: ResourceDefinition, args: List, call_token: Token
+    res_def: ResourceDefinition, args: list, call_token: Token
 ) -> None:
     index: EikoList = args[0]
-    new_index: List[str] = [res_def.name]
+    new_index: list[str] = [res_def.name]
     for arg in index.elements:
         if not isinstance(arg, EikoStr):
             raise EikoCompilationError(

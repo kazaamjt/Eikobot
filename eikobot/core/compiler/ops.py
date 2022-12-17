@@ -5,8 +5,9 @@ of Eikobot builtin types.
 """
 from enum import Enum, auto
 from pathlib import Path
-from typing import Callable, Dict, Union
+from typing import Callable, Union
 
+from ..errors import EikoCompilationError, EikoInternalError
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -16,8 +17,8 @@ from .definitions.base_types import (
     EikoPath,
     EikoResource,
     EikoStr,
+    EikoUnset,
 )
-from .errors import EikoCompilationError, EikoInternalError
 from .lexer import Token
 
 
@@ -95,7 +96,7 @@ def divide_int(a: EikoInt, b: EikoInt) -> EikoInt:
 
 
 def exponentiate_int(a: EikoInt, b: EikoInt) -> EikoInt:
-    return EikoInt(a.value ** b.value)
+    return EikoInt(a.value**b.value)
 
 
 def add_float(a: EikoNumber, b: EikoNumber) -> EikoFloat:
@@ -115,7 +116,7 @@ def divide_float(a: EikoNumber, b: EikoNumber) -> EikoFloat:
 
 
 def exponentiate_float(a: EikoNumber, b: EikoNumber) -> EikoFloat:
-    return EikoFloat(a.value ** b.value)
+    return EikoFloat(a.value**b.value)
 
 
 def add_string(a: EikoStr, b: EikoStr) -> EikoStr:
@@ -139,7 +140,7 @@ BinOpCallable = Union[
     Callable[[EikoPath, Union[EikoPath, EikoStr]], EikoBaseType],
 ]
 
-BinOpMatrix = Dict[BinOP, BinOpCallable]
+BinOpMatrix = dict[BinOP, BinOpCallable]
 
 _float_matrix: BinOpMatrix = {
     BinOP.ADD: add_float,
@@ -150,7 +151,7 @@ _float_matrix: BinOpMatrix = {
     BinOP.EXPONENTIATION: exponentiate_float,
 }
 
-BINOP_MATRIX: Dict[str, Dict[str, BinOpMatrix]] = {
+BINOP_MATRIX: dict[str, dict[str, BinOpMatrix]] = {
     "int": {
         "int": {
             BinOP.ADD: add_int,
@@ -296,7 +297,13 @@ def _eq_compare(
             if prop_b is None:
                 return EikoBool(False)
 
-            if not compare(prop_a, prop_b, op, b_token):
+            if isinstance(prop_a, EikoUnset) or isinstance(prop_b, EikoUnset):
+                if not (
+                    isinstance(prop_a, EikoUnset) and isinstance(prop_b, EikoUnset)
+                ):
+                    return EikoBool(False)
+
+            elif not compare(prop_a, prop_b, op, b_token):
                 return EikoBool(False)
 
         return EikoBool(True)

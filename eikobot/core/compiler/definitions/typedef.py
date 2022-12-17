@@ -2,22 +2,23 @@
 Typedef definitions are executable functions of sorts.
 They can alias types and even put restrictions on them.
 """
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
-from ..errors import EikoCompilationError
-from ..token import Token
+from ...errors import EikoCompilationError
+from .._token import Token
 from .base_types import (
     BuiltinTypes,
     EikoBaseType,
     EikoBool,
     EikoFloat,
     EikoInt,
+    EikoPath,
     EikoStr,
     EikoType,
 )
 
 if TYPE_CHECKING:
-    from ..parser import ExprAST
+    from .._parser import ExprAST
     from .context import CompilerContext
 
 
@@ -27,14 +28,18 @@ class EikoTypeDef(EikoBaseType):
     def __init__(
         self,
         name: str,
-        super_type: EikoType,
+        super_type: Union[EikoType, "EikoTypeDef"],
         condition: Optional["ExprAST"],
         context: "CompilerContext",
     ) -> None:
         self.name = name
-        self.type = EikoType(name, super_type)
         self.condition = condition
         self.context = context
+        self.super = super_type
+        if isinstance(super_type, EikoType):
+            self.type = EikoType(name, super_type)
+        else:
+            self.type = EikoType(name, super_type.type)
         super().__init__(self.type)
 
     def printable(self, _: str = "") -> str:
@@ -43,7 +48,7 @@ class EikoTypeDef(EikoBaseType):
     def truthiness(self) -> bool:
         raise NotImplementedError
 
-    def execute(self, arg: EikoBaseType, arg_token: Token) -> BuiltinTypes:
+    def execute(self, arg: EikoBaseType, arg_token: Optional[Token]) -> BuiltinTypes:
         """
         Cast a value to a type and make sure it fits the given condition expression.
         """
@@ -52,6 +57,15 @@ class EikoTypeDef(EikoBaseType):
                 f"Type '{self.name}' requires '{self.type.name}' but was passed '{arg.type.name}'.",
                 token=arg_token,
             )
+
+        if isinstance(self.super, EikoType):
+            base_constructor = self.context.get(self.super.name)
+            if base_constructor in (EikoBool, EikoFloat, EikoInt, EikoPath, EikoStr):
+                arg = base_constructor(arg.get_value(), self.type)  # type: ignore
+
+        elif isinstance(self.super, EikoTypeDef):
+            arg = self.super.execute(arg, arg_token)
+            arg.type = EikoType(self.name, arg.type)
 
         if self.condition is not None:
             condition_context = self.context.get_subcontext(f"{self.name}-typedef")
@@ -63,9 +77,7 @@ class EikoTypeDef(EikoBaseType):
                     token=arg_token,
                 )
 
-        base_type = self.type.get_top_level_type()
-        base_constructor = self.context.get(base_type.name)
-        if base_constructor in (EikoBool, EikoFloat, EikoInt, EikoStr):
-            return base_constructor(arg.get_value(), self.type)  # type: ignore
+        if isinstance(arg, (EikoBool, EikoFloat, EikoInt, EikoPath, EikoStr)):
+            return arg
 
-        raise NotImplementedError(arg_token)
+        raise NotImplementedError

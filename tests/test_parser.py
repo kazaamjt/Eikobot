@@ -6,9 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from eikobot.core.compiler.definitions.context import CompilerContext
-from eikobot.core.compiler.errors import EikoParserError
-from eikobot.core.compiler.parser import (
+from eikobot.core.compiler._parser import (
     AssignmentExprAST,
     BinOP,
     BinOpExprAST,
@@ -27,7 +25,9 @@ from eikobot.core.compiler.parser import (
     UnaryNegExprAST,
     VariableExprAST,
 )
-from eikobot.core.compiler.token import Index, Token, TokenType
+from eikobot.core.compiler._token import Index, Token, TokenType
+from eikobot.core.compiler.definitions.context import CompilerContext
+from eikobot.core.errors import EikoParserError
 
 
 def test_basic_ops(eiko_basic_ops_file: Path) -> None:
@@ -229,7 +229,7 @@ def test_f_string_parser(eiko_f_string_file: Path) -> None:
     expr_2 = f_string_expr.expressions.get("{3 + 3}")
     assert isinstance(expr_2, BinOpExprAST)
 
-    compiled_f_string = f_string_expr.compile(CompilerContext("f-string-test"))
+    compiled_f_string = f_string_expr.compile(CompilerContext("f-string-test", {}))
     assert compiled_f_string.value == f"This is an f-string test: {3 + 3}, {4 + 4}"
 
 
@@ -243,11 +243,11 @@ def test_parse_typedef(eiko_typedef: Path) -> None:
     expr_2 = next(parse_iter)
     assert isinstance(expr_2, TypedefExprAST)
     assert expr_2.name == "string_alias"
-    assert expr_2.super_type_token.content == "str"
+    assert expr_2.super_type_expr.token.content == "str"
     assert expr_2.condition is None
 
     expr_3 = next(parse_iter)
     assert isinstance(expr_3, TypedefExprAST)
     assert expr_3.name == "IPv4Address"
-    assert expr_3.super_type_token.content == "str"
+    assert expr_3.super_type_expr.token.content == "str"
     assert isinstance(expr_3.condition, CallExprAst)

@@ -1,0 +1,20 @@
+resource BaseResource:
+    id: str
+
+
+resource MidResource:
+    id: str
+    dep: BaseResource
+
+
+resource TopResource:
+    id: str
+    dep: list[MidResource]
+
+
+a = MidResource("1", BaseResource("1"))
+b = MidResource("2", BaseResource("2"))
+TopResource("1", [a, b])
+
+c = MidResource("3", BaseResource("3"))
+TopResource("2", [a, b, c])
