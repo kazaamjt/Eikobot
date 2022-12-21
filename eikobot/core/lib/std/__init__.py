@@ -10,7 +10,7 @@ from typing import Optional, Type, Union
 
 from colorama import Fore
 
-from eikobot.core.helpers import EikoBaseModel, EikoBaseType
+from eikobot.core.helpers import EikoBaseModel, EikoBaseType, EikoProtectedStr
 from eikobot.core.plugin import eiko_plugin
 
 
@@ -98,5 +98,5 @@ class AsyncSSHCmd:
 
 
 @eiko_plugin()
-def get_pass(prompt: str) -> str:
-    return getpass.getpass(prompt)
+def get_pass(prompt: str) -> EikoProtectedStr:
+    return EikoProtectedStr(getpass.getpass(prompt))

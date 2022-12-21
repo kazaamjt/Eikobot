@@ -34,7 +34,7 @@ Features and bug fixes:
 - [x] add relative imports
 - [ ] implement `isinstance`
 - [x] inheritance for `resource`
-- [ ] implement protected strings
+- [x] implement protected strings
 - [ ] add `Tuple` data type and automatic unpacking of tuples
 - [ ] add `for` keyword, to loop over lists, dicts and tuples
 - [ ] expand type system to take module in to account when resolving types
@@ -55,6 +55,7 @@ Code cleanup:
 - [x] add `Host`, a resource that represents a machine.
 - [x] add `std.ssh.Command`. Runs a command on a machine.
 - [x] add `File` and `FileHandler`
+- [x] add `std.get_pass`
 
 ### Engine
 

@@ -356,6 +356,19 @@ class EikoStr(EikoBaseType):
         return self.value
 
 
+class EikoProtectedStr(EikoStr):
+    """
+    A protected string will not be printed to the cli,
+    by std tools, nor can it be used for an index.
+    """
+
+    def printable(self, _: str = "") -> str:
+        return "********"
+
+    def index(self) -> str:
+        raise EikoCompilationError("A protrected string can not be used for an index.")
+
+
 EikoPathType = EikoType("Path")
 
 

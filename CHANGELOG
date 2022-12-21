@@ -2,8 +2,9 @@
 
 ## 0.4.0
 
-- Added inheritance for `resource` definitions. Inherits properties, not constructors.
-- Added a quickstart and expanded the tutorial.
+- Added inheritance for `resource` definitions (inherits properties, not constructors)
+- Added a quickstart and expanded the tutorial
+- Added `std.get_pass` and protected strings (strings that are not printed to the console)
 
 ## 0.3.0
 

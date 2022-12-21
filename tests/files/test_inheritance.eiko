@@ -11,6 +11,13 @@ resource SubSubRes(SubRes):
     prop_4: int
 
 
+resource Test:
+    prop_1: BaseRes
+
+
 a = BaseRes("a", 1)
 b = SubRes("a", 1, "a")
 c = SubSubRes("a", 1, "a", 1)
+d = Test(a)
+e = Test(b)
+f = Test(c)

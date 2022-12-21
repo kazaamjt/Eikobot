@@ -1,9 +1,7 @@
 # pylint: disable=unused-import
 """
-Eikobot base types easy access.
+Eikobot base types and helper methods.
 """
-from pathlib import Path
-
 from .compiler.definitions._resource import EikoBaseModel
 from .compiler.definitions.base_types import (
     EikoBaseType,
@@ -13,6 +11,7 @@ from .compiler.definitions.base_types import (
     EikoInt,
     EikoList,
     EikoPath,
+    EikoProtectedStr,
     EikoResource,
     EikoStr,
 )

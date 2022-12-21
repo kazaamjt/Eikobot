@@ -20,6 +20,10 @@ Some of it's notable features are:
 - sees the infrastructure as a tree of resources, rather than a flatland
 - completely stateless*
 
+The quickest way to get started is probably by doing some of the [quickstarts](docs/quickstart.md).  
+For a more complete idea of how the language works,
+please see the [language overview](docs/language_overview.md).  
+
 (*If the model/modules are designed well.)  
 
 ## Installation
@@ -28,7 +32,7 @@ Eikobot requires python 3.10 or up and has 3 external dependencies that can be i
 In fact, Eikobot can be installed using pip as well.  
 
 Here is an example of how to install Eikobot:  
-(This should work on most platforms, although the python command might be different if you are on windows)
+(This should work on most platforms, although the python command is different if you are on windows)
 
 ```bash
 python3.10 -m venv eikobot-venv
@@ -48,9 +52,6 @@ Or by activating the venv first:
 . eikobot-venv/bin/activate
 eikobot
 ```
-
-Once you have installed Eikobot,
-you can get familiar with Eikobot language by reading [the basic instructions](docs/basics.md)
 
 ## Linters, type checkers, testing, etc
 
