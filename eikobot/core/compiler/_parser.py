@@ -20,7 +20,7 @@ from ..errors import (
 )
 from ._token import Token, TokenType, token_to_char
 from .decorator import EikoDecorator
-from .definitions._resource import ResourceDefinition, ResourceProperty
+from .definitions._resource import EikoResourceDefinition, ResourceProperty
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -559,7 +559,7 @@ class DotExprAST(ExprAST):
         self.identifier: str = f"{self.lhs.identifier}.{self.rhs.identifier}"
 
     def compile(
-        self, context: Union[CompilerContext, EikoBaseType, ResourceDefinition]
+        self, context: Union[CompilerContext, EikoBaseType, EikoResourceDefinition]
     ) -> Optional[StorableTypes]:
         if isinstance(context, CompilerContext):
             lhs = self.lhs.compile(context)
@@ -569,7 +569,7 @@ class DotExprAST(ExprAST):
                 token=self.token,
             )
 
-        if isinstance(lhs, (EikoBaseType, ResourceDefinition, CompilerContext)):
+        if isinstance(lhs, (EikoBaseType, EikoResourceDefinition, CompilerContext)):
             return self.rhs.compile(lhs)
 
         raise EikoCompilationError(
@@ -657,7 +657,7 @@ class CallExprAst(ExprAST):
     def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
         eiko_callable = self.identifier_expr.compile(context)
 
-        if isinstance(eiko_callable, ResourceDefinition):
+        if isinstance(eiko_callable, EikoResourceDefinition):
             eiko_callable = eiko_callable.default_constructor
 
         args: list[PassedArg] = []
@@ -945,16 +945,41 @@ class ResourceDefinitionAST(ExprAST):
 
     name: str
     decorators: list[DecoratorExprAST]
-    constructor: Optional["ConstructorExprAST"] = None
+    super_expr: Optional[VariableExprAST]
 
     def __post_init__(self) -> None:
+        self.constructor: Optional["ConstructorExprAST"] = None
         self.type = EikoType(self.name, EikoObjectType)
         self.properties: dict[str, ResourcePropertyAST] = {}
 
     def add_property(self, new_property: ResourcePropertyAST) -> None:
         self.properties[new_property.name] = new_property
 
-    def compile(self, context: CompilerContext) -> ResourceDefinition:
+    def compile(self, context: CompilerContext) -> EikoResourceDefinition:
+        super_res: Optional[EikoResourceDefinition] = None
+        if self.super_expr is not None:
+            compiled_super_expr = self.super_expr.compile(context)
+            if not isinstance(compiled_super_expr, EikoResourceDefinition):
+                raise EikoCompilationError(
+                    "Expected a resource definition to inherit from.",
+                    token=self.super_expr.token,
+                )
+
+            super_res = compiled_super_expr
+            self.type.super = super_res.instance_type
+            new_prop_dict: dict[str, ResourcePropertyAST] = {}
+            for super_property_ast in super_res.expr.properties.values():
+                new_prop = self.properties.get(super_property_ast.name)
+                if new_prop is not None:
+                    raise EikoCompilationError(
+                        f"Property '{new_prop.name}' already defined"
+                        f"in super type '{super_res.name}'.",
+                        token=new_prop.token,
+                    )
+                new_prop_dict[super_property_ast.name] = super_property_ast
+            new_prop_dict.update(self.properties)
+            self.properties = new_prop_dict
+
         properties: dict[str, ResourceProperty] = {}
         for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
@@ -965,6 +990,7 @@ class ResourceDefinitionAST(ExprAST):
                     token=property_ast.token,
                 )
             properties[prop.name] = prop
+
         if self.constructor is None:
             default_constructor = ConstructorDefinition("__init__", context)
             default_constructor.add_arg(ConstructorArg("self", self.type))
@@ -991,8 +1017,8 @@ class ResourceDefinitionAST(ExprAST):
         else:
             default_constructor = self.constructor.compile(context)
 
-        resource_def = ResourceDefinition(
-            self.name, self.token, default_constructor, properties
+        resource_def = EikoResourceDefinition(
+            self.name, self, default_constructor, properties, self.type
         )
 
         for decorator in self.decorators:
@@ -1190,7 +1216,8 @@ class FromImportExprAST(ExprAST):
             else:
                 imported_item = _context.get(item.identifier)
                 if isinstance(
-                    imported_item, (EikoBaseType, ResourceDefinition, CompilerContext)
+                    imported_item,
+                    (EikoBaseType, EikoResourceDefinition, CompilerContext),
                 ):
                     context.set(item.identifier, imported_item)
                 elif imported_item is None:
@@ -1300,7 +1327,7 @@ class TypeExprAST(ExprAST):
         if isinstance(primary_type, EikoType):
             return primary_type
 
-        if isinstance(primary_type, ResourceDefinition):
+        if isinstance(primary_type, EikoResourceDefinition):
             return primary_type.instance_type
 
         if isinstance(primary_type, EikoTypeDef):
@@ -1807,10 +1834,25 @@ class Parser:
                 token=self._next,
             )
 
-        rd_ast = ResourceDefinitionAST(self._current, self._next.content, decorators)
+        identifier_token = self._next
+        self._advance()
+        self._advance()
 
-        self._advance()
-        self._advance()
+        # Inheritance
+        super_expr: Optional[VariableExprAST] = None
+        if self._current.type == TokenType.LEFT_PAREN:
+            self._advance()
+            super_expr = self._parse_identifier()
+            if self._current.type != TokenType.RIGHT_PAREN:
+                raise EikoParserError(
+                    f"Unexpected token {self._current.content}. Expected ')'.",
+                    token=self._current,
+                )
+            self._advance()
+
+        rd_ast = ResourceDefinitionAST(
+            identifier_token, identifier_token.content, decorators, super_expr
+        )
 
         if self._current.type != TokenType.COLON:
             raise EikoParserError(

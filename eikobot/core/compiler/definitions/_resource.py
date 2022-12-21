@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, ClassVar, Dict, Optional
 from pydantic import BaseModel
 
 from ...handlers import Handler
-from .._token import Token
-from .base_types import EikoBaseType, EikoObjectType, EikoType
+from .base_types import EikoBaseType, EikoType
 
 if TYPE_CHECKING:
+    from .._parser import ResourceDefinitionAST
     from .function import ConstructorDefinition
 
 
@@ -30,20 +30,22 @@ class ResourceProperty:
 EikoResourceDefinitionType = EikoType("ResourceDefinition")
 
 
-class ResourceDefinition(EikoBaseType):
+class EikoResourceDefinition(EikoBaseType):
     """Internal representation of a resource definition."""
 
     def __init__(
         self,
         name: str,
-        token: Token,
+        expr: "ResourceDefinitionAST",
         default_constructor: "ConstructorDefinition",
         properties: Dict[str, ResourceProperty],
+        instance_type: EikoType,
     ) -> None:
         super().__init__(EikoResourceDefinitionType)
-        self.token = token
+        self.expr = expr
+        self.token = expr.token
         self.name = name
-        self.instance_type = EikoType(name, EikoObjectType)
+        self.instance_type = instance_type
         self.default_constructor = default_constructor
         self.default_constructor.parent = self
         self.properties = properties
@@ -52,7 +54,10 @@ class ResourceDefinition(EikoBaseType):
         self.linked_basemodel: Optional[type[EikoBaseModel]] = None
 
     def printable(self, indent: str = "") -> str:
-        return_str = f"{indent}Resource Definition '{self.name}': " + "{\n"
+        return_str = f"{indent}Resource Definition '{self.name}'"
+        if self.type.super is not None:
+            return_str += f"('{self.type.super.name}')"
+        return_str += ": " + "{\n"
         for value in self.properties.values():
             return_str += f"{indent}    {value.name}: {value.type.name}\n"
 
@@ -71,10 +76,10 @@ class EikoBaseModel(BaseModel):
     """
 
     __eiko_resource__: ClassVar[str]
-    __eiko_linked_definition__: ClassVar[ResourceDefinition]
+    __eiko_linked_definition__: ClassVar[EikoResourceDefinition]
 
     @classmethod
-    def link(cls, resource_cls: ResourceDefinition) -> None:
+    def link(cls, resource_cls: EikoResourceDefinition) -> None:
         """Links a resource to a BaseModel."""
         cls.__eiko_linked_definition__ = resource_cls
         resource_cls.linked_basemodel = cls

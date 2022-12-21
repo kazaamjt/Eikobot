@@ -1,0 +1,16 @@
+resource BaseRes:
+    prop_1: str
+    prop_2: int
+
+
+resource SubRes(BaseRes):
+    prop_3: str
+
+
+resource SubSubRes(SubRes):
+    prop_4: int
+
+
+a = BaseRes("a", 1)
+b = SubRes("a", 1, "a")
+c = SubSubRes("a", 1, "a", 1)

@@ -33,10 +33,12 @@ Features and bug fixes:
 - [x] custom constructors
 - [x] add relative imports
 - [ ] implement `isinstance`
-- [ ] inheritance for `resource`
+- [x] inheritance for `resource`
+- [ ] implement protected strings
 - [ ] add `Tuple` data type and automatic unpacking of tuples
 - [ ] add `for` keyword, to loop over lists, dicts and tuples
 - [ ] expand type system to take module in to account when resolving types
+- [ ] add `enum`
 
 Code cleanup:
 
@@ -61,3 +63,4 @@ Code cleanup:
 - [x] add deployer that takes tasks and executes them
 - [x] add linked pydantic classes
 - [ ] add logging to HandlerContext
+- [ ] add dry run to the `deploy`

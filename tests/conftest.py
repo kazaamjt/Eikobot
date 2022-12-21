@@ -135,3 +135,8 @@ def eiko_deploy_file() -> Path:
 @pytest.fixture
 def eiko_constructor_file() -> Path:
     return get_file("test_constructor.eiko")
+
+
+@pytest.fixture
+def eiko_inheritance_file() -> Path:
+    return get_file("test_inheritance.eiko")

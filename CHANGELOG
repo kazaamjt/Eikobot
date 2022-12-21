@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.4.0
+
+- Added inheritance for `resource` definitions. Inherits properties, not constructors.
+- Added a quickstart and expanded the tutorial.
+
 ## 0.3.0
 
 - Fixed a bug where a comment at the end of a file gets the compiler stuck
@@ -26,6 +31,7 @@ deploy and maintain a resource
 - Expose the python `std` module as `eikobot.core.std`
 - Added type coersion for default values of resource properties (like in the constructor)
 - Added caching of imports
+- Add dot expressions for indexes
 
 ## 0.2.0
 

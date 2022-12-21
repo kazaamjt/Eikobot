@@ -3,6 +3,7 @@ The Eiko standard library contains various quality of life
 plugins and resources.
 """
 import asyncio
+import getpass
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Optional, Type, Union
@@ -62,8 +63,8 @@ class CmdResult:
     """The result of a command that was run."""
 
     return_code: Optional[int]
-    stdout: bytes
-    stderr: bytes
+    stdout: str
+    stderr: str
 
 
 @dataclass
@@ -93,4 +94,9 @@ class AsyncSSHCmd:
 
         stdout, stderr = await process.communicate()
 
-        return CmdResult(process.returncode, stdout, stderr)
+        return CmdResult(process.returncode, stdout.decode(), stderr.decode())
+
+
+@eiko_plugin()
+def get_pass(prompt: str) -> str:
+    return getpass.getpass(prompt)

@@ -1,9 +1,10 @@
-# Basic language tutorial
+# Eiko language overview
 
-This tutorial is to show the weirder sides of the Eiko language.  
-It assumes the user hase some knowledge of programming.  
+This overview assumes the user hase some knowledge of programming.  
+The language itself is designed to mimic Python and
+Python is required for writing `plugins` and `handlers`.  
 
-The language itself is designed to mimic Python.  
+Furthmore, knowledge of Pythons typing system is highle recommended.  
 
 ## The compile command
 
@@ -13,10 +14,7 @@ In this tutorial, only the `compile` subcommand is of interest to us.
 Its `-f` flag is used to tell the compiler what file to read.  
 Eikobot does not have a `repl`, it can only read files.  
 
-Due to the backend not being ready, currently writing models doesn't really *do* anything,
-but, you can already play around with the language.  
-
-In this case, to see the results of our compilation, we'll use `--output-module`.  
+In this case, to see the results of our compilation, we'll use `--output-model`.  
 We'll also create a new file named `hello.eiko` and give it the following contents:  
 
 ```python
@@ -154,7 +152,7 @@ Much like in Python, the None value always refers to the same instance of the `N
 Lists can hold any object type and behave much like they would in other languages.  
 With one key difference, elements cannot be removed from them,
 nor can an index be used to assign a value or reassign a value.  
-Indexes can be used to access a specific element.  
+Indexes can however, be used to access a specific element.  
 
 So using a list looks like this:
 
@@ -165,7 +163,7 @@ new_list.append("pear")
 new_list[2]  # "pear"
 ```
 
-Currently one can append after a list has been accessed, but this might change in the future.  
+One can append after a list has been created or accessed.  
 
 A list also has typing.  
 When not typed, it takes all it's initial values and expresses the value as a union of those types.  
@@ -254,11 +252,41 @@ a = car.wheels[3].age
 
 #### Custom constructors
 
-To be implemented.  
+While the default constructor might suffice in many cases,
+sometimes we may want to create a custom constrctor.  
+For example when the value of one property can be used
+to fill in the value of other properties.  
+
+A costructor looks much like one in Python does.  
+Using the `def` keyword.  
+To overwrite the default constructor, call it `__init__`.  
+The first argument will always be the `self` argument, that should not have typing.  
+
+For example:  
+
+```Python
+resource TestResource:
+    prop_1: str
+    prop_2: int
+    prop_3: str
+
+    def __init__(self, prop_1: str, prop_2: int):
+        self.prop_1 = prop_1
+        self.prop_2 = prop_2
+        self.prop_3 = prop_1 + str(prop_2)
+
+a = TestResource("test", 1)
+```
+
+Note that all properties have to be set in the constructor.  
+The Compiler will throw an error if this happens.  
 
 #### inheritance
 
-To be implemented.  
+Like in many Object Oriented languages, there is inheritance.  
+A `resource` can inherit from another resource.  
+It will not inherit any constructors or handlers, only properties.  
+Ofcourse, a default constructor will still be generated.  
 
 ### typedefs
 
@@ -625,3 +653,13 @@ INSPECT [
 INFO Done
 INFO Compiled in 0:00:00.003532
 ```
+
+## handlers
+
+Handlers are pieces of Python code that tell Eikobot _how_ to deploy a resource.  
+A handler class is created by subclassing either `Handler`, `CRUDHandler` or `AsyncCRUDHandler`.  
+All of these can be found in `eikobot.core.handlers`.  
+
+In virtually all cases, you will want to subclass the `AsyncCRUDHandler`.  
+Since pretty much every resource being read or deployed will involve networkIO,
+using the async handler may have better performance while extra complexity is minimal.  

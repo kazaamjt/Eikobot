@@ -23,7 +23,7 @@ from .typedef import EikoTypeDef
 
 if TYPE_CHECKING:
     from .._parser import ExprAST
-    from ._resource import ResourceDefinition
+    from ._resource import EikoResourceDefinition
     from .context import CompilerContext, StorableTypes
 
 EikoFunctionType = EikoType("function")
@@ -43,7 +43,7 @@ class ConstructorDefinition(EikoBaseType):
 
     def __init__(self, name: str, execution_context: "CompilerContext") -> None:
         super().__init__(EikoFunctionType)
-        self.parent: "ResourceDefinition"
+        self.parent: "EikoResourceDefinition"
         self.name = name
         self.args: dict[str, ConstructorArg] = {}
         self.body: list["ExprAST"] = []

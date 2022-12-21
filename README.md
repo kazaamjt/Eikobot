@@ -6,8 +6,21 @@ Eikobot is a desired state orchestrator.
 The basic idea is that you describe your infrastructure and eikobot
 will make it happen.  
 
+Eikobot is consists of the deployment engine and the Eiko language.  
+
 The language is akin to python, as this is a commonly used language
 and the language in which eikobot and eikobot plugins are written.  
+It is an Object Oriented language that has some powerfull features.  
+The most glaring thing is probably that the language has no functions,
+but this is an omission by design.  
+
+Some of it's notable features are:  
+
+- Object oriented
+- sees the infrastructure as a tree of resources, rather than a flatland
+- completely stateless*
+
+(*If the model/modules are designed well.)  
 
 ## Installation
 

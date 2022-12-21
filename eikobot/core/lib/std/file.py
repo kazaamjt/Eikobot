@@ -149,14 +149,14 @@ class FileHandler(AsyncCRUDHandler):
         ).execute()
         if cat_result.return_code == 0:
             ctx.deployed = True
-            if cat_result.stdout.decode() != ctx.resource.content:
-                ctx.add_change("content", cat_result.stdout.decode())
+            if cat_result.stdout != ctx.resource.content:
+                ctx.add_change("content", cat_result.stdout)
 
             ls_result = await AsyncSSHCmd(
                 ctx.resource.host, f"ls -l {ctx.resource.path}"
             ).execute()
             if ls_result.return_code == 0:
-                ls_parsed = ls_result.stdout.decode().split(" ")
+                ls_parsed = ls_result.stdout.split(" ")
                 if parse_rwx_mode(ls_parsed[0]) != ctx.resource.mode:
                     ctx.add_change("mode", parse_rwx_mode(ls_parsed[0]))
                 if (

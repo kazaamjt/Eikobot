@@ -13,7 +13,7 @@ from ...errors import EikoCompilationError, EikoInternalError
 from .._token import Token
 
 if TYPE_CHECKING:
-    from ._resource import ResourceDefinition
+    from ._resource import EikoResourceDefinition
     from .context import StorableTypes
 
 
@@ -404,7 +404,7 @@ class EikoResource(EikoBaseType):
 
     def __init__(
         self,
-        class_ref: "ResourceDefinition",
+        class_ref: "EikoResourceDefinition",
     ) -> None:
         super().__init__(class_ref.instance_type)
         self._index: str

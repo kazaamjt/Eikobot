@@ -8,7 +8,7 @@ import pytest
 
 from eikobot.core.compiler import Compiler
 from eikobot.core.compiler._parser import Parser
-from eikobot.core.compiler.definitions._resource import ResourceDefinition
+from eikobot.core.compiler.definitions._resource import EikoResourceDefinition
 from eikobot.core.compiler.definitions.base_types import (
     EikoInt,
     EikoNone,
@@ -163,9 +163,9 @@ def test_custom_constructor(eiko_constructor_file: Path) -> None:
     compiler.compile(eiko_constructor_file)
 
     res_def = compiler.context.get("ConstructorTestResource")
-    assert isinstance(res_def, ResourceDefinition)
+    assert isinstance(res_def, EikoResourceDefinition)
 
-    var_a = var_a = compiler.context.get("a")
+    var_a = compiler.context.get("a")
     assert isinstance(var_a, EikoResource)
 
     prop_1 = var_a.get("prop_1")
@@ -179,3 +179,18 @@ def test_custom_constructor(eiko_constructor_file: Path) -> None:
     prop_3 = var_a.get("prop_3")
     assert isinstance(prop_3, EikoStr)
     assert prop_3.value == "testtest"
+
+
+def test_inheritance(eiko_inheritance_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_inheritance_file)
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoResource)
+    assert var_a.type.name == "BaseRes"
+
+    var_b = compiler.context.get("b")
+    assert isinstance(var_b, EikoResource)
+    assert var_b.type.name == "SubRes"
+    assert var_b.type.super is not None
+    assert var_b.type.super.name == "BaseRes"
