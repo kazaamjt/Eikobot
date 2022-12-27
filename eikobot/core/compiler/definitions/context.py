@@ -12,8 +12,10 @@ from ...handlers import Handler
 from .._token import Token
 from ..decorator import index_decorator
 from ..importlib import import_python_code
-from ._resource import EikoBaseModel, EikoResourceDefinition
+from ._resource import EikoResourceDefinition
+from .base_model import EikoBaseModel
 from .base_types import (
+    BuiltinTypes,
     EikoBaseType,
     EikoBool,
     EikoDictType,
@@ -81,6 +83,7 @@ class CompilerContext:
     Used both by files/modules and functions.
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         name: str,
@@ -116,6 +119,10 @@ class CompilerContext:
             self.global_id_list = self.super_module.global_id_list
         else:
             self.global_id_list = []
+
+    @classmethod
+    def convert(cls, _: "BuiltinTypes") -> "EikoBaseType":
+        raise ValueError
 
     def flag_as_compiled(self) -> None:
         self.compiled = True

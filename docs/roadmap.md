@@ -32,13 +32,14 @@ Features and bug fixes:
 - [x] link handlers to resources
 - [x] custom constructors
 - [x] add relative imports
-- [ ] implement `isinstance`
+- [ ] add `isinstance`
 - [x] inheritance for `resource`
-- [x] implement protected strings
+- [x] add protected strings (strings that will not be printed)
 - [ ] add `Tuple` data type and automatic unpacking of tuples
 - [ ] add `for` keyword, to loop over lists, dicts and tuples
 - [ ] expand type system to take module in to account when resolving types
 - [ ] add `enum`
+- [ ] add `Promise` (A piece of data that will be filled in during the deploy step)
 
 Code cleanup:
 

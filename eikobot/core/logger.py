@@ -3,10 +3,13 @@ The logging module is used to log messages in a consistent and unified way.
 It gives access to print helper functions and custom progress bars.
 """
 from enum import Enum, auto
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import colorama
 from colorama import Fore
+
+if TYPE_CHECKING:
+    from .compiler.misc import Index
 
 
 class LogLevel(Enum):
@@ -58,3 +61,14 @@ def warning(*args: str, **kwargs: Any) -> None:
 def error(*args: str, **kwargs: Any) -> None:
     """Print a big fat error."""
     print(Fore.RED + "ERROR" + Fore.RESET, *args, **kwargs)
+
+
+def print_error_trace(index: "Index") -> None:
+    """Using a given index, creates a nice CLI trace."""
+    print(f'    File "{index.file.absolute()}", line {index.line + 1}')
+    with open(index.file, "r", encoding="utf-8") as f:
+        line = f.readlines()[index.line]
+        clean_line = line.lstrip()
+        diff = len(line) - len(clean_line)
+        print(" " * 8 + clean_line.strip("\n"))
+        print(" " * 8 + (index.col - diff) * " " + "^")

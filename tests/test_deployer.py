@@ -21,6 +21,8 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     base_handler_2 = base_tasks[1].handler
     base_handler_3 = base_tasks[2].handler
 
+    # We can't actually easily get these types,
+    # so we just ignore the typing here.
     assert base_handler_1.created  # type: ignore
     assert base_handler_2.created  # type: ignore
     assert base_handler_3.created  # type: ignore

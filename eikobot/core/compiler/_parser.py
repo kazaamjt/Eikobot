@@ -20,7 +20,11 @@ from ..errors import (
 )
 from ._token import Token, TokenType, token_to_char
 from .decorator import EikoDecorator
-from .definitions._resource import EikoResourceDefinition, ResourceProperty
+from .definitions._resource import (
+    EikoPromiseDefinition,
+    EikoResourceDefinition,
+    ResourceProperty,
+)
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -654,6 +658,7 @@ class CallExprAst(ExprAST):
     def __post_init__(self) -> None:
         self.identifier = self.identifier_expr.identifier
 
+    # pylint: disable=too-many-statements
     def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
         eiko_callable = self.identifier_expr.compile(context)
 
@@ -750,8 +755,9 @@ class CallExprAst(ExprAST):
                     token=self.args.elements[0].token,
                 )
             try:
-                # Unsure how to fix this mypy error...
-                return eiko_callable.convert(compiled_arg)  # type: ignore
+                if not isinstance(compiled_arg, EikoBuiltinTypes):
+                    raise ValueError
+                return eiko_callable.convert(compiled_arg)
             except ValueError as e:
                 raise EikoCompilationError(
                     f"Value of type '{compiled_arg.type.name}' "
@@ -938,6 +944,23 @@ class DecoratorExprAST(ExprAST):
 
 
 @dataclass
+class PromiseExprAST:
+    """
+    Construct represting a parsed EikoPromise.
+    """
+
+    token: Token
+    var: VariableExprAST
+    type_expr: "TypeExprAST"
+
+    def compile(self, context: CompilerContext) -> EikoPromiseDefinition:
+        return EikoPromiseDefinition(
+            self.var.token.content,
+            self.type_expr.compile(context),
+        )
+
+
+@dataclass
 class ResourceDefinitionAST(ExprAST):
     """
     A resource definition represents the resources properties and constructors.
@@ -951,10 +974,15 @@ class ResourceDefinitionAST(ExprAST):
         self.constructor: Optional["ConstructorExprAST"] = None
         self.type = EikoType(self.name, EikoObjectType)
         self.properties: dict[str, ResourcePropertyAST] = {}
+        self.promises: list[PromiseExprAST] = []
 
     def add_property(self, new_property: ResourcePropertyAST) -> None:
         self.properties[new_property.name] = new_property
 
+    def add_promise(self, promise: PromiseExprAST) -> None:
+        self.promises.append(promise)
+
+    # pylint: disable = too-many-locals
     def compile(self, context: CompilerContext) -> EikoResourceDefinition:
         super_res: Optional[EikoResourceDefinition] = None
         if self.super_expr is not None:
@@ -980,21 +1008,21 @@ class ResourceDefinitionAST(ExprAST):
             new_prop_dict.update(self.properties)
             self.properties = new_prop_dict
 
-        properties: dict[str, ResourceProperty] = {}
+        arg_properties: dict[str, ResourceProperty] = {}
         for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
-            _prop = properties.get(prop.name)
+            _prop = arg_properties.get(prop.name)
             if _prop is not None:
                 raise EikoCompilationError(
-                    f"Property '{prop.name}' already defined.",
+                    f"Property '{prop.name}' was already defined in class '{self.name}'.",
                     token=property_ast.token,
                 )
-            properties[prop.name] = prop
+            arg_properties[prop.name] = prop
 
         if self.constructor is None:
             default_constructor = ConstructorDefinition("__init__", context)
             default_constructor.add_arg(ConstructorArg("self", self.type))
-            for prop in properties.values():
+            for prop in arg_properties.values():
                 default_constructor.add_arg(
                     ConstructorArg(prop.name, prop.type, prop.default_value)
                 )
@@ -1017,8 +1045,25 @@ class ResourceDefinitionAST(ExprAST):
         else:
             default_constructor = self.constructor.compile(context)
 
+        # pylint: disable=unnecessary-comprehension
+        properties: dict[str, Union[EikoPromiseDefinition, ResourceProperty]] = {
+            key: value for key, value in arg_properties.items()
+        }
+        promises: list[EikoPromiseDefinition] = []
+        for promise_ast in self.promises:
+            promise_def = promise_ast.compile(context)
+            prev = properties.get(promise_def.name)
+            if prev is not None:
+                raise EikoCompilationError(
+                    f"Property '{promise_def.name}' was already defined in class '{self.name}'.",
+                    token=promise_ast.token,
+                )
+
+            promises.append(promise_def)
+            properties[promise_def.name] = promise_def
+
         resource_def = EikoResourceDefinition(
-            self.name, self, default_constructor, properties, self.type
+            self, default_constructor, properties, promises
         )
 
         for decorator in self.decorators:
@@ -1177,6 +1222,7 @@ class FromImportExprAST(ExprAST):
             self.lhs.to_import_traversable_list(import_module)
             self.lhs.to_import_traversable_list(from_import_list)
 
+        # pylint: disable=unnecessary-comprehension
         _full_import_list = [x for x in from_import_list[::-1]]
         _parent: Optional[CompilerContext] = context
         for _ in self.dots:
@@ -1865,6 +1911,11 @@ class Parser:
             self._advance()
 
         if self._current.content == "":
+            if self._next.type == TokenType.EOF:
+                raise EikoParserError(
+                    "Unexpectedly reached end of file, expected indented code block.",
+                    token=self._previous,
+                )
             raise EikoParserError(
                 f"Unexpected token {self._current.content}, "
                 "expected indented code block.",
@@ -1884,6 +1935,8 @@ class Parser:
                 constructor.return_type = rd_ast.type
             elif self._current.type == TokenType.IDENTIFIER:
                 rd_ast.add_property(self._parse_resource_property())
+            elif self._current.type == TokenType.PROMISE:
+                rd_ast.add_promise(self._parse_promise())
             elif self._current.type == TokenType.INDENT:
                 pass
             else:
@@ -1974,6 +2027,27 @@ class Parser:
             )
 
         return ConstructorArgExprAST(expr)
+
+    def _parse_promise(self) -> PromiseExprAST:
+        promise_token = self._current
+        self._advance()
+        if not self._current.type == TokenType.IDENTIFIER:
+            EikoParserError(
+                "Expected an identifier for promise expression.",
+                token=self._current,
+            )
+
+        var_expr = self._parse_identifier()
+        if self._current.type != TokenType.COLON:
+            EikoParserError(
+                "Expected a ':'.",
+                token=self._current,
+            )
+
+        self._advance()
+        type_expr = self._parse_type()
+
+        return PromiseExprAST(promise_token, var_expr, type_expr)
 
     def _parse_import(self) -> ImportExprAST:
         token = self._current

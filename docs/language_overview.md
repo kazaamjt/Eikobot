@@ -75,7 +75,7 @@ and when compiling, this happens:
 ```txt
 INFO Compiling hello.eiko
 ERROR CompilationError: Illegal operation: Tried to reassign 'a'.
-    File "/home/yaron/hello.eiko", line 2
+    File "/home/eikobot/hello.eiko", line 2
         a = "This is illegal"
         ^
 ```

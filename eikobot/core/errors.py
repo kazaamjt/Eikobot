@@ -79,3 +79,9 @@ class EikoPluginError(EikoError):
     ) -> None:
         super().__init__("PluginError: " + reason, *args, token=token)
         self.python_exception = python_exception
+
+
+class EikoPromiseFailed(EikoError):
+    """
+    A promise failed to be fulfilled by its handler.
+    """

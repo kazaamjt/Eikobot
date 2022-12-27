@@ -11,6 +11,7 @@ from .._token import Token
 from .base_types import (
     INDEXABLE_TYPES,
     EikoBaseType,
+    EikoProtectedStr,
     EikoResource,
     EikoType,
     EikoUnset,
@@ -98,7 +99,11 @@ class ConstructorDefinition(EikoBaseType):
             f"{self.parent.name}.{self.name}"
         )
         for prop in self.parent.properties.values():
-            resource.populate_property(prop.name, prop.type)
+            if prop in self.parent.promises:
+                # prop is garantueed to be an EikoPromiseDef here
+                resource.add_promise(prop.execute(callee_token, resource))  # type: ignore
+            else:
+                resource.populate_property(prop.name, prop.type)
 
         for arg_name, value in handled_args.items():
             context.set(arg_name, value)
@@ -127,14 +132,20 @@ class ConstructorDefinition(EikoBaseType):
                     raise EikoCompilationError(
                         f"Failed to create index using property '{property_name}': "
                         f"No property '{prop_name}'.",
-                        token=self.parent.token,
+                        token=self.parent.expr.token,
                     )
 
             if not isinstance(index_prop, INDEXABLE_TYPES):
                 # Pass a token so we can have a trace.
                 raise EikoCompilationError(
                     f"Property '{property_name}' of '{self.parent.name}' is not an indexable type.",
-                    token=self.parent.token,
+                    token=self.parent.expr.token,
+                )
+            if isinstance(index_prop, EikoProtectedStr):
+                raise EikoCompilationError(
+                    f"Property '{property_name}' of '{self.parent.name}' is a protected string. "
+                    "It can not be used to create an index.",
+                    token=self.parent.expr.token,
                 )
 
             res_index += "-" + index_prop.index()

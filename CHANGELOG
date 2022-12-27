@@ -5,6 +5,7 @@
 - Added inheritance for `resource` definitions (inherits properties, not constructors)
 - Added a quickstart and expanded the tutorial
 - Added `std.get_pass` and protected strings (strings that are not printed to the console)
+- Added `Promise`. A class that allows for data to be filled in during deployment.
 
 ## 0.3.0
 

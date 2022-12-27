@@ -28,7 +28,7 @@ class Deployer:
     """
 
     def __init__(self) -> None:
-        self.current_tasks: list[asyncio.Task] = []
+        self.asyncio_tasks: list[asyncio.Task] = []
         self.log_progress = False
         self.progress = DeployProgress(0)
 
@@ -42,8 +42,8 @@ class Deployer:
             task.init(self._done_cb)
             self._create_task(task)
 
-        while self.current_tasks:
-            await asyncio.gather(*self.current_tasks)
+        while self.asyncio_tasks:
+            await asyncio.gather(*self.asyncio_tasks)
         self.log_progress = False
 
     async def deploy_from_file(self, eiko_file: Path) -> None:
@@ -54,7 +54,7 @@ class Deployer:
 
     def _create_task(self, task: Task) -> None:
         asyncio_task = asyncio.create_task(self._execute_task(task))
-        self.current_tasks.append(asyncio_task)
+        self.asyncio_tasks.append(asyncio_task)
 
     async def _execute_task(self, task: Task) -> None:
         await task.execute()
@@ -64,7 +64,7 @@ class Deployer:
 
         asyncio_task = asyncio.current_task()
         if asyncio_task is not None:
-            self.current_tasks.remove(asyncio_task)
+            self.asyncio_tasks.remove(asyncio_task)
 
     def _done_cb(self) -> None:
         self.progress.done += 1

@@ -14,7 +14,6 @@ import click
 from .core import logger
 from .core.compiler import Compiler
 from .core.compiler.lexer import Token
-from .core.compiler.misc import Index
 from .core.deployer import Deployer
 from .core.errors import EikoError, EikoPluginError
 from .core.exporter import Exporter
@@ -31,17 +30,6 @@ def cli(debug: bool = False) -> None:
     if debug:
         log_level = logger.LOG_LEVEL.DEBUG
     logger.init(log_level=log_level)  # type: ignore
-
-
-def print_error_trace(index: Index) -> None:
-    """Using a given index, creates a nice CLI trace."""
-    print(f'    File "{index.file.absolute()}", line {index.line + 1}')
-    with open(index.file, "r", encoding="utf-8") as f:
-        line = f.readlines()[index.line]
-        clean_line = line.lstrip()
-        diff = len(line) - len(clean_line)
-        print(" " * 8 + clean_line.strip("\n"))
-        print(" " * 8 + (index.col - diff) * " " + "^")
 
 
 @cli.command(name="compile")
@@ -84,7 +72,7 @@ def _compile(
         logger.error(str(e))
 
         if e.index is not None:
-            print_error_trace(e.index)
+            logger.print_error_trace(e.index)
 
         if isinstance(e, EikoPluginError):
             if e.python_exception is not None:
@@ -105,7 +93,7 @@ def _compile(
             token = e.args[0]
             if isinstance(token, Token):
                 logger.error("Got stuck here:")
-                print_error_trace(token.index)
+                logger.print_error_trace(token.index)
         except IndexError:
             pass
         sys.exit(1)

@@ -8,9 +8,9 @@ from typing import Callable, Optional, Union
 
 from . import logger
 from .compiler import Compiler, CompilerContext
-from .errors import EikoInternalError
+from .errors import EikoInternalError, EikoPromiseFailed
 from .handlers import Handler, HandlerContext
-from .helpers import EikoDict, EikoList, EikoResource
+from .helpers import EikoDict, EikoList, EikoPromise, EikoResource
 
 
 @dataclass
@@ -18,7 +18,7 @@ class Task:
     """A task is a piece of work the backend needs to do."""
 
     task_id: str
-    ctx: Optional[HandlerContext]
+    ctx: HandlerContext
     handler: Optional[Handler]
 
     def __post_init__(self) -> None:
@@ -37,7 +37,7 @@ class Task:
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
         logger.debug(f"Executing task '{self.task_id}'")
-        if self.handler is not None and self.ctx is not None:
+        if self.handler is not None:
             await self.handler.execute(self.ctx)
         else:
             raise EikoInternalError(
@@ -46,12 +46,34 @@ class Task:
 
         if self.ctx.failed:
             logger.error(f"Failed task '{self.task_id}'")
-        else:
-            for sub_task in self.dependants:
-                sub_task.remove_dep(self)
-            logger.debug(f"Done executing task '{self.task_id}'")
-            if self.done_cb is not None:
-                self.done_cb()
+            return
+
+        for sub_task in self.dependants:
+            sub_task.remove_dep(self)
+        logger.debug(f"Done executing task '{self.task_id}'")
+        if self.done_cb is not None:
+            self.done_cb()
+
+    # fmt: off
+    async def _wait_for_promises(self) -> bool:
+        changed = False
+        for name, value in self.ctx.raw_resource.properties.items():
+            if isinstance(value, EikoPromise):
+                changed = True
+                try:
+                    self.ctx.raw_resource.properties[name] = await value.get_when_available()
+                except EikoPromiseFailed as e:
+                    # Put this log in self.ctx.logger,
+                    # rahter than the general logger.
+                    logger.error(str(e))
+                    if e.token is not None:
+                        logger.print_error_trace(e.token.index)
+
+        if changed:
+            self.ctx.resource = self.ctx.raw_resource.to_py()
+
+        return True
+    # fmt: on
 
     def remove_dep(self, task: "Task") -> None:
         self.depends_on_copy.remove(task)

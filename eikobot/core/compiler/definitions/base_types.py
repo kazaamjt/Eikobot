@@ -2,6 +2,7 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
@@ -9,7 +10,11 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
 from pydantic import BaseModel, ValidationError
 
 from ... import logger
-from ...errors import EikoCompilationError, EikoInternalError
+from ...errors import (
+    EikoCompilationError,
+    EikoInternalError,
+    EikoPromiseFailed,
+)
 from .._token import Token
 
 if TYPE_CHECKING:
@@ -29,8 +34,17 @@ class EikoType:
         self.name = name
         self.super = super_type
 
+    @classmethod
+    def convert(cls, _: "BuiltinTypes") -> "EikoBaseType":
+        raise ValueError
+
     def type_check(self, expected_type: "EikoType") -> bool:
-        """Recursivly type checks."""
+        """
+        Recursivly type checks.
+
+        NOTE: in most cases it should be value.type(expected_type)
+        and not the other way around.
+        """
         if self.name == expected_type.name:
             return True
 
@@ -143,9 +157,13 @@ class EikoBaseType:
 
     def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
         raise EikoCompilationError(
-            f"Object of type {self.type} has no property {name}.",
+            f"Object of type '{self.type}' has no property '{name}'.",
             token=token,
         )
+
+    @classmethod
+    def convert(cls, _: "BuiltinTypes") -> "EikoBaseType":
+        raise ValueError
 
     def get_value(self) -> PyTypes:
         raise NotImplementedError
@@ -162,7 +180,7 @@ class EikoBaseType:
     def index(self) -> str:
         raise NotImplementedError
 
-    def to_py(self) -> PyTypes:
+    def to_py(self) -> Union[PyTypes, "EikoPromise"]:
         raise NotImplementedError
 
 
@@ -183,7 +201,7 @@ class EikoOptional(EikoType):
         return expected_type.type_check(self.optional_type)
 
     def __repr__(self) -> str:
-        return f"Optional[{self.optional_type.name}]"
+        return f"Optional[{self.optional_type}]"
 
 
 class EikoNone(EikoBaseType):
@@ -366,7 +384,7 @@ class EikoProtectedStr(EikoStr):
         return "********"
 
     def index(self) -> str:
-        raise EikoCompilationError("A protrected string can not be used for an index.")
+        raise EikoInternalError("A protrected string can not be used for an index.")
 
 
 EikoPathType = EikoType("Path")
@@ -408,8 +426,91 @@ class EikoPath(EikoBaseType):
         return self.value
 
 
+class EikoPromise(EikoBaseType):
+    """
+    A promise is a piece of information that
+    Eikobot might not be able to retrieve at compile time.
+    Instead, this information will be filled in at deploy time.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        value_type: EikoType,
+        caller_token: Token,
+        parent: "EikoResource",
+    ) -> None:
+        super().__init__(value_type)
+        self.name = name
+        self.token = caller_token
+        self._value: EikoBaseType
+        self.parent = parent
+        self.blocker = asyncio.Event()
+        self.failed = False
+
+    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+        raise EikoCompilationError(
+            f"Object of type 'Promise' has no property '{name}'.",
+            token=token,
+        )
+
+    async def get_when_available(self) -> EikoBaseType:
+        """
+        Blocks until the value has been said.
+        Raises EikoPromiseFailed on failure.
+        """
+        await self.blocker.wait()
+        if self.failed:
+            raise EikoPromiseFailed(
+                f"Failed to fullfill promise of property '{self.name}'"
+                f"of '{self.parent.index()}'.",
+                token=self.token,
+            )
+        return self._value
+
+    def set(self, value: PyTypes) -> None:
+        """
+        Set this promise's value.
+        This method will make sure the type is correct
+        and will awaken all coroutines waiting on get_when_available.
+
+        Raises ValueError if value is not the right type.
+        """
+        _value = to_eiko(value)
+        if not _value.type_check(self.type):
+            raise ValueError
+
+        self._value = _value
+        self.blocker.set()
+
+    def set_failed(self) -> None:
+        self.failed = True
+        self.blocker.set()
+
+    def get_value(self) -> PyTypes:
+        raise NotImplementedError
+
+    def printable(self, _: str = "") -> str:
+        return f"Promise[{self.type}]"
+
+    def truthiness(self) -> bool:
+        raise EikoCompilationError(
+            "A Promise cannot be checked for truthiness, "
+            "as its value does not yet exist at compile time."
+        )
+
+    def type_check(self, expected_type: EikoType) -> bool:
+        return expected_type.type_check(self.type)
+
+    def index(self) -> str:
+        raise EikoCompilationError("A promise cannot be used to generate an index.")
+
+    def to_py(self) -> "EikoPromise":
+        return self
+
+
 BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone]
-EikoBuiltinTypes = [EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath]
+EikoBuiltinTypes = (EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone)
 
 
 class EikoResource(EikoBaseType):
@@ -425,6 +526,7 @@ class EikoResource(EikoBaseType):
         self.properties: dict[str, Union[EikoBaseType, EikoUnset]] = {
             "__depends_on__": EikoList(EikoObjectType)
         }
+        self.promises: list[EikoPromise] = []
 
     def set_index(self, index: str) -> None:
         self._index = index
@@ -445,12 +547,16 @@ class EikoResource(EikoBaseType):
     def populate_property(self, name: str, value_type: EikoType) -> None:
         self.properties[name] = EikoUnset(value_type)
 
+    def add_promise(self, promise: EikoPromise) -> None:
+        self.properties[promise.name] = promise
+        self.promises.append(promise)
+
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
         """Set the value of a property, if the value wasn't already assigned."""
         if not isinstance(value, EikoBaseType):
             raise EikoCompilationError(
-                f"Property {name} of class {self.type} "
-                f"cannot be assigned the given value.",
+                f"Property '{name}' of class '{self.type}' "
+                f"cannot be assigned a value of type '{value.type}'.",
                 token=token,
             )
 
@@ -491,7 +597,7 @@ class EikoResource(EikoBaseType):
         return self._index
 
     def to_py(self) -> Union[BaseModel, dict]:
-        new_dict: dict[str, PyTypes] = {}
+        new_dict: dict[str, Union[PyTypes, EikoPromise]] = {}
         for name, value in self.properties.items():
             new_dict[name] = value.to_py()
 
@@ -674,7 +780,7 @@ class EikoList(EikoBaseType):
     def index(self) -> str:
         raise NotImplementedError
 
-    def to_py(self) -> list[PyTypes]:
+    def to_py(self) -> list[Union[PyTypes, "EikoPromise"]]:
         return [element.to_py() for element in self.elements]
 
 
@@ -831,10 +937,12 @@ class EikoDict(EikoBaseType):
     def index(self) -> str:
         raise NotImplementedError
 
-    def to_py(self) -> dict[PyTypes, PyTypes]:
-        py_dict: dict[PyTypes, PyTypes] = {}
+    def to_py(
+        self,
+    ) -> dict[Union[PyTypes, "EikoPromise"], Union[PyTypes, "EikoPromise"]]:
+        py_dict: dict[Union[PyTypes, "EikoPromise"], Union[PyTypes, "EikoPromise"]] = {}
         for key, value in self.elements.items():
-            _key: PyTypes
+            _key: Union[PyTypes, "EikoPromise"]
             if isinstance(key, EikoBaseType):
                 _key = key.to_py()
             else:
@@ -845,6 +953,7 @@ class EikoDict(EikoBaseType):
         return py_dict
 
 
+# Move to another file
 def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     """
     Takes a python type and returns it's eikobot compatible type.
