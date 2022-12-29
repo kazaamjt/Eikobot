@@ -69,6 +69,13 @@ class ConstructorDefinition(EikoBaseType):
         """
         Executes a function call based on a premade constructor spec.
         """
+        if self.parent.promises and self.parent.handler is None:
+            raise EikoCompilationError(
+                f"Resource Definition '{self.parent.name}' has promises, "
+                "but no handler",
+                token=self.parent.expr.token,
+            )
+
         if len(positional_args) + len(keyword_args) > len(self.args) - 1:
             raise EikoCompilationError(
                 "Too many arguments given to function call. "

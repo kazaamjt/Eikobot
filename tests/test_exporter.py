@@ -5,7 +5,7 @@
 from pathlib import Path
 
 from eikobot.core.exporter import Exporter
-from eikobot.core.handlers import AsyncCRUDHandler, CRUDHandler
+from eikobot.core.handlers import CRUDHandler
 
 
 def test_exporter(eiko_exporter_and_handlers: Path) -> None:
@@ -15,7 +15,7 @@ def test_exporter(eiko_exporter_and_handlers: Path) -> None:
 
     bot_task = tasks[0]
     assert bot_task.task_id == "BotRes-192.168.0.100"
-    assert isinstance(bot_task.handler, AsyncCRUDHandler)
+    assert isinstance(bot_task.handler, CRUDHandler)
     assert len(bot_task.depends_on) == 0
     assert len(bot_task.dependants) == 2
 

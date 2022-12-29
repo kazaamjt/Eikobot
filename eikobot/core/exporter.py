@@ -10,7 +10,7 @@ from . import logger
 from .compiler import Compiler, CompilerContext
 from .errors import EikoInternalError, EikoPromiseFailed
 from .handlers import Handler, HandlerContext
-from .helpers import EikoDict, EikoList, EikoPromise, EikoResource
+from .helpers import EikoDict, EikoList, EikoResource
 
 
 @dataclass
@@ -36,6 +36,7 @@ class Task:
 
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
+        await self._wait_for_promises()
         logger.debug(f"Executing task '{self.task_id}'")
         if self.handler is not None:
             await self.handler.execute(self.ctx)
@@ -57,17 +58,18 @@ class Task:
     # fmt: off
     async def _wait_for_promises(self) -> bool:
         changed = False
-        for name, value in self.ctx.raw_resource.properties.items():
-            if isinstance(value, EikoPromise):
+        for name, value in self.ctx.raw_resource.get_external_promises():
+            logger.debug(f"Task '{self.task_id}' is waiting for promise '{name}'.")
+            try:
+                self.ctx.raw_resource.properties[name] = await value.get_when_available()
                 changed = True
-                try:
-                    self.ctx.raw_resource.properties[name] = await value.get_when_available()
-                except EikoPromiseFailed as e:
-                    # Put this log in self.ctx.logger,
-                    # rahter than the general logger.
-                    logger.error(str(e))
-                    if e.token is not None:
-                        logger.print_error_trace(e.token.index)
+            except EikoPromiseFailed as e:
+                # Put this log in self.ctx.logger,
+                # rather than the general logger.
+                logger.error(str(e))
+                if e.token is not None:
+                    logger.print_error_trace(e.token.index)
+                return False
 
         if changed:
             self.ctx.resource = self.ctx.raw_resource.to_py()

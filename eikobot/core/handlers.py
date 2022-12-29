@@ -40,64 +40,6 @@ class EikoCRUDHanlderMethodNotImplemented(Exception):
 
 class CRUDHandler(Handler):
     """
-    A CRUD resource handler implements python code that handles
-    the deployment and updating of resources in python code.
-    This handler is blocking. It is highly recommended to use
-    the non blocking AsyncCrudHandler instead.
-    """
-
-    async def execute(self, ctx: HandlerContext) -> None:
-        ctx.failed = False
-        try:
-            logger.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
-            self.read(ctx)
-        except EikoCRUDHanlderMethodNotImplemented:
-            pass
-
-        if not ctx.deployed:
-            try:
-                logger.debug(f"Deploying resource '{ctx.raw_resource.index()}'.")
-                self.create(ctx)
-            except EikoCRUDHanlderMethodNotImplemented:
-                logger.error(
-                    "Tried to deploy resource, but the handler does not have a create method."
-                )
-                return
-        else:
-            logger.debug(f"Resource '{ctx.raw_resource.index()}' exists.")
-            if ctx.changes:
-                try:
-                    ctx.deployed = False
-                    logger.debug(f"Updating resource '{ctx.raw_resource.index()}'.")
-                    self.update(ctx)
-                except EikoCRUDHanlderMethodNotImplemented:
-                    logger.warning(
-                        "Read returned changes for handler without update method."
-                    )
-            else:
-                logger.debug(
-                    f"Resource '{ctx.raw_resource.index()}' is in its desired state."
-                )
-
-        if not ctx.deployed:
-            ctx.failed = True
-            logger.error(f"Failed to deploy resource '{ctx.raw_resource.index()}'.")
-
-    def create(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-    def read(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-    def update(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-    def delete(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-
-class AsyncCRUDHandler(Handler):
-    """
     An async crud resource handler is like a CRUDHandler,
     but it's methods are async.
     """

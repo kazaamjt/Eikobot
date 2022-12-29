@@ -6,7 +6,7 @@ from typing import Optional, Union
 
 from jinja2 import Template
 
-from eikobot.core.handlers import AsyncCRUDHandler, HandlerContext
+from eikobot.core.handlers import CRUDHandler, HandlerContext
 from eikobot.core.helpers import EikoBaseModel
 from eikobot.core.lib.std import AsyncSSHCmd, HostModel
 from eikobot.core.plugin import EikoPluginException, eiko_plugin
@@ -89,7 +89,7 @@ def parse_rwx_mode(mode: str) -> str:
     return n_mode
 
 
-class FileHandler(AsyncCRUDHandler):
+class FileHandler(CRUDHandler):
     """Deploys a file on the target machine using ssh."""
 
     resource = "File"

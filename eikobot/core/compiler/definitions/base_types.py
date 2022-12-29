@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
@@ -5,7 +6,15 @@ strings, integers, floats, and booleans, in a way that makes sense to the compil
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Iterator,
+    Optional,
+    Type,
+    Union,
+)
 
 from pydantic import BaseModel, ValidationError
 
@@ -459,6 +468,7 @@ class EikoPromise(EikoBaseType):
         Blocks until the value has been said.
         Raises EikoPromiseFailed on failure.
         """
+
         await self.blocker.wait()
         if self.failed:
             raise EikoPromiseFailed(
@@ -543,6 +553,12 @@ class EikoResource(EikoBaseType):
 
     def get_value(self) -> dict[str, PyTypes]:
         return {key: value.get_value() for key, value in self.properties.items()}
+
+    def get_external_promises(self) -> Iterator[tuple[str, EikoPromise]]:
+        """Returns all promises that come from other resources."""
+        for key, value in self.properties.items():
+            if isinstance(value, EikoPromise) and value not in self.promises:
+                yield key, value
 
     def populate_property(self, name: str, value_type: EikoType) -> None:
         self.properties[name] = EikoUnset(value_type)
