@@ -25,6 +25,7 @@ from ...errors import (
     EikoPromiseFailed,
 )
 from .._token import Token
+from .base_model import EikoBaseModel
 
 if TYPE_CHECKING:
     from ._resource import EikoResourceDefinition
@@ -597,10 +598,15 @@ class EikoResource(EikoBaseType):
         extra_indent = indent + "    "
         _repr = f"{self.type.name} '{self._index}': " + "{\n"
         for name, val in self.properties.items():
-            _repr += extra_indent
-            _repr += f"{val.type} '{name}': "
-            _repr += val.printable(extra_indent)
-            _repr += ",\n"
+            if not (
+                name == "__depends_on__"
+                and isinstance(val, EikoList)
+                and not val.elements
+            ):
+                _repr += extra_indent
+                _repr += f"{val.type} '{name}': "
+                _repr += val.printable(extra_indent)
+                _repr += ",\n"
 
         _repr += indent + "}"
 
@@ -619,7 +625,7 @@ class EikoResource(EikoBaseType):
 
         if self.class_ref.linked_basemodel is not None:
             try:
-                return self.class_ref.linked_basemodel(**new_dict)
+                return self.class_ref.linked_basemodel(raw_resource=self, **new_dict)
             except ValidationError as e:
                 logger.warning(
                     f"Failed to convert resource of type '{self.class_ref.name}' to "
@@ -700,7 +706,7 @@ class EikoBuiltinFunction(EikoBaseType):
 
 
 class EikoListType(EikoType):
-    """Represents an Eiko Union type, which combines 2 or more types."""
+    """Represents an Eiko list type, which is a container of types."""
 
     def __init__(self, element_type: EikoType) -> None:
         super().__init__(f"list[{element_type.name}]")
@@ -968,6 +974,22 @@ class EikoDict(EikoBaseType):
 
         return py_dict
 
+    @staticmethod
+    def convert_key(
+        key: EikoBaseType, key_token: Optional[Token] = None
+    ) -> Union[EikoBaseType, bool, float, int, str]:
+        """Converts a given value to one that can be used as a key."""
+        if isinstance(key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
+            return key.value
+
+        if isinstance(key, (EikoNone, EikoResource)):
+            return key
+
+        raise EikoCompilationError(
+            f"Object of type '{key.type.name}' can not be for keys in dictionairies.",
+            token=key_token,
+        )
+
 
 # Move to another file
 def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
@@ -996,6 +1018,13 @@ def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     if cls == Path:
         return EikoPath
 
+    if hasattr(cls, "__origin__"):
+        if cls.__origin__ == list:
+            return EikoList
+
+        if cls.__origin__ == dict:
+            return EikoDict
+
     raise ValueError
 
 
@@ -1016,8 +1045,36 @@ def to_eiko(value: Any) -> EikoBaseType:
     if isinstance(value, Path):
         return EikoPath(value)
 
+    if isinstance(value, list):
+        elements: list[EikoBaseType] = []
+        types: list[EikoType] = []
+        for x in value:
+            element = to_eiko(x)
+            elements.append(element)
+            types.append(element.type)
+
+        return EikoList(type_list_to_type(types), elements)
+
+    if isinstance(value, dict):
+        d_elements: dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType] = {}
+        key_types: list[EikoType] = []
+        value_types: list[EikoType] = []
+        for _key, _value in value.items():
+            eiko_key = to_eiko(_key)
+            key_types.append(eiko_key.type)
+            eiko_value = to_eiko(_value)
+            value_types.append(eiko_value.type)
+            d_elements[EikoDict.convert_key(eiko_key)] = eiko_value
+
+        return EikoDict(
+            type_list_to_type(key_types), type_list_to_type(value_types), d_elements
+        )
+
     if isinstance(value, EikoBaseType):
         return value
+
+    if isinstance(value, EikoBaseModel):
+        return value.raw_resource  # type: ignore
 
     if value is None:
         return eiko_none_object

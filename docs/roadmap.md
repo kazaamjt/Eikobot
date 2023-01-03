@@ -21,9 +21,9 @@ Features and bug fixes:
 - [x] add a `None` type
 - [x] add `Optional`, allowing for something to be either None or some other type.
 - [x] allow for NotSet
-- [x] add a `Union` type
-- [x] add a `List` type
-- [x] add a `Dict` type
+- [x] add a `union` type
+- [x] add a `list` type
+- [x] add a `dict` type
 - [x] automatic/lazy sub imports
 - [x] add decorators
 - [x] indexes used to track items
@@ -39,7 +39,7 @@ Features and bug fixes:
 - [ ] add `for` keyword, to loop over lists, dicts and tuples
 - [ ] expand type system to take module in to account when resolving types
 - [ ] add `enum`
-- [ ] add `Promise` (A piece of data that will be filled in during the deploy step)
+- [x] add `promise` (A piece of data that will be filled in during the deploy step)
 
 Code cleanup:
 
@@ -60,7 +60,7 @@ Code cleanup:
 
 ### Engine
 
-- [x] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
+- [x] add `Handler`, `CRUDHandler` and `HandlerContext`, that reflect how a resource is deployed
 - [x] add exporter, that generates tasks and links these tasks to each other correctly
 - [x] add deployer that takes tasks and executes them
 - [x] add linked pydantic classes

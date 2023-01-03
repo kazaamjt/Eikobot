@@ -39,7 +39,6 @@ from .definitions.base_types import (
     EikoIntType,
     EikoList,
     EikoListType,
-    EikoNone,
     EikoNoneType,
     EikoObjectType,
     EikoOptional,
@@ -866,6 +865,32 @@ class ResourcePropertyAST:
 
         self.name = self.token.content
 
+    def compile_type(self, context: CompilerContext) -> EikoType:
+        """
+        Compiles only the type of the expression.
+        """
+        if isinstance(self.expr, VariableExprAST):
+            if self.expr.type_expr is None:
+                raise EikoInternalError(
+                    "Unexpected behaviour in property typing.", token=self.token
+                )
+            return self.expr.type_expr.compile(context)
+
+        if isinstance(self.expr, AssignmentExprAST) and isinstance(
+            self.expr.lhs, VariableExprAST
+        ):
+            if self.expr.lhs.type_expr is not None:
+                return self.expr.lhs.type_expr.compile(context)
+
+            raise EikoCompilationError(
+                "Property expected type expression.",
+                token=self.token,
+            )
+        raise EikoInternalError(
+            "Unexpectedly ran in to issues, please report this on github.",
+            token=self.token,
+        )
+
     def compile(self, context: CompilerContext, res_name: str) -> ResourceProperty:
         """Compile the ResourceProperty to something the ResourceDefinitionAST understands."""
         if isinstance(self.expr, VariableExprAST):
@@ -999,11 +1024,14 @@ class ResourceDefinitionAST(ExprAST):
             for super_property_ast in super_res.expr.properties.values():
                 new_prop = self.properties.get(super_property_ast.name)
                 if new_prop is not None:
-                    raise EikoCompilationError(
-                        f"Property '{new_prop.name}' already defined"
-                        f"in super type '{super_res.name}'.",
-                        token=new_prop.token,
-                    )
+                    new_type = new_prop.compile_type(context)
+                    prev_type = super_property_ast.compile_type(context)
+                    if not prev_type.type_check(new_type):
+                        raise EikoCompilationError(
+                            f"Property '{new_prop.name}' already defined "
+                            f"in super type '{super_res.name}'.",
+                            token=new_prop.token,
+                        )
                 new_prop_dict[super_property_ast.name] = super_property_ast
             new_prop_dict.update(self.properties)
             self.properties = new_prop_dict
@@ -1480,17 +1508,7 @@ class DictExprAST(ExprAST):
             if compiled_value.type not in value_types:
                 value_types.append(compiled_value.type)
 
-            _key: Union[EikoBaseType, bool, float, int, str]
-            if isinstance(compiled_key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
-                _key = compiled_key.value
-            elif isinstance(compiled_key, (EikoNone, EikoResource)):
-                _key = compiled_key
-            else:
-                raise EikoCompilationError(
-                    f"Object of type '{compiled_key.type.name}' can not be for keys in dictionairies.",
-                    token=key.token,
-                )
-
+            _key = EikoDict.convert_key(compiled_key, key.token)
             elements[_key] = compiled_value
 
         key_type = type_list_to_type(key_types)
