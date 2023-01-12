@@ -538,6 +538,7 @@ class EikoResource(EikoBaseType):
             "__depends_on__": EikoList(EikoObjectType)
         }
         self.promises: list[EikoPromise] = []
+        self._py_object: Optional[EikoBaseModel] = None
 
     def set_index(self, index: str) -> None:
         self._index = index
@@ -619,14 +620,20 @@ class EikoResource(EikoBaseType):
         return self._index
 
     def to_py(self) -> Union[BaseModel, dict]:
+        if self._py_object is not None:
+            return self._py_object
         new_dict: dict[str, Union[PyTypes, EikoPromise]] = {}
         for name, value in self.properties.items():
             new_dict[name] = value.to_py()
 
         if self.class_ref.linked_basemodel is not None:
             try:
-                return self.class_ref.linked_basemodel(raw_resource=self, **new_dict)
+                self._py_object = self.class_ref.linked_basemodel(
+                    raw_resource=self, **new_dict
+                )
+                return self._py_object
             except ValidationError as e:
+                # We should probably fail here instead?
                 logger.warning(
                     f"Failed to convert resource of type '{self.class_ref.name}' to "
                     "its linked basemodel.\n"
