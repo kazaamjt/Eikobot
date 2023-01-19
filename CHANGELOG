@@ -9,6 +9,7 @@
 - Added plugin type conversion for python lists and dicts to eiko lists and dicts
 - Expanded `std.Host` with execution of SSH based commands
 - Removed automatic resolution of `Path` and instead pass it unresolved
+- Updated dependencies
 
 ## 0.3.0
 
