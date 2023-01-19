@@ -8,13 +8,20 @@ from jinja2 import Template
 
 from eikobot.core.handlers import CRUDHandler, HandlerContext
 from eikobot.core.helpers import EikoBaseModel
-from eikobot.core.lib.std import AsyncSSHCmd, HostModel
+from eikobot.core.lib.std import HostModel
 from eikobot.core.plugin import EikoPluginException, eiko_plugin
 
 
 @eiko_plugin()
 def read_file(path: Path) -> str:
-    return path.read_text(encoding="UTF-8")
+    """
+    Reads a file on the local machine.
+    """
+    try:
+        _path = path.resolve(strict=True)
+    except FileNotFoundError as e:
+        raise EikoPluginException(f"Failed to read file '{path}'.") from e
+    return _path.read_text(encoding="UTF-8")
 
 
 @eiko_plugin()
@@ -55,6 +62,7 @@ class FileModel(EikoBaseModel):
     owner: Optional[str] = None
     group: Optional[str] = None
     mode: str = "664"
+    needs_sudo: bool = False
 
 
 @eiko_plugin()
@@ -99,41 +107,45 @@ class FileHandler(CRUDHandler):
             ctx.failed = True
             return
 
-        result = await AsyncSSHCmd(
-            ctx.resource.host, f"mkdir -p {ctx.resource.path.parent}"
-        ).execute()
-        if result.return_code != 0:
+        if ctx.resource.needs_sudo:
+            ssh_exec = ctx.resource.host.execute_sudo
+            sudo = "sudo "
+        else:
+            ssh_exec = ctx.resource.host.execute
+            sudo = ""
+
+        result = await ssh_exec(f"{sudo}mkdir -p {ctx.resource.path.parent}")
+        if result.returncode != 0:
             ctx.failed = True
             return
 
-        result = await AsyncSSHCmd(
-            ctx.resource.host, f"echo -n {ctx.resource.content} > {ctx.resource.path}"
-        ).execute()
-        if result.return_code != 0:
+        result = await ssh_exec(
+            f'echo -n "{ctx.resource.content}" | {sudo}tee {ctx.resource.path}'
+        )
+        if result.returncode != 0:
             ctx.failed = True
             return
 
-        result = await AsyncSSHCmd(
-            ctx.resource.host,
-            f"chmod {ctx.resource.mode} " f"{ctx.resource.path}",
-        ).execute()
-        if result.return_code != 0:
+        result = await ssh_exec(
+            f"{sudo}chmod {ctx.resource.mode} " f"{ctx.resource.path}",
+        )
+        if result.returncode != 0:
             ctx.failed = True
             return
 
         if ctx.resource.owner is not None:
-            result = await AsyncSSHCmd(
-                ctx.resource.host, f"chown {ctx.resource.owner} {ctx.resource.path}"
-            ).execute()
-            if result.return_code != 0:
+            result = await ssh_exec(
+                f"{sudo}chown {ctx.resource.owner} {ctx.resource.path}"
+            )
+            if result.returncode != 0:
                 ctx.failed = True
                 return
 
         if ctx.resource.group is not None:
-            result = await AsyncSSHCmd(
-                ctx.resource.host, f"chgrp {ctx.resource.group} {ctx.resource.path}"
-            ).execute()
-            if result.return_code != 0:
+            result = await ssh_exec(
+                f"{sudo}chgrp {ctx.resource.group} {ctx.resource.path}"
+            )
+            if result.returncode != 0:
                 ctx.failed = True
                 return
 
@@ -144,70 +156,79 @@ class FileHandler(CRUDHandler):
             ctx.failed = True
             return
 
-        cat_result = await AsyncSSHCmd(
-            ctx.resource.host, f"cat {ctx.resource.path}"
-        ).execute()
-        if cat_result.return_code == 0:
+        if ctx.resource.needs_sudo:
+            ssh_exec = ctx.resource.host.execute_sudo
+            sudo = "sudo "
+        else:
+            ssh_exec = ctx.resource.host.execute
+            sudo = ""
+
+        cat_result = await ssh_exec(f"{sudo}cat {ctx.resource.path}")
+        if cat_result.returncode == 0:
             ctx.deployed = True
             if cat_result.stdout != ctx.resource.content:
                 ctx.add_change("content", cat_result.stdout)
 
-            ls_result = await AsyncSSHCmd(
-                ctx.resource.host, f"ls -l {ctx.resource.path}"
-            ).execute()
-            if ls_result.return_code == 0:
-                ls_parsed = ls_result.stdout.split(" ")
-                if parse_rwx_mode(ls_parsed[0]) != ctx.resource.mode:
-                    ctx.add_change("mode", parse_rwx_mode(ls_parsed[0]))
-                if (
-                    ctx.resource.owner is not None
-                    and ls_parsed[2] != ctx.resource.owner
-                ):
-                    ctx.add_change("owner", ls_parsed[2])
-                if (
-                    ctx.resource.group is not None
-                    and ls_parsed[3] != ctx.resource.group
-                ):
-                    ctx.add_change("group", ls_parsed[3])
-            else:
-                ctx.deployed = False
+            ls_result = await ssh_exec(f"{sudo}ls -l {ctx.resource.path}")
+            if ls_result.returncode == 0:
+                if isinstance(ls_result.stdout, str):
+                    ls_parsed = ls_result.stdout.split(" ")
+                    if parse_rwx_mode(ls_parsed[0]) != ctx.resource.mode:
+                        ctx.add_change("mode", parse_rwx_mode(ls_parsed[0]))
+                    if (
+                        ctx.resource.owner is not None
+                        and ls_parsed[2] != ctx.resource.owner
+                    ):
+                        ctx.add_change("owner", ls_parsed[2])
+                    if (
+                        ctx.resource.group is not None
+                        and ls_parsed[3] != ctx.resource.group
+                    ):
+                        ctx.add_change("group", ls_parsed[3])
+                else:
+                    ctx.failed = True
 
     async def update(self, ctx: HandlerContext) -> None:
         if not isinstance(ctx.resource, FileModel):
             ctx.failed = True
             return
 
+        if ctx.resource.needs_sudo:
+            ssh_exec = ctx.resource.host.execute_sudo
+            sudo = "sudo "
+        else:
+            ssh_exec = ctx.resource.host.execute
+            sudo = ""
+
         if ctx.changes.get("content") is not None:
-            result = await AsyncSSHCmd(
-                ctx.resource.host,
-                f"echo -n {ctx.resource.content} > {ctx.resource.path}",
-            ).execute()
-            if result.return_code != 0:
+            result = await ssh_exec(
+                f'echo -n "{ctx.resource.content}" | {sudo}tee {ctx.resource.path}'
+            )
+            if result.returncode != 0:
                 ctx.failed = True
                 return
 
         if ctx.changes.get("mode") is not None:
-            result = await AsyncSSHCmd(
-                ctx.resource.host,
-                f"chmod {ctx.resource.mode} " f"{ctx.resource.path}",
-            ).execute()
-            if result.return_code != 0:
+            result = await ssh_exec(
+                f"{sudo}chmod {ctx.resource.mode} " f"{ctx.resource.path}",
+            )
+            if result.returncode != 0:
                 ctx.failed = True
                 return
 
         if ctx.changes.get("owner") is not None:
-            result = await AsyncSSHCmd(
-                ctx.resource.host, f"chown {ctx.resource.owner} {ctx.resource.path}"
-            ).execute()
-            if result.return_code != 0:
+            result = await ssh_exec(
+                f"{sudo}chown {ctx.resource.owner} {ctx.resource.path}"
+            )
+            if result.returncode != 0:
                 ctx.failed = True
                 return
 
         if ctx.changes.get("group") is not None:
-            result = await AsyncSSHCmd(
-                ctx.resource.host, f"chgrp {ctx.resource.group} {ctx.resource.path}"
-            ).execute()
-            if result.return_code != 0:
+            result = await ssh_exec(
+                f"{sudo}chgrp {ctx.resource.group} {ctx.resource.path}"
+            )
+            if result.returncode != 0:
                 ctx.failed = True
                 return
 

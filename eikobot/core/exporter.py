@@ -106,14 +106,14 @@ class Exporter:
         self.task_index: dict[str, Task] = {}
         self.base_tasks: list[Task] = []
 
-    def export_from_file(self, file: Path) -> list[Task]:
+    def export_from_file(self, file: Path) -> None:
         """Compiles a file and exports the tasks."""
         logger.debug("Constructing task dependency trees.")
         compiler = Compiler()
         compiler.compile(file)
-        return self.export_from_context(compiler.context)
+        self.export_from_context(compiler.context)
 
-    def export_from_context(self, context: CompilerContext) -> list[Task]:
+    def export_from_context(self, context: CompilerContext) -> None:
         """
         Walks through a compiler context and exports it as a set fo tasks.
         """
@@ -125,8 +125,6 @@ class Exporter:
                 self._parse_task(value)
             elif isinstance(value, (EikoList, EikoDict)):
                 self._parse_multi(value)
-
-        return self.base_tasks
 
     def _parse_multi(self, value: Union[EikoList, EikoDict]) -> list[Task]:
         tasks: list[Task] = []

@@ -3,6 +3,8 @@ typedef IPv6Address str if is_ipv6(self)
 
 
 resource Host:
-    target: str
+    host: str
+    port: int = 22
     user_name: Optional[str] = None
     password: Optional[str] = None
+    sudo_requires_pass: bool = True

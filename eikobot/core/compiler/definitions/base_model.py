@@ -5,13 +5,12 @@ to a more easily useable python model.
 """
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Extra
 
 from ...errors import EikoCompilationError
 
 if TYPE_CHECKING:
     from ._resource import EikoResourceDefinition
-    from .base_types import EikoResource
 
 
 class EikoBaseModel(BaseModel):
@@ -23,8 +22,12 @@ class EikoBaseModel(BaseModel):
     __eiko_resource__: ClassVar[str]
     __eiko_linked_definition__: ClassVar["EikoResourceDefinition"]
 
+    def __post_init__(self) -> None:
+        pass
+
     class Config:
         arbitrary_types_allowed = True
+        extra = Extra.allow
 
     @classmethod
     def link(cls, resource_cls: "EikoResourceDefinition") -> None:

@@ -47,3 +47,9 @@ File(
     assert file_path.exists()
     assert file_path.read_text() == file_content
     assert (oct(os.stat(file_path).st_mode & 0o777))[2:] == "664"
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write("wrong content")
+
+    await deployer.deploy_from_file(tmp_eiko_file)
+    assert file_path.read_text() == file_content

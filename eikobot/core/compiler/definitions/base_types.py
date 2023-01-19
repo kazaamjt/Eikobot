@@ -18,7 +18,6 @@ from typing import (
 
 from pydantic import BaseModel, ValidationError
 
-from ... import logger
 from ...errors import (
     EikoCompilationError,
     EikoInternalError,
@@ -407,7 +406,7 @@ class EikoPath(EikoBaseType):
 
     def __init__(self, value: Path, eiko_type: EikoType = EikoPathType) -> None:
         super().__init__(eiko_type)
-        self.value = value.resolve()
+        self.value = value
 
     def get_value(self) -> Path:
         return self.value
@@ -631,14 +630,14 @@ class EikoResource(EikoBaseType):
                 self._py_object = self.class_ref.linked_basemodel(
                     raw_resource=self, **new_dict
                 )
+                self._py_object.__post_init__()
                 return self._py_object
             except ValidationError as e:
-                # We should probably fail here instead?
-                logger.warning(
+                raise EikoCompilationError(
                     f"Failed to convert resource of type '{self.class_ref.name}' to "
                     "its linked basemodel.\n"
-                )
-                logger.warning(f"Reason: {e}")
+                    f"Reason: {e}"
+                ) from e
 
         return new_dict
 

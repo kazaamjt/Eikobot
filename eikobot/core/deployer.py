@@ -32,13 +32,13 @@ class Deployer:
         self.log_progress = False
         self.progress = DeployProgress(0)
 
-    async def deploy(self, tasks: list[Task], log_progress: bool = False) -> None:
+    async def deploy(self, exporter: Exporter, log_progress: bool = False) -> None:
         """
         Given a set of Tasks, walks through them and makes sure they're all done.
         """
         self.log_progress = log_progress
-        self.progress = DeployProgress(len(tasks), log_progress)
-        for task in tasks:
+        self.progress = DeployProgress(len(exporter.task_index), log_progress)
+        for task in exporter.base_tasks:
             task.init(self._done_cb)
             self._create_task(task)
 
@@ -49,8 +49,8 @@ class Deployer:
     async def deploy_from_file(self, eiko_file: Path) -> None:
         """Helper funcion meant mostly for testing."""
         exporter = Exporter()
-        tasks = exporter.export_from_file(eiko_file)
-        await self.deploy(tasks)
+        exporter.export_from_file(eiko_file)
+        await self.deploy(exporter)
 
     def _create_task(self, task: Task) -> None:
         asyncio_task = asyncio.create_task(self._execute_task(task))

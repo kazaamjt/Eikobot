@@ -10,10 +10,10 @@ from eikobot.core.handlers import CRUDHandler
 
 def test_exporter(eiko_exporter_and_handlers: Path) -> None:
     exporter = Exporter()
-    tasks = exporter.export_from_file(eiko_exporter_and_handlers)
-    assert len(tasks) == 1
+    exporter.export_from_file(eiko_exporter_and_handlers)
+    assert len(exporter.base_tasks) == 1
 
-    bot_task = tasks[0]
+    bot_task = exporter.base_tasks[0]
     assert bot_task.task_id == "BotRes-192.168.0.100"
     assert isinstance(bot_task.handler, CRUDHandler)
     assert len(bot_task.depends_on) == 0

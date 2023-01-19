@@ -132,7 +132,7 @@ def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
     exporter.export_from_context(compiler.context)
     logger.info("Deploying model.")
     deployer = Deployer()
-    asyncio.run(deployer.deploy(exporter.base_tasks))
+    asyncio.run(deployer.deploy(exporter, log_progress=True))
 
     time_taken = time.time() - start
     time_taken_formatted = str(datetime.timedelta(seconds=time_taken))

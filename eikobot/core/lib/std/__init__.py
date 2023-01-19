@@ -10,6 +10,7 @@ from typing import Optional, Type, Union
 
 from colorama import Fore
 
+from eikobot.core.handlers import Handler, HandlerContext
 from eikobot.core.helpers import EikoBaseModel, EikoBaseType, EikoProtectedStr
 from eikobot.core.plugin import eiko_plugin
 
@@ -48,43 +49,40 @@ def _is_ipaddr(addr: str, ip_type: Union[Type[IPv4Address], Type[IPv6Address]]) 
     return False
 
 
-class HostModel(EikoBaseModel):
-    """Respresents a host to which you can deploy a resource."""
-
-    __eiko_resource__ = "Host"
-
-    target: str
-    user_name: Optional[str] = None
-    password: Optional[str] = None
-
-
 @dataclass
 class CmdResult:
     """The result of a command that was run."""
 
-    return_code: Optional[int]
+    returncode: int
     stdout: str
     stderr: str
 
 
-@dataclass
-class AsyncSSHCmd:
-    """Executes a single SSH command."""
+class HostModel(EikoBaseModel):
+    """
+    Respresents a host to which you can deploy a resource.
+    Can execute ssh commands.
+    """
 
-    host: HostModel
-    cmd: str
+    __eiko_resource__ = "Host"
 
-    async def execute(self) -> CmdResult:
-        """Run the command."""
+    host: str
+    port: int = 22
+    user_name: Optional[str] = None
+    password: Optional[str] = None
+    sudo_requires_pass: bool = True
+
+    async def execute(self, cmd: str) -> CmdResult:
+        """Execute a command on the remote host."""
 
         cmd_str = "ssh "
-        if self.host.user_name is not None:
-            cmd_str += self.host.user_name
-            if self.host.password:
-                cmd_str += ":" + self.host.password
+        if self.user_name is not None:
+            cmd_str += self.user_name
+            if self.password:
+                cmd_str += ":" + self.password
             cmd_str += "@"
-        cmd_str += self.host.target + " "
-        cmd_str += "'" + self.cmd.replace("'", r"\'") + "'"
+        cmd_str += self.host + " "
+        cmd_str += 'HISTIGNORE="*" ' + cmd.replace("'", r"\'")
 
         process = await asyncio.create_subprocess_shell(
             cmd_str,
@@ -94,9 +92,37 @@ class AsyncSSHCmd:
 
         stdout, stderr = await process.communicate()
 
-        return CmdResult(process.returncode, stdout.decode(), stderr.decode())
+        returncode = 1
+        if process.returncode is not None:
+            returncode = process.returncode
+
+        return CmdResult(returncode, stdout.decode(), stderr.decode())
+
+    async def execute_sudo(self, cmd: str) -> CmdResult:
+        """
+        Runs commands that require sudo.
+        Sudo still needs to be put in to the commands, but no passwords are not needed.
+        """
+        if self.sudo_requires_pass:
+            return await self.execute(
+                f"echo -n {self.password} | sudo -S ls > /dev/null;" + cmd
+            )
+
+        return await self.execute(cmd)
+
+
+class HostHandler(Handler):
+    """For setting up the ssh session to the host."""
+
+    resource = "Host"
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        if isinstance(ctx.resource, HostModel):
+            result = await ctx.resource.execute("ls")
+            if result.returncode != 0:
+                ctx.failed = True
 
 
 @eiko_plugin()
-def get_pass(prompt: str) -> EikoProtectedStr:
+def get_pass(prompt: str = "Password: ") -> EikoProtectedStr:
     return EikoProtectedStr(getpass.getpass(prompt))

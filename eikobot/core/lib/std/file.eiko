@@ -2,7 +2,7 @@ from . import Host, inspect, regex
 
 typedef LinuxFileMode str if regex.match("[0-7]{3}", self)
 
-@index(["host.target", "path"])
+@index(["host.host", "path"])
 resource File:
     host: Host
     path: Path
@@ -10,3 +10,4 @@ resource File:
     owner: Optional[str] = None
     group: Optional[str] = None
     mode: LinuxFileMode = "664"
+    needs_sudo: bool = False

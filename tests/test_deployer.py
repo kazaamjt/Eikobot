@@ -13,13 +13,13 @@ from eikobot.core.exporter import Exporter
 @pytest.mark.asyncio
 async def test_deploy(eiko_deploy_file: Path) -> None:
     exporter = Exporter()
-    base_tasks = exporter.export_from_file(eiko_deploy_file)
+    exporter.export_from_file(eiko_deploy_file)
     deployer = Deployer()
-    await deployer.deploy(base_tasks)
+    await deployer.deploy(exporter)
 
-    base_handler_1 = base_tasks[0].handler
-    base_handler_2 = base_tasks[1].handler
-    base_handler_3 = base_tasks[2].handler
+    base_handler_1 = exporter.base_tasks[0].handler
+    base_handler_2 = exporter.base_tasks[1].handler
+    base_handler_3 = exporter.base_tasks[2].handler
 
     # We can't actually easily get these types,
     # so we just ignore the typing here.
@@ -33,9 +33,9 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert base_handler_2.update_called == 0  # type: ignore
     assert base_handler_3.update_called == 0  # type: ignore
 
-    mid_handler_1 = base_tasks[0].dependants[0].handler
-    mid_handler_2 = base_tasks[1].dependants[0].handler
-    mid_handler_3 = base_tasks[2].dependants[0].handler
+    mid_handler_1 = exporter.base_tasks[0].dependants[0].handler
+    mid_handler_2 = exporter.base_tasks[1].dependants[0].handler
+    mid_handler_3 = exporter.base_tasks[2].dependants[0].handler
 
     assert mid_handler_1.created  # type: ignore
     assert mid_handler_2.created  # type: ignore
@@ -47,8 +47,8 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert mid_handler_2.update_called == 0  # type: ignore
     assert mid_handler_3.update_called == 0  # type: ignore
 
-    top_handler_1 = base_tasks[0].dependants[0].dependants[0].handler
-    top_handler_2 = base_tasks[0].dependants[0].dependants[1].handler
+    top_handler_1 = exporter.base_tasks[0].dependants[0].dependants[0].handler
+    top_handler_2 = exporter.base_tasks[0].dependants[0].dependants[1].handler
 
     assert top_handler_1.created  # type: ignore
     assert top_handler_2.created  # type: ignore
@@ -57,7 +57,7 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert top_handler_1.update_called == 0  # type: ignore
     assert top_handler_2.update_called == 0  # type: ignore
 
-    await deployer.deploy(base_tasks)
+    await deployer.deploy(exporter)
 
     assert base_handler_1.created  # type: ignore
     assert base_handler_2.created  # type: ignore
@@ -69,9 +69,9 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert base_handler_2.update_called == 0  # type: ignore
     assert base_handler_3.update_called == 0  # type: ignore
 
-    mid_handler_1 = base_tasks[0].dependants[0].handler
-    mid_handler_2 = base_tasks[1].dependants[0].handler
-    mid_handler_3 = base_tasks[2].dependants[0].handler
+    mid_handler_1 = exporter.base_tasks[0].dependants[0].handler
+    mid_handler_2 = exporter.base_tasks[1].dependants[0].handler
+    mid_handler_3 = exporter.base_tasks[2].dependants[0].handler
 
     assert mid_handler_1.created  # type: ignore
     assert mid_handler_2.created  # type: ignore
@@ -83,8 +83,8 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert mid_handler_2.update_called == 0  # type: ignore
     assert mid_handler_3.update_called == 0  # type: ignore
 
-    top_handler_1 = base_tasks[0].dependants[0].dependants[0].handler
-    top_handler_2 = base_tasks[0].dependants[0].dependants[1].handler
+    top_handler_1 = exporter.base_tasks[0].dependants[0].dependants[0].handler
+    top_handler_2 = exporter.base_tasks[0].dependants[0].dependants[1].handler
 
     assert top_handler_1.created  # type: ignore
     assert top_handler_2.created  # type: ignore
@@ -93,7 +93,7 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert top_handler_1.update_called == 1  # type: ignore
     assert top_handler_2.update_called == 1  # type: ignore
 
-    await deployer.deploy(base_tasks)
+    await deployer.deploy(exporter)
 
     assert base_handler_1.created  # type: ignore
     assert base_handler_2.created  # type: ignore
@@ -105,9 +105,9 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert base_handler_2.update_called == 0  # type: ignore
     assert base_handler_3.update_called == 0  # type: ignore
 
-    mid_handler_1 = base_tasks[0].dependants[0].handler
-    mid_handler_2 = base_tasks[1].dependants[0].handler
-    mid_handler_3 = base_tasks[2].dependants[0].handler
+    mid_handler_1 = exporter.base_tasks[0].dependants[0].handler
+    mid_handler_2 = exporter.base_tasks[1].dependants[0].handler
+    mid_handler_3 = exporter.base_tasks[2].dependants[0].handler
 
     assert mid_handler_1.created  # type: ignore
     assert mid_handler_2.created  # type: ignore
@@ -119,8 +119,8 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert mid_handler_2.update_called == 0  # type: ignore
     assert mid_handler_3.update_called == 0  # type: ignore
 
-    top_handler_1 = base_tasks[0].dependants[0].dependants[0].handler
-    top_handler_2 = base_tasks[0].dependants[0].dependants[1].handler
+    top_handler_1 = exporter.base_tasks[0].dependants[0].dependants[0].handler
+    top_handler_2 = exporter.base_tasks[0].dependants[0].dependants[1].handler
 
     assert top_handler_1.created  # type: ignore
     assert top_handler_2.created  # type: ignore
