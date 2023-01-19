@@ -9,7 +9,7 @@ class BaseHandler(CRUDHandler):
     Handles the deployment of BaseResources.
     """
 
-    resource = "BaseResource"
+    __eiko_resource__ = "BaseResource"
 
     def __init__(self) -> None:
         self.created = False
@@ -28,7 +28,7 @@ class MidHandler(CRUDHandler):
     Handles the deployment of MidResources.
     """
 
-    resource = "MidResource"
+    __eiko_resource__ = "MidResource"
 
     def __init__(self) -> None:
         self.created = False
@@ -51,7 +51,7 @@ class TopHandler(CRUDHandler):
     Handles the deployment of TopResource.
     """
 
-    resource = "TopResource"
+    __eiko_resource__ = "TopResource"
 
     def __init__(self) -> None:
         self.created = False

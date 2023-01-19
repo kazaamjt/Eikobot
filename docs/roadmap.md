@@ -54,9 +54,12 @@ Code cleanup:
 - [x] File module
 - [x] Templates using jinja
 - [x] add `Host`, a resource that represents a machine.
-- [x] add `std.ssh.Command`. Runs a command on a machine.
+- [x] ~~add `std.ssh.Command`. Runs a command on a machine.~~ (Replaced)
 - [x] add `File` and `FileHandler`
 - [x] add `std.get_pass`
+- [ ] add `HostModel.execute` and `HostModel.execute_sudo` to execute commands
+- [ ] add `std.Cmd`, a single command that executes on a given remote host
+- [ ] add `std.Script`, a collection of commands that are execute on a remote host
 
 ### Engine
 

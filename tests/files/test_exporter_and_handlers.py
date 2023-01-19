@@ -15,7 +15,7 @@ class BotHandler(CRUDHandler):
     It should be a base tasks.
     """
 
-    resource = "BotRes"
+    __eiko_resource__ = "BotRes"
 
     def __init__(self) -> None:
         self.created = False
@@ -36,7 +36,7 @@ class TopHandler(CRUDHandler):
     a handler, so it doesn't need to be added to the task model.
     """
 
-    resource = "TopRes"
+    __eiko_resource__ = "TopRes"
 
     def __init__(self) -> None:
         self.created: Optional[datetime] = None

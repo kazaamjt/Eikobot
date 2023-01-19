@@ -259,14 +259,14 @@ class CompilerContext:
 
     def register_handler(self, handler: Type[Handler]) -> None:
         """Adds a handler to the context for later retrieval."""
-        prev_handler = self.handlers.get(handler.resource)
+        prev_handler = self.handlers.get(handler.__eiko_resource__)
         if prev_handler is not None:
             raise EikoCompilationError(
-                f"A handler for resource type '{handler.resource}' was already registered."
+                f"A handler for resource type '{handler.__eiko_resource__}' was already registered."
             )
 
-        self.handlers[handler.resource] = handler
-        self._connect_handler(handler.resource)
+        self.handlers[handler.__eiko_resource__] = handler
+        self._connect_handler(handler.__eiko_resource__)
 
     def _connect_handler(self, name: str) -> None:
         handler = self.handlers.get(name)

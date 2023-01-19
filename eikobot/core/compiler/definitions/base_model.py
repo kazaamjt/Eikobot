@@ -5,7 +5,7 @@ to a more easily useable python model.
 """
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel
 
 from ...errors import EikoCompilationError
 
@@ -27,7 +27,6 @@ class EikoBaseModel(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-        extra = Extra.allow
 
     @classmethod
     def link(cls, resource_cls: "EikoResourceDefinition") -> None:

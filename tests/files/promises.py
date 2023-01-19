@@ -10,7 +10,7 @@ class PromiseTestHandler1(CRUDHandler):
     The PromiseTest_1 resource has a promise to fulfill.
     """
 
-    resource = "PromiseTest_1"
+    __eiko_resource__ = "PromiseTest_1"
 
     async def create(self, ctx: HandlerContext) -> None:
         ctx.raw_resource.promises[0].set("passed promise")
@@ -22,7 +22,7 @@ class PromiseTestHandler2(CRUDHandler):
     The PromiseTest_2 resource has a it needs to wait for.
     """
 
-    resource = "PromiseTest_2"
+    __eiko_resource__ = "PromiseTest_2"
 
     async def create(self, ctx: HandlerContext) -> None:
         ctx.deployed = True

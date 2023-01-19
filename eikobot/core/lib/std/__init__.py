@@ -9,6 +9,7 @@ from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Optional, Type, Union
 
 from colorama import Fore
+from pydantic import Extra
 
 from eikobot.core.handlers import Handler, HandlerContext
 from eikobot.core.helpers import EikoBaseModel, EikoBaseType, EikoProtectedStr
@@ -72,6 +73,10 @@ class HostModel(EikoBaseModel):
     password: Optional[str] = None
     sudo_requires_pass: bool = True
 
+    class Config:
+        arbitrary_types_allowed = True
+        extra = Extra.allow
+
     async def execute(self, cmd: str) -> CmdResult:
         """Execute a command on the remote host."""
 
@@ -114,7 +119,7 @@ class HostModel(EikoBaseModel):
 class HostHandler(Handler):
     """For setting up the ssh session to the host."""
 
-    resource = "Host"
+    __eiko_resource__ = "Host"
 
     async def execute(self, ctx: HandlerContext) -> None:
         if isinstance(ctx.resource, HostModel):

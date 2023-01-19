@@ -28,7 +28,7 @@ class HandlerContext:
 class Handler:
     """A handler implements methods for a resource to be managed."""
 
-    resource: str
+    __eiko_resource__: str
 
     async def execute(self, ctx: HandlerContext) -> None:
         raise NotImplementedError

@@ -100,7 +100,7 @@ def parse_rwx_mode(mode: str) -> str:
 class FileHandler(CRUDHandler):
     """Deploys a file on the target machine using ssh."""
 
-    resource = "File"
+    __eiko_resource__ = "File"
 
     async def create(self, ctx: HandlerContext) -> None:
         if not isinstance(ctx.resource, FileModel):
