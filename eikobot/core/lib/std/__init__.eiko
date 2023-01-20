@@ -8,3 +8,10 @@ resource Host:
     user_name: Optional[str] = None
     password: Optional[str] = None
     sudo_requires_pass: bool = True
+
+
+@index(["host.host", "cmd"])
+resource Cmd:
+    host: Host
+    cmd: str
+    sudo: bool = False

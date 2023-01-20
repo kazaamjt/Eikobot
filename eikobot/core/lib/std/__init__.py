@@ -117,17 +117,63 @@ class HostModel(EikoBaseModel):
 
 
 class HostHandler(Handler):
-    """For setting up the ssh session to the host."""
+    """
+    Represents a remote host.
+
+    """
 
     __eiko_resource__ = "Host"
 
     async def execute(self, ctx: HandlerContext) -> None:
-        if isinstance(ctx.resource, HostModel):
-            result = await ctx.resource.execute("ls")
-            if result.returncode != 0:
-                ctx.failed = True
+        if not isinstance(ctx.resource, HostModel):
+            ctx.failed = True
+            return
+
+        result = await ctx.resource.execute("ls")
+        if result.returncode == 0:
+            ctx.deployed = True
+        else:
+            ctx.failed = True
 
 
 @eiko_plugin()
 def get_pass(prompt: str = "Password: ") -> EikoProtectedStr:
     return EikoProtectedStr(getpass.getpass(prompt))
+
+
+class CmdModel(EikoBaseModel):
+    """
+    A command that will be executed on a remote host.
+    """
+
+    host: HostModel
+    cmd: str
+    sudo: bool = False
+
+    __eiko_resource__ = "Cmd"
+
+
+class CmdHandler(Handler):
+    """
+    Represents a remote host.
+
+    """
+
+    __eiko_resource__ = "Cmd"
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, CmdModel):
+            ctx.failed = True
+            return
+
+        if ctx.resource.sudo:
+            ssh_exec = ctx.resource.host.execute_sudo
+        else:
+            ssh_exec = ctx.resource.host.execute
+
+        result = await ssh_exec(ctx.resource.cmd)
+        if result.returncode != 0:
+            ctx.failed = True
+            return
+
+        ctx.deployed = True

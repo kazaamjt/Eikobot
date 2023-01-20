@@ -210,7 +210,8 @@ class ConstructorDefinition(EikoBaseType):
             kw_arg = self.args.get(arg_name)
             if kw_arg is None:
                 raise EikoCompilationError(
-                    f"'{self.name}()' has no argument '{arg_name}'."
+                    f"'{self.parent.name}.{self.name}()' has no argument '{arg_name}'.",
+                    token=passed_arg.token,
                 )
 
             if not passed_arg.value.type_check(kw_arg.type):
