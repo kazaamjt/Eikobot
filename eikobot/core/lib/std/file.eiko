@@ -10,4 +10,4 @@ resource File:
     owner: Optional[str] = None
     group: Optional[str] = None
     mode: LinuxFileMode = "664"
-    needs_sudo: bool = False
+    requires_sudo: bool = False

@@ -42,10 +42,10 @@ class Task:
             await self.handler.execute(self.ctx)
         else:
             raise EikoInternalError(
-                "Deployer failed to execute a task because a handler or context was missing. "
+                "Deployer failed to execute a task because a handler was missing. "
             )
 
-        if self.ctx.failed:
+        if self.ctx.failed or not self.ctx.deployed:
             logger.error(f"Failed task '{self.task_id}'")
             return
 

@@ -26,9 +26,9 @@ def test_std_file(eiko_std_file_file: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_std_file_deploy(tmp_eiko_file: Path) -> None:
-    file_path = tmp_eiko_file.parent / "eiko_test"
+    file_path = tmp_eiko_file.parent / "test_std_file_deploy"
     file_content = "It worked!"
-    content = f"""
+    model = f"""
 from std import Host
 from std.file import File
 
@@ -39,7 +39,7 @@ File(
 )
 """
     with open(tmp_eiko_file, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.write(model)
 
     deployer = Deployer()
     await deployer.deploy_from_file(tmp_eiko_file)

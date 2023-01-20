@@ -62,7 +62,7 @@ class FileModel(EikoBaseModel):
     owner: Optional[str] = None
     group: Optional[str] = None
     mode: str = "664"
-    needs_sudo: bool = False
+    requires_sudo: bool = False
 
 
 @eiko_plugin()
@@ -107,7 +107,7 @@ class FileHandler(CRUDHandler):
             ctx.failed = True
             return
 
-        if ctx.resource.needs_sudo:
+        if ctx.resource.requires_sudo:
             ssh_exec = ctx.resource.host.execute_sudo
             sudo = "sudo "
         else:
@@ -156,7 +156,7 @@ class FileHandler(CRUDHandler):
             ctx.failed = True
             return
 
-        if ctx.resource.needs_sudo:
+        if ctx.resource.requires_sudo:
             ssh_exec = ctx.resource.host.execute_sudo
             sudo = "sudo "
         else:
@@ -193,7 +193,7 @@ class FileHandler(CRUDHandler):
             ctx.failed = True
             return
 
-        if ctx.resource.needs_sudo:
+        if ctx.resource.requires_sudo:
             ssh_exec = ctx.resource.host.execute_sudo
             sudo = "sudo "
         else:
