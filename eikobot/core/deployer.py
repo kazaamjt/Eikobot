@@ -37,7 +37,7 @@ class Deployer:
         Given a set of Tasks, walks through them and makes sure they're all done.
         """
         self.log_progress = log_progress
-        self.progress = DeployProgress(len(exporter.task_index), log_progress)
+        self.progress = DeployProgress(exporter.no_tasks, log_progress)
         for task in exporter.base_tasks:
             task.init(self._done_cb)
             self._create_task(task)
