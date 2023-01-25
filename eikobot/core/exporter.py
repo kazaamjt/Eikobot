@@ -105,6 +105,7 @@ class Exporter:
     def __init__(self) -> None:
         self.task_index: dict[str, Task] = {}
         self.base_tasks: list[Task] = []
+        self.no_tasks: int = 0
 
     def export_from_file(self, file: Path) -> None:
         """Compiles a file and exports the tasks."""
@@ -151,6 +152,7 @@ class Exporter:
         handler = None
         if resource.class_ref.handler is not None:
             handler = resource.class_ref.handler()
+            self.no_tasks += 1
 
         task = Task(
             resource.index(),

@@ -10,6 +10,7 @@
 - Expanded `std.Host` with execution of SSH based commands
 - Removed automatic resolution of `Path` and instead pass it unresolved
 - Updated dependencies
+- Fixed a bug where the total number of tasks was not correctly calculated
 
 ## 0.3.0
 
