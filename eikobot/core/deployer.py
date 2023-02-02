@@ -31,20 +31,21 @@ class Deployer:
         self.asyncio_tasks: list[asyncio.Task] = []
         self.log_progress = False
         self.progress = DeployProgress(0)
+        self.failed = False
 
     async def deploy(self, exporter: Exporter, log_progress: bool = False) -> None:
         """
         Given a set of Tasks, walks through them and makes sure they're all done.
         """
+        self.failed = False
         self.log_progress = log_progress
-        self.progress = DeployProgress(exporter.no_tasks, log_progress)
+        self.progress = DeployProgress(exporter.total_tasks, log_progress)
         for task in exporter.base_tasks:
-            task.init(self._done_cb)
+            task.init(self._done_cb, self._failure_cb)
             self._create_task(task)
 
         while self.asyncio_tasks:
             await asyncio.gather(*self.asyncio_tasks)
-        self.log_progress = False
 
     async def deploy_from_file(self, eiko_file: Path) -> None:
         """Helper funcion meant mostly for testing."""
@@ -70,3 +71,6 @@ class Deployer:
         self.progress.done += 1
         if self.progress.log:
             logger.info(f"{self.progress.done} of {self.progress.total} tasks done.")
+
+    def _failure_cb(self) -> None:
+        self.failed = True
