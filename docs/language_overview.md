@@ -4,18 +4,18 @@ This overview assumes the user hase some knowledge of programming.
 The language itself is designed to mimic Python and
 Python is required for writing `plugins` and `handlers`.  
 
-Furthmore, knowledge of Pythons typing system is highle recommended.  
+Furthmore, knowledge of Pythons typing system is highly recommended.  
 
 ## The compile command
 
 The base `eikobot` command is used to invoke everything required.  
 
-In this tutorial, only the `compile` subcommand is of interest to us.  
-Its `-f` flag is used to tell the compiler what file to read.  
-Eikobot does not have a `repl`, it can only read files.  
+The `compile` subcommand only compiles a model, no resources will be deployed.  
+It is usefull when writing models as it will indicate compilation errors and the like.  
+Its `-f` flag is used to tell the compiler what file to use as an entrypoint.  
+In some cases, to see the results of our compilation, we'll use `--output-model`.  
 
-In this case, to see the results of our compilation, we'll use `--output-model`.  
-We'll also create a new file named `hello.eiko` and give it the following contents:  
+We'll create a new file named `hello.eiko` and give it the following contents:  
 
 ```python
 from std import debug_msg
@@ -37,14 +37,13 @@ This should give us the following output as a result:
 ```txt
 INFO Compiling hello.eiko
 DEBUG_MSG hello world
-INFO Done
-INFO Compiled in 0:00:00.002391
+INFO Compiled in 0:00:00.006388 (Process time: 0:00:00.006396)
 ```
 
 Our debug message was printed.  
 
 Another usefull function in the standard library is the `inspect` function.  
-Use it to print objects to the screen in the examples that follow.  
+It can be used to print objects to the screen in the examples that follow.  
 
 ## Comments
 
@@ -52,10 +51,25 @@ The hashtag (`#`) denotes a comment.
 The compiler completely ignores these.  
 
 ```python
-a = 1 # This is a comment
+a = 1  # This is a comment
 ```
 
 There is no multiline comment.  
+## If, elif, else
+
+Eiko has the if/else keywords for control flow.  
+Like in Python an if-elif structure can be used.  
+And also like in Python, the evaluated statement should end with a `:`
+and the code block that follows should be indented.  
+
+```Python
+if statement:
+    execute code
+elif statement:
+    execute code
+else:
+    execute code
+```
 
 ## Variables
 
@@ -128,7 +142,7 @@ First off, the basic types:
 
 ### Strings
 
-Strings have escape sequences, like most languages, and can be denoted by either `"` or `'`:  
+Strings can be denoted by either `"` or `'` and, have escape sequences using `\`:  
 
 ```Python
 "This test shows off escape \\ sequence parsing.\n"
@@ -175,12 +189,11 @@ So a list of integers would be typed like this:
 new_list: list[int] = [1, 2, 3]
 ```
 
-This also means that a list needs either values OR typing when initialized.  
+This also means that a list needs either values _or_ typing when initialized, or both.  
 
 ### Dicts
 
 Dictionaries are mappings. They map a key to a value.  
-Both keys and values can be any type.  
 
 ```Python
 new_dict: dict[str, str] = {
@@ -190,17 +203,22 @@ new_dict: dict[str, str] = {
 }
 ```
 
-Just like variables, keys cannot be reassigned, nor can keys or values be deleted.  
+Just like list indices, keys cannot be reassigned, nor can they deleted.  
+
 Note the typing, expressed as `dict[key_type, value_type]`.  
 When not typed, it takes all it's initial keys and values,
 and expresses the value as a union of those types.  
 
 ### Resources
 
-Finaly we have the `resource` type.  
-`resource` works in a similar way to `struct` or `class` in other languages to create custom objects.  
+Finaly we have the `resource`.  
+`resource` works in a similar way to `struct` or `class` in other languages to create class definitions.  
+The `resource` keyword defines a `Resource Definition`.  
+This `Resource Definition` in turn is used to create one or more `resource`.
 
-Using the `resource` keyword, indenting, and typing, we can define it's name and properties:
+In short, a `Resource Definition` is like a `class` or `Struct` and a `resource` is like an `object`.  
+
+Using the `resource` keyword, indenting, and typing, we can define it's name and properties:  
 
 ```Python
 resource Car:
@@ -229,26 +247,54 @@ car.brand  # "toyota"
 These properties ofcourse can be nested resources:
 
 ```Python
+@index(["serial"])
 resource Wheel:
-    Brand: str
+    brand: str
     age: int
+    serial: str
+
 
 resource Car:
     brand: str
     wheels: list[Wheel]
 
+
 car = Car(
     "Toyota",
     [
-        Wheel("Toyota", 3),
-        Wheel("Toyota", 3),
-        Wheel("Toyota", 3),
-        Wheel("Michelin", 1)
+        Wheel("Toyota", 7, "aeae"),
+        Wheel("Toyota", 7, "bbae"),
+        Wheel("Toyota", 7, "haue"),
+        Wheel("Michelin", 4, "oifz"),
     ],
 )
 
 a = car.wheels[3].age
 ```
+
+The `@index(["serial"])` part is the index decorator and is discussed in the next part.  
+
+#### Resource index
+
+In the eiko language, every resource is assigned an index.  
+The index is used to track the jobs associated with resources
+and to make sure work isn't performed twice.  
+
+For example, a Virtual Machine might need a unique idea to distinguish
+it from other Virtual Machines.  
+
+This index is generated when the resource object is created.  
+Said index needs to be unique.  
+By default it consists of if it's type followed by the value of it's first property.
+(`{RESOURCE_DEF_NAME}-{VALUE_FIRST_PROPERTY}`)  
+
+If the first property is not of a type that can be used for an index,
+compilation will fail and an error will be thrown.  
+
+However, there is a `decorator` that allows us to change what properties are
+used to generate the index.  
+This way another property, multiple properties, or even the property of a nested resource can be used.  
+
 
 #### Custom constructors
 
@@ -649,10 +695,11 @@ This plugin will only accept resources of type `Car`.
 So, let's make a `cars.eiko` file:
 
 ```Python
+@index(["serial"])
 resource Wheel:
-    serial: str
     brand: str
     age: int
+    serial: str
 
 
 resource Car:
@@ -694,8 +741,8 @@ def tires_that_should_be_replaced(car: Car) -> list[Wheel]:
 ```
 
 Now there's not a lot to unpack here.  
-Firstly, we get passed an object that is garantueed to be of type `Car`.
-(The compiler does a runtime type check)
+Firstly, we get passed an object that is garantueed to be of type `Car`.  
+(The compiler does a runtime type check, to make sure it is)  
 
 Next we create a list and append any wheel to it, who's age is more than 5 years.  
 Then we return said list.  
@@ -770,8 +817,98 @@ Handlers are pieces of Python code that tell Eikobot _how_ to deploy a resource.
 A handler class is created by subclassing either the `Handler` or `CRUDHandler`.  
 Both of these can be found in `eikobot.core.handlers`.  
 
-It is recommended to use `CRUDHandler` as it provides more structure than the base `Handler`.  
+In many cases it is recommended to use `CRUDHandler` over `Handler`,
+as it provides more structure than the base `Handler`.  
 In fact the `CRUDHandler` is itself subclassed from the `Handler`.  
+
+
+#### Handler
+
+The handler is a class, the inherits form eikobots core `Handler`.
+It must have a class property linking it to it's eiko language resource counterpart
+and an `execute` function that takes 1 argument: a `HandlerContext`.  
+
+So, if we want to make a handler for our `Wheel` resource,
+we subclass `Handler` and we create the execute function.  
+Add the following import to your `cars.py` file:
+
+```Python
+from eikobot.core.handlers import Handler, HandlerContext
+```
+
+And add the following code below:
+
+```Python
+class WheelHandler(Handler):
+    """
+    A wheel is a part of car.
+    Most cars have 4.
+    """
+
+    __eiko_resource__ = "Wheel"
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        pass
+```
+
+Don't forget to use `__eiko_resource__` to link it to the required resource.  
+
+Next let's take a closer look at the execute function.  
+The execute function gets called when resources are deployed.  
+It's only argument is the `HandlerContext`.  
+
+The `HandlerContext` contains all sorts of things related to the deployment.  
+For instance it is used to communicate that a resource deployed correctly,
+or that it failed in to deploy in some way.  
+It also has a ref to the resource as a python object. (A model if it exists, otherwise a dictionary)  
+
+Let's have the handler create a file on the current path that
+has the serial of the wheel as its name, and the brand and age inside:  
+
+```Python
+    async def execute(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx, Wheel):
+            ctx.failed = True
+            return
+
+        with open(f"wheel-{ctx.resource.serial}", "w", encoding="utf-8") as f:
+            f.write(
+                f"brand: {ctx.resource.brand}\n"
+                f"serial: {ctx.resource.serial}\n"
+                f"age: {ctx.resource.age}\n"
+            )
+
+        ctx.deployed = True
+```
+
+First we do an `isinstance` check.  
+This is to make sure the resource was properly converted to the right object.  
+It also enables IDEs to help us and mypy type checking.  
+If the object failed to convert, `ctx.resource` will be a dictionary instead.  
+
+Next we simply open the file and write the contents.  
+
+Finaly, we set `ctx.deployed` to `True`, to let Eikobot know the resource was deployed succesfully.  
+
+You can see your handlers at work by running:  
+
+```shell
+eikobot deploy -f hello.eiko
+```
+
+Resulting in output similar to the following:
+
+```txt
+INFO Compiling hello.eiko
+INFO Compiled in 0:00:00.005296 (Process time: 0:00:00.005307)
+INFO Exporting model.
+INFO Deploying model.
+INFO 1 of 4 tasks done.
+INFO 2 of 4 tasks done.
+INFO 3 of 4 tasks done.
+INFO 4 of 4 tasks done.
+INFO Deployed in 0:00:00.006996
+```
 
 #### CRUDHandler
 
@@ -785,4 +922,8 @@ As implied by the name, the CRUDHandler implements 4 methods:
 All 4 of these methods are virtual in the base class and can be overwritten at will.  
 Only the `Create` method _has_ to be overwritten.  
 
-Let's Create a handler
+Let's Create a handler for our Car resource.  
+First, import the `CRUDHandler`, like we did with the handler.  
+
+
+### Promises

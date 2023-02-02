@@ -25,14 +25,20 @@ class Task:
         self.dependants: list["Task"] = []
         self.depends_on: list["Task"] = []
         self.depends_on_copy: list["Task"] = []
-        self.done_cb: Optional[Callable[[], None]] = None
+        self._done_cb: Optional[Callable[[], None]] = None
+        self._failure_cb: Optional[Callable[[], None]] = None
 
-    def init(self, done_cb: Optional[Callable[[], None]] = None) -> None:
+    def init(
+        self,
+        done_cb: Optional[Callable[[], None]] = None,
+        failure_cb: Optional[Callable[[], None]] = None,
+    ) -> None:
         """Resets a task and it's sub tasks so they can run again."""
-        self.done_cb = done_cb
+        self._done_cb = done_cb
+        self._failure_cb = failure_cb
         self.depends_on_copy = self.depends_on.copy()
         for dependant in self.dependants:
-            dependant.init(done_cb)
+            dependant.init(done_cb, failure_cb)
 
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
@@ -47,19 +53,21 @@ class Task:
 
         if self.ctx.failed or not self.ctx.deployed:
             logger.error(f"Failed task '{self.task_id}'")
+            if self._failure_cb is not None:
+                self._failure_cb()
             return
 
         for sub_task in self.dependants:
             sub_task.remove_dep(self)
         logger.debug(f"Done executing task '{self.task_id}'")
-        if self.done_cb is not None:
-            self.done_cb()
+        if self._done_cb is not None:
+            self._done_cb()
 
     # fmt: off
     async def _wait_for_promises(self) -> bool:
         changed = False
         for name, value in self.ctx.raw_resource.get_external_promises():
-            logger.debug(f"Task '{self.task_id}' is waiting for promise '{name}'.")
+            logger.debug(f"Task '{self.task_id}' is getting promise '{name}'.")
             try:
                 self.ctx.raw_resource.properties[name] = await value.get_when_available()
                 changed = True
@@ -105,7 +113,7 @@ class Exporter:
     def __init__(self) -> None:
         self.task_index: dict[str, Task] = {}
         self.base_tasks: list[Task] = []
-        self.no_tasks: int = 0
+        self.total_tasks: int = 0
 
     def export_from_file(self, file: Path) -> None:
         """Compiles a file and exports the tasks."""
@@ -152,7 +160,7 @@ class Exporter:
         handler = None
         if resource.class_ref.handler is not None:
             handler = resource.class_ref.handler()
-            self.no_tasks += 1
+            self.total_tasks += 1
 
         task = Task(
             resource.index(),

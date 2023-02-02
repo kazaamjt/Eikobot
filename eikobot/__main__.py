@@ -134,9 +134,15 @@ def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
     deployer = Deployer()
     asyncio.run(deployer.deploy(exporter, log_progress=True))
 
-    time_taken = time.time() - start
-    time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
-    logger.info(f"Deployed in {time_taken_formatted}")
+    if deployer.failed:
+        logger.error(
+            "Failed to deploy model. "
+            f"({deployer.progress.done} out of {deployer.progress.total} tasks done)"
+        )
+    else:
+        time_taken = time.time() - start
+        time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+        logger.info(f"Deployed in {time_taken_formatted}")
 
 
 if __name__ == "__main__":
