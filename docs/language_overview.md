@@ -8,7 +8,7 @@ Furthmore, knowledge of Pythons typing system is highly recommended.
 
 ## The compile command
 
-The base `eikobot` command is used to invoke everything required.  
+The base `eikobot` command is used to invoke everything.  
 
 The `compile` subcommand only compiles a model, no resources will be deployed.  
 It is usefull when writing models as it will indicate compilation errors and the like.  
@@ -44,6 +44,17 @@ Our debug message was printed.
 
 Another usefull function in the standard library is the `inspect` function.  
 It can be used to print objects to the screen in the examples that follow.  
+
+## The deploy command
+
+The deploy command first compiles the model,
+then exports it to a set of tasks and finaly,
+it executes the tasks, a.k.a. it the deploys the reosurces.  
+
+This requires the resources in the model to have handlers, a more advanced topic
+discussed later in this overview.  
+
+At any rate, the `deploy` command syntax is like that of the `compile` command:  
 
 ## Comments
 
@@ -898,7 +909,7 @@ eikobot deploy -f hello.eiko
 
 Resulting in output similar to the following:
 
-```txt
+```bash
 INFO Compiling hello.eiko
 INFO Compiled in 0:00:00.005296 (Process time: 0:00:00.005307)
 INFO Exporting model.
@@ -922,8 +933,289 @@ As implied by the name, the CRUDHandler implements 4 methods:
 All 4 of these methods are virtual in the base class and can be overwritten at will.  
 Only the `Create` method _has_ to be overwritten.  
 
-Let's Create a handler for our Car resource.  
-First, import the `CRUDHandler`, like we did with the handler.  
+Let's Create a handler for our `Car` resource.  
+The CRUDHandler will create a directory based on the cars Serial.  
+Then, we will have our `Wheel` handler create a file in said directory.  
 
+To do this, we need to invert the relation between our `Wheel` and `Car` resource.  
+Our model in `cars.eiko` will now look something like this:
+
+```Python
+resource Car:
+    serial: str
+    brand: str
+
+
+resource Wheel:
+    serial: str
+    brand: str
+    age: int
+    car: Car
+```
+
+And our `Hello.eiko` file will look like this:
+
+```Python
+from cars import Car, Wheel
+
+car = Car("btrr", "Toyota")
+
+Wheel("Toyota", 7, "aeae", car)
+Wheel("Toyota", 7, "bbae", car)
+Wheel("Toyota", 7, "haue", car)
+Wheel("Michelin", 4, "oifz", car)
+```
+
+Don't forget to update models in `Cars.py`!  
+
+```Python
+class Car(EikoBaseModel):
+    __eiko_resource__ = "Car"
+
+    serial: str
+    brand: str
+
+    def dir_name(self) -> str:
+        return f"{self.brand}-{self.serial}"
+
+
+class Wheel(EikoBaseModel):
+    __eiko_resource__ = "Wheel"
+
+    brand: str
+    age: int
+    serial: str
+    car: Car
+```
+
+The new `dir_name` function, makes sure the same name is created everywhere.  
+
+Also note that the in both the Eiko code and the python code,
+`Car` and `Wheel` changed places.  
+This is because the Eiko language does not have forward declarations of types,
+and because `EikoBaseModel` also does not deal well with forward declarations
+for nested models.  
+
+Let's adjust our WheelHandler to use `"{car.brand}-{car.serial}"` as a parent directory:  
+
+```Python
+class WheelHandler(Handler):
+    __eiko_resource__ = "Wheel"
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, Wheel):
+            ctx.failed = True
+            return
+
+        _path = f"{ctx.resource.car.dir_name()}/wheel-{ctx.resource.serial}"
+        with open(_path, "w", encoding="utf-8",) as f:
+            f.write(
+                f"brand: {ctx.resource.brand}\n"
+                f"age: {ctx.resource.age}\n"
+                f"serial: {ctx.resource.serial}\n"
+            )
+
+        ctx.deployed = True
+```
+
+Next, import the `CRUDHandler`, like we did with `Handler`
+and subclass it.  
+Also create the `create`, `read` and `update` methods:  
+
+```Python
+class CarHandler(CRUDHandler):
+    __eiko_resource__ = "Car"
+
+    async def create(self, ctx: HandlerContext) -> None:
+        pass
+
+    async def read(self, ctx: HandlerContext) -> None:
+        pass
+
+    async def update(self, ctx: HandlerContext) -> None:
+        pass
+```
+
+Now, we'll fill in these methods one by one.  
+Let's start with `create`:  
+
+```Python
+class CarHandler(CRUDHandler):
+    __eiko_resource__ = "Car"
+
+    async def create(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, Car):
+            ctx.failed = True
+            return
+
+        os.makedirs(ctx.resource.dir_name())
+        ctx.deployed = True
+```
+
+This method is very simple.  
+We do an instance check and then just call `os.makedirs`.  
+You will ofcourse need to add `import os` at the top.  
+
+If a directory already exists `os.makedirs` will throw an error.  
+Now technically, we could add the `exist_ok=True` parameter,
+and our problem would be solved,
+but instead we are going to use our `read` method to prevent this.  
+
+We will need to import `from pathlib import Path` and we'll use this in our `read` method:
+
+```Python
+    async def read(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, Car):
+            ctx.failed = True
+            return
+
+        _path = Path(ctx.resource.dir_name())
+        if _path.exists():
+            ctx.deployed = True
+```
+
+Again this code is fairly simple.  
+We do the instance check, then we just turn our string to a `Path`
+object and let Python do all the heavy work.  
+If the path exists, we mark it as deployed and presto.  
+
+Now if we deploy, it looks something like this:
+
+```txt
+INFO Compiling hello.eiko
+INFO Compiled in 0:00:00.004705 (Process time: 0:00:00.004717)
+INFO Exporting model.
+INFO Deploying model.
+INFO 1 of 5 tasks done.
+INFO 2 of 5 tasks done.
+INFO 3 of 5 tasks done.
+INFO 4 of 5 tasks done.
+INFO 5 of 5 tasks done.
+INFO Deployed in 0:00:00.006819
+```
+
+Using the `tree` command on linux, we now see the following:
+
+```bash
+$> tree Toyota-btrr/
+Toyota-btrr/
+├── wheel-aeae
+├── wheel-bbae
+├── wheel-haue
+└── wheel-oifz
+
+0 directories, 4 files
+```
+
+Now that our resource deploys, let's work on the `update` method.  
+The update method is called if, and only if, there are changes.  
+Changes should be passed to the `HandlerCOntext` by the `read` method.  
+
+So, as an exercise, let's expand our `read` method to check the permission mask on
+the directory created by our handler:  
+
+```Python
+    async def read(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, Car):
+            ctx.failed = True
+            return
+
+        _path = Path(ctx.resource.dir_name())
+        if _path.exists():
+            ctx.deployed = True
+            mask = oct(os.stat(_path).st_mode & 0o777)
+            if mask != "755":
+                ctx.add_change("mask", mask)
+```
+
+The above code basicly registers the mask if it isn't in the state we want it to be in.  
+If it is not `755`, our update method will be called:
+
+```Python
+    async def update(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, Car):
+            ctx.failed = True
+            return
+
+        if ctx.changes.get("mask") is not None:
+            os.chmod(ctx.resource.dir_name(), 0o755)
+
+        ctx.deployed = True
+```
+
+Fairly simple code.  
+If the `mask` is in the changes, we apply the correct mask.  
+
+Let's test it by manually change the mask and then running the deploy:
+
+```bash
+$> chmod 777 Toyota-btrr
+$> ls -hal
+drwxrwxrwx  2 yaron yaron 4.0K Feb  2 23:39 Toyota-btrr
+```
+
+Now if we run the deploy:
+
+```bash
+INFO Compiling test.eiko
+INFO Compiled in 0:00:00.004889 (Process time: 0:00:00.004901)
+INFO Exporting model.
+INFO Deploying model.
+INFO 1 of 5 tasks done.
+INFO 2 of 5 tasks done.
+INFO 3 of 5 tasks done.
+INFO 4 of 5 tasks done.
+INFO 5 of 5 tasks done.
+INFO Deployed in 0:00:00.006621
+```
+
+Now when we check:
+
+```bash
+$> d-wxrw--wt  2 yaron yaron 4.0K Feb  2 23:39 Toyota-btrr
+```
+
+Great success!  
+Another way of checking if a resource gets deployed or updated is
+by using the `--debug` flag, to show debug level logs:
+
+```bash
+$> eikobot --debug deploy -f test.eiko 
+INFO Compiling test.eiko
+DEBUG Found python plugins file for eiko file: test.eiko
+DEBUG Importing Python Model 'Car' from test.py
+DEBUG Importing handler 'CarHandler' from test.py
+DEBUG Importing Python Model 'Wheel' from test.py
+DEBUG Importing handler 'WheelHandler' from test.py
+DEBUG Linking handler <class '__main__.CarHandler'> to resource '__main__.Car'
+DEBUG Linking model <class '__main__.Car'> to resource '__main__.Car'
+DEBUG Linking handler <class '__main__.WheelHandler'> to resource '__main__.Wheel'
+DEBUG Linking model <class '__main__.Wheel'> to resource '__main__.Wheel'
+INFO Compiled in 0:00:00.004998 (Process time: 0:00:00.005009)
+INFO Exporting model.
+INFO Deploying model.
+DEBUG Executing task 'Car-btrr'
+DEBUG Reading resource 'Car-btrr'.
+DEBUG Resource 'Car-btrr' is in its desired state.
+DEBUG Done executing task 'Car-btrr'
+INFO 1 of 5 tasks done.
+DEBUG Executing task 'Wheel-aeae'
+DEBUG Done executing task 'Wheel-aeae'
+INFO 2 of 5 tasks done.
+DEBUG Executing task 'Wheel-bbae'
+DEBUG Done executing task 'Wheel-bbae'
+INFO 3 of 5 tasks done.
+DEBUG Executing task 'Wheel-haue'
+DEBUG Done executing task 'Wheel-haue'
+INFO 4 of 5 tasks done.
+DEBUG Executing task 'Wheel-oifz'
+DEBUG Done executing task 'Wheel-oifz'
+INFO 5 of 5 tasks done.
+INFO Deployed in 0:00:00.007855
+```
+
+note how, in this output, it mentions that the resource `Car-btrr` is
+in the desired state.  
+This is because the `read` method produced no changes.  
 
 ### Promises
