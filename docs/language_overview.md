@@ -1172,7 +1172,8 @@ INFO Deployed in 0:00:00.006621
 Now when we check:
 
 ```bash
-$> d-wxrw--wt  2 yaron yaron 4.0K Feb  2 23:39 Toyota-btrr
+$> ls -als
+d-wxrw--wt  2 yaron yaron 4.0K Feb  2 23:39 Toyota-btrr
 ```
 
 Great success!  
@@ -1219,3 +1220,17 @@ in the desired state.
 This is because the `read` method produced no changes.  
 
 ### Promises
+
+A `promise` is a piece of data that is not available at compile time.  
+Instead, it will be filled in at deploy time.  
+It is a piece of data that the model _promises_ will be available later.  
+
+The first step is tagging a property as a `promise`, using the `promise` keyword.  
+Let's add a `timestamp` `promise` to our `Car` resource:  
+
+```Python
+resource Car:
+    serial: str
+    brand: str
+    promise timestamp: int
+```
