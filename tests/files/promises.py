@@ -13,8 +13,10 @@ class PromiseTestHandler1(Handler):
     __eiko_resource__ = "PromiseTest_1"
 
     async def execute(self, ctx: HandlerContext) -> None:
-        ctx.raw_resource.promises[0].set("passed promise")
-        ctx.deployed = True
+        promise = ctx.raw_resource.promises.get("prop_2")
+        if promise is not None:
+            promise.set("passed promise")
+            ctx.deployed = True
 
 
 class PromiseTestHandler2(Handler):

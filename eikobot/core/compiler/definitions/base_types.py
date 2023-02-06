@@ -465,7 +465,7 @@ class EikoPromise(EikoBaseType):
 
     async def get_when_available(self) -> EikoBaseType:
         """
-        Blocks until the value has been said.
+        Blocks until the value has been set.
         Raises EikoPromiseFailed on failure.
         """
 
@@ -536,7 +536,7 @@ class EikoResource(EikoBaseType):
         self.properties: dict[str, Union[EikoBaseType, EikoUnset]] = {
             "__depends_on__": EikoList(EikoObjectType)
         }
-        self.promises: list[EikoPromise] = []
+        self.promises: dict[str, EikoPromise] = {}
         self._py_object: Optional[EikoBaseModel] = None
 
     def set_index(self, index: str) -> None:
@@ -558,15 +558,16 @@ class EikoResource(EikoBaseType):
     def get_external_promises(self) -> Iterator[tuple[str, EikoPromise]]:
         """Returns all promises that come from other resources."""
         for key, value in self.properties.items():
-            if isinstance(value, EikoPromise) and value not in self.promises:
-                yield key, value
+            if isinstance(value, EikoPromise):
+                if value.name not in self.promises:
+                    yield key, value
 
     def populate_property(self, name: str, value_type: EikoType) -> None:
         self.properties[name] = EikoUnset(value_type)
 
     def add_promise(self, promise: EikoPromise) -> None:
         self.properties[promise.name] = promise
-        self.promises.append(promise)
+        self.promises[promise.name] = promise
 
     def set(self, name: str, value: "StorableTypes", token: Token) -> None:
         """Set the value of a property, if the value wasn't already assigned."""

@@ -43,7 +43,7 @@ class Task:
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
         await self._wait_for_promises()
-        logger.debug(f"Executing task '{self.task_id}'")
+        logger.info(f"starting task '{self.task_id}'")
         if self.handler is not None:
             await self.handler.execute(self.ctx)
         else:
@@ -65,12 +65,11 @@ class Task:
 
     # fmt: off
     async def _wait_for_promises(self) -> bool:
-        changed = False
         for name, value in self.ctx.raw_resource.get_external_promises():
             logger.debug(f"Task '{self.task_id}' is getting promise '{name}'.")
             try:
                 self.ctx.raw_resource.properties[name] = await value.get_when_available()
-                changed = True
+                self.ctx.resource = self.ctx.raw_resource.to_py()
             except EikoPromiseFailed as e:
                 # Put this log in self.ctx.logger,
                 # rather than the general logger.
@@ -78,9 +77,6 @@ class Task:
                 if e.token is not None:
                     logger.print_error_trace(e.token.index)
                 return False
-
-        if changed:
-            self.ctx.resource = self.ctx.raw_resource.to_py()
 
         return True
     # fmt: on
