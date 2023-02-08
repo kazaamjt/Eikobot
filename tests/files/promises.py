@@ -2,7 +2,7 @@
 This file is purely used for testing purposes.
 """
 from eikobot.core.handlers import Handler, HandlerContext
-from eikobot.core.helpers import EikoPromise
+from eikobot.core.helpers import EikoPromise, EikoBaseModel
 
 
 class PromiseTestHandler1(Handler):
@@ -19,6 +19,13 @@ class PromiseTestHandler1(Handler):
             ctx.deployed = True
 
 
+class PromiseTest2(EikoBaseModel):
+    __eiko_resource__ = "PromiseTest_2"
+
+    prop_1: str
+    prop_2: str
+
+
 class PromiseTestHandler2(Handler):
     """
     The PromiseTest_2 resource has a it needs to wait for.
@@ -28,7 +35,9 @@ class PromiseTestHandler2(Handler):
 
     async def execute(self, ctx: HandlerContext) -> None:
         ctx.deployed = True
-        if not isinstance(ctx.resource, dict):
+        if not isinstance(ctx.resource, PromiseTest2):
             raise Exception
-        if isinstance(ctx.resource.get("prop_2"), EikoPromise):
+        if isinstance(ctx.resource.prop_2, EikoPromise):
+            raise Exception
+        if isinstance(ctx.raw_resource.properties.get("prop_2"), EikoPromise):
             raise Exception

@@ -81,7 +81,13 @@ class EikoPluginError(EikoError):
         self.python_exception = python_exception
 
 
-class EikoPromiseFailed(EikoError):
+class EikoExportError(EikoError):
     """
-    A promise failed to be fulfilled by its handler.
+    Something went wrong inside the compiler,
+    most likely caused by a bug and not the user.
     """
+
+    def __init__(
+        self, reason: str, *args: object, token: Optional[Token] = None
+    ) -> None:
+        super().__init__("ExportError: " + reason, *args, token=token)
