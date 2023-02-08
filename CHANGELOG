@@ -11,6 +11,7 @@
 - Removed automatic resolution of `Path` and instead pass it unresolved
 - Updated dependencies
 - Fixed a bug where the total number of tasks was not correctly calculated
+- Fixed a bug where a task could depend on antother task more than once and would thus stall forever
 
 ## 0.3.0
 

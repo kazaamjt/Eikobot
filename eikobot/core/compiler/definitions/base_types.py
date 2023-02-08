@@ -3,7 +3,6 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
-import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -18,11 +17,7 @@ from typing import (
 
 from pydantic import BaseModel, ValidationError
 
-from ...errors import (
-    EikoCompilationError,
-    EikoInternalError,
-    EikoPromiseFailed,
-)
+from ...errors import EikoCompilationError, EikoInternalError
 from .._token import Token
 from .base_model import EikoBaseModel
 
@@ -452,10 +447,8 @@ class EikoPromise(EikoBaseType):
         super().__init__(value_type)
         self.name = name
         self.token = caller_token
-        self._value: EikoBaseType
+        self.value: Optional[EikoBaseType] = None
         self.parent = parent
-        self.blocker = asyncio.Event()
-        self.failed = False
 
     def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
         raise EikoCompilationError(
@@ -463,26 +456,10 @@ class EikoPromise(EikoBaseType):
             token=token,
         )
 
-    async def get_when_available(self) -> EikoBaseType:
-        """
-        Blocks until the value has been set.
-        Raises EikoPromiseFailed on failure.
-        """
-
-        await self.blocker.wait()
-        if self.failed:
-            raise EikoPromiseFailed(
-                f"Failed to fullfill promise of property '{self.name}'"
-                f"of '{self.parent.index()}'.",
-                token=self.token,
-            )
-        return self._value
-
     def set(self, value: PyTypes) -> None:
         """
         Set this promise's value.
         This method will make sure the type is correct
-        and will awaken all coroutines waiting on get_when_available.
 
         Raises ValueError if value is not the right type.
         """
@@ -490,12 +467,7 @@ class EikoPromise(EikoBaseType):
         if not _value.type_check(self.type):
             raise ValueError
 
-        self._value = _value
-        self.blocker.set()
-
-    def set_failed(self) -> None:
-        self.failed = True
-        self.blocker.set()
+        self.value = _value
 
     def get_value(self) -> PyTypes:
         raise NotImplementedError

@@ -2,9 +2,10 @@
 Handlers are a way to describe to Eikobot how something should be deployed.
 """
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 from . import logger
+from .compiler.definitions.base_model import BaseModel
 from .compiler.definitions.base_types import EikoResource
 
 
@@ -15,7 +16,7 @@ class HandlerContext:
     raw_resource: EikoResource
 
     def __post_init__(self) -> None:
-        self.resource = self.raw_resource.to_py()
+        self.resource: Union[dict, BaseModel]
         self.changes: dict[str, Any] = {}
         self.deployed = False
         self.updated = False
