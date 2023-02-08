@@ -34,6 +34,9 @@ class Handler:
     async def execute(self, ctx: HandlerContext) -> None:
         raise NotImplementedError
 
+    async def resolve_promises(self, ctx: HandlerContext) -> None:
+        pass
+
 
 class EikoCRUDHanlderMethodNotImplemented(Exception):
     """Raised if a method is not implemented."""

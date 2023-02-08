@@ -143,11 +143,11 @@ class ConstructorDefinition(EikoBaseType):
                     )
 
             if not isinstance(index_prop, INDEXABLE_TYPES):
-                # Pass a token so we can have a trace.
                 raise EikoCompilationError(
                     f"Property '{property_name}' of '{self.parent.name}' is not an indexable type.",
                     token=self.parent.expr.token,
                 )
+
             if isinstance(index_prop, EikoProtectedStr):
                 raise EikoCompilationError(
                     f"Property '{property_name}' of '{self.parent.name}' is a protected string. "

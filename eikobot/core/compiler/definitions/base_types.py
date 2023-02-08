@@ -485,7 +485,7 @@ class EikoPromise(EikoBaseType):
         return expected_type.type_check(self.type)
 
     def index(self) -> str:
-        raise EikoCompilationError("A promise cannot be used to generate an index.")
+        return f"promise-{self.parent.index()}.{self.name}"
 
     def to_py(self) -> "EikoPromise":
         return self
@@ -622,6 +622,7 @@ INDEXABLE_TYPES = (
     EikoNone,
     EikoStr,
     EikoPath,
+    EikoPromise,
     EikoResource,
 )
 _builtin_function_type = EikoType("builtin_function", EikoObjectType)
