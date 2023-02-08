@@ -2,7 +2,7 @@
 This file is purely used for testing purposes.
 """
 from eikobot.core.handlers import Handler, HandlerContext
-from eikobot.core.helpers import EikoPromise, EikoBaseModel
+from eikobot.core.helpers import EikoBaseModel, EikoPromise
 
 
 class PromiseTestHandler1(Handler):

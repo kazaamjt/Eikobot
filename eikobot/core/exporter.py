@@ -46,6 +46,7 @@ class Task:
         self._resolve_promises()
         if self.handler is not None:
             await self.handler.execute(self.ctx)
+            await self.handler.resolve_promises(self.ctx)
         else:
             raise EikoInternalError(
                 "Deployer failed to execute a task because a handler was missing. "
@@ -79,6 +80,7 @@ class Task:
             self._done_cb()
 
     def _resolve_promises(self) -> None:
+        """Resolves external promises."""
         logger.debug(f"Task '{self.task_id}' is resolving extenral promises.")
         for name, promise in self.ctx.raw_resource.get_external_promises():
             if promise.value is None:
