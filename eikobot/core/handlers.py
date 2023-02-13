@@ -21,6 +21,7 @@ class HandlerContext:
         self.deployed = False
         self.updated = False
         self.failed = False
+        self.promises = self.raw_resource.promises
 
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value

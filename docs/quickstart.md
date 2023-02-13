@@ -49,8 +49,6 @@ And it assumes you have the following:
 - A target machine running Debian*
 - Sudo access on said machine
 
-*Make sure that your user has passwordless sudo rights on the target machine
-
 ### Step 1: Deploying postgres
 
 While a module could be provided for you to easily deploy postgres,

@@ -20,6 +20,11 @@ class PromiseTestHandler1(Handler):
 
 
 class PromiseTest2(EikoBaseModel):
+    """
+    This Model shows that the system correctly waits until
+    all the info is available before creating it.
+    """
+
     __eiko_resource__ = "PromiseTest_2"
 
     prop_1: str
@@ -28,7 +33,7 @@ class PromiseTest2(EikoBaseModel):
 
 class PromiseTestHandler2(Handler):
     """
-    The PromiseTest_2 resource has a it needs to wait for.
+    The PromiseTest_2 resource has a promis it needs to wait for.
     """
 
     __eiko_resource__ = "PromiseTest_2"
