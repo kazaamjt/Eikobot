@@ -42,6 +42,7 @@ from .definitions.base_types import (
     EikoNoneType,
     EikoObjectType,
     EikoOptional,
+    EikoPromise,
     EikoResource,
     EikoStr,
     EikoStrType,
@@ -311,6 +312,18 @@ class BinOpExprAST(ExprAST):
             raise EikoCompilationError(
                 "Binary operation expected value but expression didn't return a value.",
                 token=self.token,
+            )
+
+        if isinstance(lhs, EikoPromise):
+            raise EikoCompilationError(
+                "Binary operations cannot be used with promises.",
+                token=self.lhs.token,
+            )
+
+        if isinstance(rhs, EikoPromise):
+            raise EikoCompilationError(
+                "Binary operations cannot be used with promises.",
+                token=self.rhs.token,
             )
 
         arg_a_matrix = BINOP_MATRIX.get(lhs.type.get_top_level_type().name)
@@ -1965,7 +1978,7 @@ class Parser:
 
         if not rd_ast.properties:
             raise EikoSyntaxError(
-                "A resource must have atleast 1 property.",
+                "A resource must have atleast 1 property. (Besides promises.)",
                 index=rd_ast.token.index,
             )
         rd_ast.constructor = constructor

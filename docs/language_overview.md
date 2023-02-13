@@ -66,6 +66,7 @@ a = 1  # This is a comment
 ```
 
 There is no multiline comment.  
+
 ## If, elif, else
 
 Eiko has the if/else keywords for control flow.  
@@ -287,11 +288,11 @@ The `@index(["serial"])` part is the index decorator and is discussed in the nex
 
 #### Resource index
 
-In the eiko language, every resource is assigned an index.  
+In the Eiko language, every resource is assigned an index.  
 The index is used to track the jobs associated with resources
 and to make sure work isn't performed twice.  
 
-For example, a Virtual Machine might need a unique idea to distinguish
+For example, a Virtual Machine might have a unique identifier to distinguish
 it from other Virtual Machines.  
 
 This index is generated when the resource object is created.  
@@ -305,7 +306,6 @@ compilation will fail and an error will be thrown.
 However, there is a `decorator` that allows us to change what properties are
 used to generate the index.  
 This way another property, multiple properties, or even the property of a nested resource can be used.  
-
 
 #### Custom constructors
 
@@ -663,7 +663,7 @@ like any other thing.
 for example, we could create a plugin in `hello.py` next to `hello.eiko`,
 that concatenates 2 strings:
 
-NOTE: this plugin isn't very usfull as eiko supports string concatination using `+`.
+Note that this plugin isn't very usfull as Eiko supports string concatination using `+`.
 
 ```Python
 from eikobot.core.plugin import eiko_plugin
@@ -684,7 +684,7 @@ inspect(a)
 
 The variable `a` now contains the string `"haha"`.  
 Also note how the plugin has the python typing of `str`.  
-The Eiko compiler will automatically convert python types to eiko objects and back
+The Eiko compiler will automatically convert python types to Eiko objects and back
 when able, and throw an error otherwise.  
 
 If you are unsure about what type you will receive as an argument,
@@ -806,7 +806,7 @@ INSPECT [
 INFO Compiled in 0:00:00.005690 (Process time: 0:00:00.005696)
 ```
 
-In summary, plugins are a way to extend the eiko language with callable functions.  
+In summary, plugins are a way to extend the Eiko language with callable functions.  
 They can be very powerfull to use, but one should be carefull with them
 as they can also break the engine if used improperly.  
 
@@ -832,11 +832,10 @@ In many cases it is recommended to use `CRUDHandler` over `Handler`,
 as it provides more structure than the base `Handler`.  
 In fact the `CRUDHandler` is itself subclassed from the `Handler`.  
 
-
 #### Handler
 
 The handler is a class, the inherits form eikobots core `Handler`.
-It must have a class property linking it to it's eiko language resource counterpart
+It must have a class property linking it to it's Eiko language resource counterpart
 and an `execute` function that takes 1 argument: a `HandlerContext`.  
 
 So, if we want to make a handler for our `Wheel` resource,
@@ -931,7 +930,11 @@ As implied by the name, the CRUDHandler implements 4 methods:
 - `Delete`
 
 All 4 of these methods are virtual in the base class and can be overwritten at will.  
-Only the `Create` method _has_ to be overwritten.  
+The `Create` method _has_ to be overwritten.  
+
+The CRUDHandler, like any handler, works by overwriting the `Handler.execute` method.  
+Do not overwrite this method when inherriting from `CRUDHandler` as the CRUDHandler
+does this itself.  
 
 Let's Create a handler for our `Car` resource.  
 The CRUDHandler will create a directory based on the cars Serial.  
@@ -1157,7 +1160,7 @@ drwxrwxrwx  2 yaron yaron 4.0K Feb  2 23:39 Toyota-btrr
 Now if we run the deploy:
 
 ```bash
-INFO Compiling test.eiko
+INFO Compiling hello.eiko
 INFO Compiled in 0:00:00.004889 (Process time: 0:00:00.004901)
 INFO Exporting model.
 INFO Deploying model.
@@ -1225,7 +1228,13 @@ A `promise` is a piece of data that is not available at compile time.
 Instead, it will be filled in at deploy time.  
 It is a piece of data that the model _promises_ will be available later.  
 
-The first step is tagging a property as a `promise`, using the `promise` keyword.  
+A priomise is typed and will be checked correctly.  
+Its value must be set by a handler attached to the resource.  
+If it is not set after deployment, the orchestrator considers this a
+deployment failure, and any resources dependant on this resource will not
+be deployed. (Note that the orchestrator will continue deploying other resources without issue.)
+
+The first step to using promises, is tagging a property as a `promise`, using the `promise` keyword.  
 Let's add a `timestamp` `promise` to our `Car` resource:  
 
 ```Python
@@ -1234,3 +1243,81 @@ resource Car:
     brand: str
     promise timestamp: int
 ```
+
+While a promise can be passed around to other objects and even stored in a variable,
+keep in mind that it more restricted in its uses than normal values.  
+For example, due to the nature of a promise only be resolved during deployment,
+rather then during compilation, this means it can not be used in binary operations.  
+Nor can it be passed to plugins, unless the plugin is expressly written to support this.  
+
+Another potential pitfall is that promises can not be used for the index of the
+resource that is going to resolve them.  
+However, they _can_ be used to generate the index of toher resources.  
+When doing this, rather than using the eventual value to generate the index
+(a value that might change in the future for example), it will return a string
+based on its property name and the name of the resource it belong to.  
+
+Next, we need to expand the handler for our `Car` resource.  
+Currently, if we deploy, the orchestrator will complain that the timestamp promise was
+not resolved.  
+To resolve a `promise`, we can use it's `set` method.  
+This can either be done in the `Handler.execute` function
+(or in any of the CRUD methods for the CRUDHandler),
+or it can be done in the `Handler.resolve_promises` method.  
+Of these 2 options, the latter is recommended, as it will always be called without fault.  
+
+So, because our `CarHandler` inherits from `CRUDHanlder`, we will use implement a
+`resolve_promises` method that reads the directory's creation timestamp
+and sets it as the timestamp promise:
+
+```Python
+    async def resolve_promises(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, Car):
+            return
+
+        timestamp_promis = ctx.promises["timestamp"]
+        timestamp = int(os.path.getctime(ctx.resource.dir_name()))
+        timestamp_promis.set(timestamp)
+```
+
+We can use the `HandlerContext.promises` dictionary to get all the promises
+we are required to set.  
+If one of the promises isn't set when `Handler.execute` and `Handler.resolve_promises` are done,
+the orchestrator will consider the resource to be in a failed state.  
+
+Now, if there are resources that use the value of `Car.timestamp`, they will get the value we just set it to.  
+It will also tag any resource using this value as a dependant of our `car` resource.  
+
+To see this in action, let's create a new resource that uses the value of this promise:
+
+```Python
+resource ManufactureDate:
+    timestamp: int
+
+ManufactureDate(car.timestamp)
+```
+
+Ofcourse, the resource will not be picked up until it has a handler.  
+Let's create a simple handler that takes the timestamp and prints it:  
+
+```Python
+class MDHandler(Handler):
+    __eiko_resource__ = "ManufactureDate"
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, dict):
+            ctx.failed = True
+            return
+
+        timestamp = ctx.resource.get("timestamp")
+        if not isinstance(timestamp, int):
+            ctx.failed = True
+            return
+
+        print(f"timestamp: {timestamp}")
+        ctx.deployed = True
+```
+
+Now if we deploy, the timestamp will be printed. (as epoch time in seconds)  
+This should always work, because the system garantuees the value for `ManufactureDate.timestamp` exists
+by the time the handler is called.  

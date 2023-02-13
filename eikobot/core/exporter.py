@@ -81,11 +81,14 @@ class Task:
 
     def _resolve_promises(self) -> None:
         """Resolves external promises."""
-        logger.debug(f"Task '{self.task_id}' is resolving extenral promises.")
         for name, promise in self.ctx.raw_resource.get_external_promises():
+            logger.debug(
+                f"Task '{self.task_id}' is resolving extenral promise "
+                f"'{promise.parent.index()}.{promise.name}'."
+            )
             if promise.value is None:
                 raise EikoInternalError(
-                    "An external promise that should ahve been resolved was not. "
+                    "An external promise was not resolved. "
                     "This should have been caught earlier.",
                     token=promise.token,
                 )
