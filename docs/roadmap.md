@@ -67,5 +67,5 @@ Code cleanup:
 - [x] add exporter, that generates tasks and links these tasks to each other correctly
 - [x] add deployer that takes tasks and executes them
 - [x] add linked pydantic classes
-- [ ] add logging to HandlerContext
-- [ ] add dry run to the `deploy`
+- [x] add logging to HandlerContext
+- [ ] add dry run to `deploy`

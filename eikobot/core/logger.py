@@ -38,29 +38,29 @@ def init(log_level: LogLevel = LogLevel.INFO) -> None:
     colorama.init()
 
 
-def debug(*args: str, **kwargs: Any) -> None:
+def debug(*args: str, pre: str = "", **kwargs: Any) -> None:
     """Print a debug level message."""
     if LOG_LEVEL == LogLevel.DEBUG:
-        print(Fore.BLUE + "DEBUG" + Fore.RESET, *args, **kwargs)
+        print(pre + Fore.BLUE + "DEBUG" + Fore.RESET, *args, **kwargs)
 
 
-def info(*args: str, **kwargs: Any) -> None:
+def info(*args: str, pre: str = "", **kwargs: Any) -> None:
     """Print an info level message."""
     if LOG_LEVEL.value <= LogLevel.INFO.value:
-        print(Fore.GREEN + "INFO" + Fore.RESET, *args, **kwargs)
+        print(pre + Fore.GREEN + "INFO" + Fore.RESET, *args, **kwargs)
 
 
-def warning(*args: str, **kwargs: Any) -> None:
+def warning(*args: str, pre: str = "", **kwargs: Any) -> None:
     """Print a warning."""
     global WARNINGS  # pylint: disable=global-statement
     WARNINGS += 1
     if LOG_LEVEL.value <= LogLevel.WARNING.value:
-        print(Fore.YELLOW + "WARNING" + Fore.RESET, *args, **kwargs)
+        print(pre + Fore.YELLOW + "WARNING" + Fore.RESET, *args, **kwargs)
 
 
-def error(*args: str, **kwargs: Any) -> None:
+def error(*args: str, pre: str = "", **kwargs: Any) -> None:
     """Print a big fat error."""
-    print(Fore.RED + "ERROR" + Fore.RESET, *args, **kwargs)
+    print(pre + Fore.RED + "ERROR" + Fore.RESET, *args, **kwargs)
 
 
 def print_error_trace(index: "Index") -> None:

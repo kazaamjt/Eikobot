@@ -106,7 +106,8 @@ class HostModel(EikoBaseModel):
     async def execute_sudo(self, cmd: str) -> CmdResult:
         """
         Runs commands that require sudo.
-        Sudo still needs to be put in to the commands, but no passwords are not needed.
+        Sudo still needs to be put in to the commands,
+        but you don't have to pass the password yourself.
         """
         if self.sudo_requires_pass:
             return await self.execute(

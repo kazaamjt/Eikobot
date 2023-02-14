@@ -20,9 +20,9 @@ Some of it's notable features are:
 - sees the infrastructure as a tree of resources, rather than a flatland
 - completely stateless*
 
-The quickest way to get started is probably by doing some of the [quickstarts](docs/quickstart.md).  
+The quickest way to get started is probably by doing some of the [quickstarts](https://github.com/kazaamjt/Eikobot/blob/main/docs/quickstart.md).  
 For a more complete idea of how the language works,
-please see the [language overview](docs/language_overview.md).  
+please see the [language overview](https://github.com/kazaamjt/Eikobot/blob/main/docs/language_overview.md).  
 
 (*If the model/modules are designed well.)  
 
