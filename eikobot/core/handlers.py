@@ -26,6 +26,21 @@ class HandlerContext:
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value
 
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def debug(self, msg: str) -> None:
+        logger.debug(msg, pre=f"[{self.name}] ")
+
+    def info(self, msg: str) -> None:
+        logger.info(msg, pre=f"[{self.name}] ")
+
+    def warning(self, msg: str) -> None:
+        logger.warning(msg, pre=f"[{self.name}] ")
+
+    def error(self, msg: str) -> None:
+        logger.error(msg, pre=f"[{self.name}] ")
+
 
 class Handler:
     """A handler implements methods for a resource to be managed."""
