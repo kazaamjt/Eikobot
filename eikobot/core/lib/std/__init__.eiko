@@ -7,6 +7,7 @@ resource Host:
     port: int = 22
     user_name: Optional[str] = None
     password: Optional[str] = None
+    ssh_requires_pass: bool = False
     sudo_requires_pass: bool = True
 
 
@@ -14,4 +15,3 @@ resource Host:
 resource Cmd:
     host: Host
     cmd: str
-    sudo: bool = False

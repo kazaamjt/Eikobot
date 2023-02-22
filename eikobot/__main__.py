@@ -102,10 +102,10 @@ def _compile(
         logger.info("resulting model context:")
         print(compiler.context)
 
-    time_taken = time.time() - start
-    time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
     pc_time_taken = time.process_time() - pc_start
+    time_taken = time.time() - start
     pc_time_taken_formatted = str(datetime.timedelta(seconds=pc_time_taken))
+    time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
     logger.info(
         f"Compiled in {time_taken_formatted} "
         f"(Process time: {pc_time_taken_formatted})"
