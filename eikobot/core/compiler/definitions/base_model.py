@@ -41,8 +41,8 @@ class EikoBaseModel(BaseModel):
             return cls.__eiko_resource__
         except AttributeError as e:
             raise EikoCompilationError(
-                f"EikoBaseModel '{cls.__name__}' requires a `__eiko_resource__` field "
-                "to link to it's resource."
+                f"EikoBaseModel '{cls.__name__}' requires an `__eiko_resource__` field "
+                "to link to its resource."
             ) from e
 
     @classmethod

@@ -22,12 +22,10 @@ class HandlerContext:
         self.updated = False
         self.failed = False
         self.promises = self.raw_resource.promises
+        self.name = self.raw_resource.index()
 
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value
-
-    def __init__(self, name: str) -> None:
-        self.name = name
 
     def debug(self, msg: str) -> None:
         logger.debug(msg, pre=f"[{self.name}] ")

@@ -259,7 +259,14 @@ class CompilerContext:
 
     def register_handler(self, handler: Type[Handler]) -> None:
         """Adds a handler to the context for later retrieval."""
-        prev_handler = self.handlers.get(handler.__eiko_resource__)
+        try:
+            prev_handler = self.handlers.get(handler.__eiko_resource__)
+        except AttributeError as e:
+            raise EikoCompilationError(
+                f"Handler '{handler.__name__}' requires an `__eiko_resource__` field "
+                "to link to its resource."
+            ) from e
+
         if prev_handler is not None:
             raise EikoCompilationError(
                 f"A handler for resource type '{handler.__eiko_resource__}' was already registered."
