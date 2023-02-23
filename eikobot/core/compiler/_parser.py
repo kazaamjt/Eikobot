@@ -937,13 +937,15 @@ class ResourcePropertyAST:
 
         if not _type.type_check(default_value.type):
             if _type.inverse_type_check(default_value.type):
-                _typedef = context.get(_type.name)
-                if not isinstance(_typedef, EikoTypeDef):
+                if _type.typedef is None:
                     raise EikoInternalError(
                         "Something went wrong trying to coerce a type to it's typedef.",
                         token=self.expr.token,
                     )
-                default_value = _typedef.execute(default_value, self.expr.rhs.token)
+                default_value = _type.typedef.execute(
+                    default_value,
+                    self.expr.rhs.token,
+                )
             else:
                 raise EikoCompilationError(
                     f"The default value of {res_name}.{self.name} does not fit type described in its type expression.",
