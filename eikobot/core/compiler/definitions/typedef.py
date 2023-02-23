@@ -37,9 +37,9 @@ class EikoTypeDef(EikoBaseType):
         self.context = context
         self.super = super_type
         if isinstance(super_type, EikoType):
-            self.type = EikoType(name, super_type)
+            self.type = EikoType(name, super_type, self)
         else:
-            self.type = EikoType(name, super_type.type)
+            self.type = EikoType(name, super_type.type, self)
         super().__init__(self.type)
 
     def printable(self, _: str = "") -> str:

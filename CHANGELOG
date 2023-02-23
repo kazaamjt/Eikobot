@@ -12,6 +12,8 @@
 - Updated dependencies
 - Fixed a bug where the total number of tasks was not correctly calculated
 - Fixed a bug where a task could depend on antother task more than once and would thus stall forever
+- Added helper method `failed` to `std.CMDResult`
+- Fixed a bug for coercing types when importing a typedef
 
 ## 0.3.0
 

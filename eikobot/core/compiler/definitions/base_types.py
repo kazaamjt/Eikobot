@@ -24,6 +24,7 @@ from .base_model import EikoBaseModel
 if TYPE_CHECKING:
     from ._resource import EikoResourceDefinition
     from .context import StorableTypes
+    from .typedef import EikoTypeDef
 
 
 class EikoType:
@@ -34,9 +35,15 @@ class EikoType:
 
     type: "EikoType"
 
-    def __init__(self, name: str, super_type: Optional["EikoType"] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        super_type: Optional["EikoType"] = None,
+        typedef: Optional["EikoTypeDef"] = None,
+    ) -> None:
         self.name = name
         self.super = super_type
+        self.typedef = typedef
 
     @classmethod
     def convert(cls, _: "BuiltinTypes") -> "EikoBaseType":
