@@ -138,6 +138,9 @@ class HostModel(EikoBaseModel):
         Sudo still needs to be put in to the commands,
         but you don't have to pass the password yourself.
         """
+        if self.sudo_requires_pass and self.password is None:
+            return CmdResult(cmd, 1, "", "Sudo password is required, but not set!", ctx)
+
         if self.sudo_requires_pass:
             return await self.execute(
                 f"echo -n {self.password} | sudo -S ls > /dev/null && " + cmd,
@@ -176,11 +179,6 @@ class HostHandler(Handler):
                 ctx.failed = True
                 return
 
-            if ctx.resource.sudo_requires_pass:
-                ctx.error("Sudo password is required, but not set!")
-                ctx.failed = True
-                return
-
         result = await ctx.resource.execute("whoami; hostname", ctx)
         if result.returncode == 0:
             ctx.deployed = True
@@ -198,10 +196,10 @@ class CmdModel(EikoBaseModel):
     A command that will be executed on a remote host.
     """
 
+    __eiko_resource__ = "Cmd"
+
     host: HostModel
     cmd: str
-
-    __eiko_resource__ = "Cmd"
 
 
 class CmdHandler(Handler):
@@ -223,8 +221,7 @@ class CmdHandler(Handler):
             ssh_exec = ctx.resource.host.execute
 
         result = await ssh_exec(ctx.resource.cmd, ctx)
-        if result.returncode != 0:
-            ctx.failed = True
+        if result.failed():
             return
 
         ctx.deployed = True
