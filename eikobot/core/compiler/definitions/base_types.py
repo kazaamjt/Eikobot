@@ -402,7 +402,7 @@ EikoPathType = EikoType("Path")
 
 
 class EikoPath(EikoBaseType):
-    """Represents a string in the Eiko language."""
+    """Represents a path in the Eiko language."""
 
     type = EikoPathType
 
@@ -412,6 +412,15 @@ class EikoPath(EikoBaseType):
 
     def get_value(self) -> Path:
         return self.value
+
+    def get(self, name: str, token: Optional[Token] = None) -> "EikoPath":
+        if name == "parent":
+            return EikoPath(self.value.parent)
+
+        raise EikoCompilationError(
+            f"Object of type '{self.type}' has no property '{name}'.",
+            token=token,
+        )
 
     def printable(self, _: str = "") -> str:
         return f'{self.type} "{self.value}"'
