@@ -2,6 +2,9 @@
 
 ## Phase 1
 
+Phase 1 is all about the MVP.  
+Writing the basic tutorials and quickstarts.  
+
 ### Compiler
 
 Features and bug fixes:
@@ -58,7 +61,7 @@ Code cleanup:
 - [x] add `File` and `FileHandler`
 - [x] add `std.get_pass`
 - [x] add `HostModel.execute` and `HostModel.execute_sudo` to execute commands
-- [ ] add `std.Cmd`, a single command that executes on a given remote host
+- [x] add `std.Cmd`, a single command that executes on a given remote host
 - [ ] add `std.Script`, a collection of commands that are executed on a remote host
 
 ### Engine
@@ -69,3 +72,8 @@ Code cleanup:
 - [x] add linked pydantic classes
 - [x] add logging to HandlerContext
 - [ ] add dry run to `deploy`
+
+## Phase 2: Packages
+
+Phase 2 is all about allowing reuse of code and such.  
+The initial idea is to use GIT.  
