@@ -1154,7 +1154,7 @@ Let's test it by manually change the mask and then running the deploy:
 ```bash
 $> chmod 777 Toyota-btrr
 $> ls -hal
-drwxrwxrwx  2 yaron yaron 4.0K Feb  2 23:39 Toyota-btrr
+drwxrwxrwx  2 eiko eiko 4.0K Feb  2 23:39 Toyota-btrr
 ```
 
 Now if we run the deploy:
@@ -1176,7 +1176,7 @@ Now when we check:
 
 ```bash
 $> ls -als
-d-wxrw--wt  2 yaron yaron 4.0K Feb  2 23:39 Toyota-btrr
+d-wxrw--wt  2 eiko eiko 4.0K Feb  2 23:39 Toyota-btrr
 ```
 
 Great success!  
