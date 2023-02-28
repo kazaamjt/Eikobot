@@ -242,3 +242,9 @@ If one of the commands fails, it will be logged to the console,
 although everything should deploy correctly.  
 This process might take a while, depenging on the speed of the remote machines internet
 and/or it's disks and CPU.  
+
+## Step 2: configuring Docker
+
+Next we'll configure docker so we can access it over HTTP.  
+Using HTTP will be easier as the responses will be structured json,
+rather than CLI responses we have to manually parse ourselves.  
