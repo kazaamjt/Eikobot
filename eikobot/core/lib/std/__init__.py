@@ -240,14 +240,14 @@ class HostHandler(Handler):
         os_version_promis = ctx.resource.raw_resource.promises["os_version"]
 
         os_string = result.stdout.replace("\n", "")
-        os_platform_promis.set(os_string)
+        os_platform_promis.set(os_string, ctx)
         if os_string == "":
-            os_name_promise.set("windows")
+            os_name_promise.set("windows", ctx)
             os_version_result = await ctx.resource.execute(
                 r'(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId',
                 ctx,
             )
-            os_version_promis.set(os_version_result.stdout.replace("\n", ""))
+            os_version_promis.set(os_version_result.stdout.replace("\n", ""), ctx)
         elif os_string == "linux-gnu":
             os_release = await ctx.resource.execute("cat /etc/os-release", ctx)
             os_info: dict[str, str] = {}
@@ -255,12 +255,12 @@ class HostHandler(Handler):
                 key, value = line.split("=")
                 os_info[key] = value
 
-            os_name_promise.set(os_info["ID"])
-            os_version_promis.set(os_info["VERSION_ID"])
+            os_name_promise.set(os_info["ID"], ctx)
+            os_version_promis.set(os_info["VERSION_ID"], ctx)
 
         else:
-            os_name_promise.set("unknown")
-            os_version_promis.set("unknown")
+            os_name_promise.set("unknown", ctx)
+            os_version_promis.set("unknown", ctx)
 
 
 @eiko_plugin()

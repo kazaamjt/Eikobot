@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from .base_model import EikoBaseModel
     from .context import StorableTypes
     from .typedef import EikoTypeDef
+    from ...handlers import HandlerContext
 
 
 class EikoType:
@@ -472,18 +473,45 @@ class EikoPromise(EikoBaseType):
             token=token,
         )
 
-    def set(self, value: PyTypes) -> None:
+    def set(self, value: PyTypes, ctx: "HandlerContext") -> None:
         """
         Set this promise's value.
         This method will make sure the type is correct
 
-        Raises ValueError if value is not the right type.
+        Raises ValueError if value is not the right type
+        or if the promis was already assigned a different value.
         """
         _value = to_eiko(value)
         if not _value.type_check(self.type):
             raise ValueError
 
+        if self.value is not None and _value.get_value() != self.value.get_value():
+            ctx.error(
+                f"Promise '{self.name}' already has a value and new value is different."
+            )
+            raise ValueError
+
         self.value = _value
+
+    def assign(self, value: EikoBaseType, token: Optional[Token] = None) -> None:
+        """
+        Assign is used internally to assign a promise from inside the language,
+        rather then from a handler.
+        """
+        if self.value is not None:
+            raise EikoCompilationError(
+                "Tried to assign an already assigned promise.",
+                token=token,
+            )
+
+        if not value.type_check(self.type):
+            raise EikoCompilationError(
+                f"Tried to assign promise a value of type '{self.type.name}' "
+                f"but got a value of type '{value.type.name}'.",
+                token=token,
+            )
+
+        self.value = value
 
     def get_value(self) -> PyTypes:
         raise NotImplementedError
@@ -492,10 +520,13 @@ class EikoPromise(EikoBaseType):
         return f"Promise[{self.type}]"
 
     def truthiness(self) -> bool:
-        raise EikoCompilationError(
-            "A Promise cannot be checked for truthiness, "
-            "as its value does not yet exist at compile time."
-        )
+        if self.value is None:
+            raise EikoCompilationError(
+                "An unfulfilled Promise cannot be checked for truthiness, "
+                "as its value does not yet exist at compile time."
+            )
+
+        return self.value.truthiness()
 
     def type_check(self, expected_type: EikoType) -> bool:
         return expected_type.type_check(self.type)
@@ -574,6 +605,9 @@ class EikoResource(EikoBaseType):
                     f"to a property of type '{prop.type}'.",
                     token=token,
                 )
+
+        elif isinstance(prop, EikoPromise):
+            prop.assign(value, token)
 
         elif prop is not None:
             raise EikoCompilationError(
