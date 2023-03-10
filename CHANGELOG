@@ -16,6 +16,7 @@
 - Fixed a bug for coercing types when importing a typedef
 - Added `std.env.secrets_file`, a plugin that takes a file and parses it in to secrets (like env vars)
 - Added `Path.parent` property
+- use `asyncssh` library instead of `create_subprocess_exec` (Fixes various cross platform terminal issues)
 
 ## 0.3.0
 

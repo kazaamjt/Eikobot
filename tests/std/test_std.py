@@ -64,7 +64,7 @@ async def test_cmd_deploy(tmp_eiko_file: Path) -> None:
 from std import Host, Cmd
 
 Cmd(
-    Host("127.0.0.1", password="***REMOVED***"),
+    Host("127.0.0.1"),
     "touch /{file_path}",
 )
 """

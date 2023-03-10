@@ -47,6 +47,8 @@ class Deployer:
         while self.asyncio_tasks:
             await asyncio.gather(*self.asyncio_tasks)
 
+        await self._clean_up()
+
     async def deploy_from_file(self, eiko_file: Path) -> None:
         """Helper funcion meant mostly for testing."""
         exporter = Exporter()
@@ -74,3 +76,9 @@ class Deployer:
 
     def _failure_cb(self) -> None:
         self.failed = True
+
+    async def _clean_up(self) -> None:
+        # Bit of a hack.
+        # We timeout ssh connections after 1 second of idle time
+        # so this gives them time to close automatically.
+        await asyncio.sleep(1)

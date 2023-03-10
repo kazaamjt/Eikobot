@@ -3,11 +3,12 @@ Based on the pydantic BaseModel,
 the EikoBaseModel allows for linking of Eiko resources
 to a more easily useable python model.
 """
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import BaseModel
 
 from ...errors import EikoCompilationError
+from .base_types import EikoResource
 
 if TYPE_CHECKING:
     from ._resource import EikoResourceDefinition
@@ -18,7 +19,7 @@ class EikoBaseModel(BaseModel):
     Used to handily convert eikoclasses to python classes and back.
     """
 
-    raw_resource: Any
+    raw_resource: EikoResource
     __eiko_resource__: ClassVar[str]
     __eiko_linked_definition__: ClassVar["EikoResourceDefinition"]
 

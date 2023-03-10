@@ -19,10 +19,10 @@ from pydantic import BaseModel, ValidationError
 
 from ...errors import EikoCompilationError, EikoInternalError
 from .._token import Token
-from .base_model import EikoBaseModel
 
 if TYPE_CHECKING:
     from ._resource import EikoResourceDefinition
+    from .base_model import EikoBaseModel
     from .context import StorableTypes
     from .typedef import EikoTypeDef
 
@@ -525,7 +525,7 @@ class EikoResource(EikoBaseType):
             "__depends_on__": EikoList(EikoObjectType)
         }
         self.promises: dict[str, EikoPromise] = {}
-        self._py_object: Optional[EikoBaseModel] = None
+        self._py_object: Optional["EikoBaseModel"] = None
 
     def set_index(self, index: str) -> None:
         self._index = index
@@ -1069,7 +1069,7 @@ def to_eiko(value: Any) -> EikoBaseType:
     if isinstance(value, EikoBaseType):
         return value
 
-    if isinstance(value, EikoBaseModel):
+    if isinstance(value, BaseModel):
         return value.raw_resource  # type: ignore
 
     if value is None:

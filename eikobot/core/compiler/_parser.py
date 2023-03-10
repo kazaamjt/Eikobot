@@ -2065,14 +2065,14 @@ class Parser:
         promise_token = self._current
         self._advance()
         if not self._current.type == TokenType.IDENTIFIER:
-            EikoParserError(
+            raise EikoParserError(
                 "Expected an identifier for promise expression.",
                 token=self._current,
             )
 
         var_expr = self._parse_identifier()
         if self._current.type != TokenType.COLON:
-            EikoParserError(
+            raise EikoParserError(
                 "Expected a ':'.",
                 token=self._current,
             )
