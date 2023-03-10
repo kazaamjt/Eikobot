@@ -15,7 +15,7 @@ class PromiseTestHandler1(Handler):
     async def execute(self, ctx: HandlerContext) -> None:
         promise = ctx.raw_resource.promises.get("prop_2")
         if promise is not None:
-            promise.set("passed promise")
+            promise.set("passed promise", ctx)
             ctx.deployed = True
 
 
