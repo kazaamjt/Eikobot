@@ -6,10 +6,14 @@ typedef Port int if self >= 0 and self <= 65535
 resource Host:
     host: str
     port: int = 22
-    user_name: Optional[str] = None
+    username: Optional[str] = None
     password: Optional[str] = None
     ssh_requires_pass: bool = False
     sudo_requires_pass: bool = True
+
+    promise os_platform: str
+    promise os_name: str
+    promise os_version: str
 
 
 @index(["host.host", "cmd"])

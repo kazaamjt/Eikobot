@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Optional, Type, Union
 
+import asyncssh
+from asyncssh.connection import SSHClientConnection as SSHConnection
 from colorama import Fore
 from pydantic import Extra
 
@@ -85,7 +87,7 @@ class HostModel(EikoBaseModel):
 
     host: str
     port: int = 22
-    user_name: Optional[str] = None
+    username: Optional[str] = None
     password: Optional[str] = None
     ssh_requires_pass: bool = False
     sudo_requires_pass: bool = True
@@ -94,8 +96,61 @@ class HostModel(EikoBaseModel):
         arbitrary_types_allowed = True
         extra = Extra.allow
 
+    def __post_init__(self) -> None:
+        self._connection: SSHConnection
+        self._con_ref_count: int = 0
+        self._connected: asyncio.Event = asyncio.Event()
+        self._disconnect_tasks: list[asyncio.Task] = []
+
+    async def _connect(self, ctx: HandlerContext) -> None:
+        self._con_ref_count += 1
+        if self._con_ref_count == 1:
+            ctx.debug(f"SSH: Connecting to '{self.host}'.")
+            self._connection = await self._create_connection()
+            ctx.debug(f"SSH: Connected to '{self.host}'.")
+            self._connected.set()
+
+        else:
+            ctx.debug(f"SSH: Reusing existing connection to '{self.host}'.")
+            await self._connected.wait()
+
+    async def _create_connection(self) -> SSHConnection:
+        extra_args: dict[str, str] = {}
+        if self.username is not None:
+            extra_args["username"] = self.username
+
+        if self.ssh_requires_pass:
+            if self.password is not None:
+                extra_args["password"] = self.password
+
+        return await asyncssh.connect(self.host, **extra_args)
+
+    def _set_idle(self, ctx: HandlerContext) -> None:
+        self._disconnect_tasks.append(
+            asyncio.create_task(
+                self._disconnect_delay(ctx),
+                name=f"disconnect-{self.host}-{self._con_ref_count}",
+            )
+        )
+
+    async def _disconnect_delay(self, ctx: HandlerContext) -> None:
+        await asyncio.sleep(1)
+        self._disconnect(ctx)
+
+    def _disconnect(self, ctx: HandlerContext) -> None:
+        self._con_ref_count -= 1
+        if self._con_ref_count == 0:
+            self._connection.close()
+            ctx.debug(f"SSH: Disconnected from '{self.host}'.")
+
+    async def wait_until_disconnected(self) -> None:
+        await asyncio.gather(*self._disconnect_tasks)
+
     async def execute(
-        self, cmd: str, ctx: HandlerContext, original_command: Optional[str] = None
+        self,
+        cmd: str,
+        ctx: HandlerContext,
+        original_command: Optional[str] = None,
     ) -> CmdResult:
         """
         Execute a command on the remote host.
@@ -104,33 +159,26 @@ class HostModel(EikoBaseModel):
         if original_command is None:
             original_command = cmd
         ctx.debug("Execute: " + original_command)
+        cmd_str = 'HISTIGNORE="*" ' + cmd
 
-        cmd_str = "ssh -t "
-        if self.user_name is not None:
-            cmd_str += self.user_name
-            if self.ssh_requires_pass:
-                cmd_str += ":" + str(self.password)
-            cmd_str += "@"
-        cmd_str += self.host + " '"
-        cmd_str += 'HISTIGNORE="*" '
-        cmd_str += cmd.replace("'", r"\'")
-        cmd_str += "'"
+        await self._connect(ctx)
+        process = await self._connection.run(cmd_str, term_type="xterm-color")
+        self._set_idle(ctx)
 
-        process = await asyncio.create_subprocess_shell(
-            cmd_str,
-            stderr=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-        )
-
-        encoded_stdout, stderr = await process.communicate()
-        stdout = self._clean_log(encoded_stdout.decode())
+        if process.stdout is None:
+            _stdout = ""
+        elif isinstance(process.stdout, bytes):
+            _stdout = process.stdout.decode()
+        else:
+            _stdout = process.stdout
+        stdout = self._clean_log(_stdout)
         ctx.debug("stdout:\n" + stdout)
 
         returncode = 1
         if process.returncode is not None:
             returncode = process.returncode
 
-        return CmdResult(original_command, returncode, stdout, stderr.decode(), ctx)
+        return CmdResult(original_command, returncode, stdout, "", ctx)
 
     async def execute_sudo(self, cmd: str, ctx: HandlerContext) -> CmdResult:
         """
@@ -151,9 +199,10 @@ class HostModel(EikoBaseModel):
         return await self.execute(cmd, ctx)
 
     def _clean_log(self, log: str) -> str:
+        log = log.replace("\r\n", "\n")
         sudo_log_str = "[sudo] password for "
-        if self.user_name is not None:
-            sudo_log_str += self.user_name
+        if self.username is not None:
+            sudo_log_str += self.username
         else:
             sudo_log_str += os.getlogin()
 
@@ -179,11 +228,39 @@ class HostHandler(Handler):
                 ctx.failed = True
                 return
 
-        result = await ctx.resource.execute("whoami; hostname", ctx)
+        result = await ctx.resource.execute("echo $OSTYPE", ctx)
         if result.returncode == 0:
             ctx.deployed = True
         else:
             ctx.failed = True
+            return
+
+        os_platform_promis = ctx.resource.raw_resource.promises["os_platform"]
+        os_name_promise = ctx.resource.raw_resource.promises["os_name"]
+        os_version_promis = ctx.resource.raw_resource.promises["os_version"]
+
+        os_string = result.stdout.replace("\n", "")
+        os_platform_promis.set(os_string)
+        if os_string == "":
+            os_name_promise.set("windows")
+            os_version_result = await ctx.resource.execute(
+                r'(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId',
+                ctx,
+            )
+            os_version_promis.set(os_version_result.stdout.replace("\n", ""))
+        elif os_string == "linux-gnu":
+            os_release = await ctx.resource.execute("cat /etc/os-release", ctx)
+            os_info: dict[str, str] = {}
+            for line in os_release.stdout.splitlines():
+                key, value = line.split("=")
+                os_info[key] = value
+
+            os_name_promise.set(os_info["ID"])
+            os_version_promis.set(os_info["VERSION_ID"])
+
+        else:
+            os_name_promise.set("unknown")
+            os_version_promis.set("unknown")
 
 
 @eiko_plugin()
