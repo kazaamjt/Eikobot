@@ -11,6 +11,7 @@ from .._token import Token
 from .base_types import (
     INDEXABLE_TYPES,
     EikoBaseType,
+    EikoProtectedStr,
     EikoResource,
     EikoType,
     EikoUnset,
@@ -23,7 +24,7 @@ from .typedef import EikoTypeDef
 
 if TYPE_CHECKING:
     from .._parser import ExprAST
-    from ._resource import ResourceDefinition
+    from ._resource import EikoResourceDefinition
     from .context import CompilerContext, StorableTypes
 
 EikoFunctionType = EikoType("function")
@@ -43,7 +44,7 @@ class ConstructorDefinition(EikoBaseType):
 
     def __init__(self, name: str, execution_context: "CompilerContext") -> None:
         super().__init__(EikoFunctionType)
-        self.parent: "ResourceDefinition"
+        self.parent: "EikoResourceDefinition"
         self.name = name
         self.args: dict[str, ConstructorArg] = {}
         self.body: list["ExprAST"] = []
@@ -68,6 +69,13 @@ class ConstructorDefinition(EikoBaseType):
         """
         Executes a function call based on a premade constructor spec.
         """
+        if self.parent.promises and self.parent.handler is None:
+            raise EikoCompilationError(
+                f"Resource Definition '{self.parent.name}' has promises, "
+                "but no handler",
+                token=self.parent.expr.token,
+            )
+
         if len(positional_args) + len(keyword_args) > len(self.args) - 1:
             raise EikoCompilationError(
                 "Too many arguments given to function call. "
@@ -98,7 +106,11 @@ class ConstructorDefinition(EikoBaseType):
             f"{self.parent.name}.{self.name}"
         )
         for prop in self.parent.properties.values():
-            resource.populate_property(prop.name, prop.type)
+            if prop in self.parent.promises:
+                # prop is garantueed to be an EikoPromiseDef here
+                resource.add_promise(prop.execute(callee_token, resource))  # type: ignore
+            else:
+                resource.populate_property(prop.name, prop.type)
 
         for arg_name, value in handled_args.items():
             context.set(arg_name, value)
@@ -127,14 +139,20 @@ class ConstructorDefinition(EikoBaseType):
                     raise EikoCompilationError(
                         f"Failed to create index using property '{property_name}': "
                         f"No property '{prop_name}'.",
-                        token=self.parent.token,
+                        token=self.parent.expr.token,
                     )
 
             if not isinstance(index_prop, INDEXABLE_TYPES):
-                # Pass a token so we can have a trace.
                 raise EikoCompilationError(
                     f"Property '{property_name}' of '{self.parent.name}' is not an indexable type.",
-                    token=self.parent.token,
+                    token=self.parent.expr.token,
+                )
+
+            if isinstance(index_prop, EikoProtectedStr):
+                raise EikoCompilationError(
+                    f"Property '{property_name}' of '{self.parent.name}' is a protected string. "
+                    "It can not be used to create an index.",
+                    token=self.parent.expr.token,
                 )
 
             res_index += "-" + index_prop.index()
@@ -192,7 +210,8 @@ class ConstructorDefinition(EikoBaseType):
             kw_arg = self.args.get(arg_name)
             if kw_arg is None:
                 raise EikoCompilationError(
-                    f"'{self.name}()' has no argument '{arg_name}'."
+                    f"'{self.parent.name}.{self.name}()' has no argument '{arg_name}'.",
+                    token=passed_arg.token,
                 )
 
             if not passed_arg.value.type_check(kw_arg.type):

@@ -1,15 +1,15 @@
 """
 A module to tests the deployment of resources
 """
-from eikobot.core.handlers import AsyncCRUDHandler, HandlerContext
+from eikobot.core.handlers import CRUDHandler, HandlerContext
 
 
-class BaseHandler(AsyncCRUDHandler):
+class BaseHandler(CRUDHandler):
     """
     Handles the deployment of BaseResources.
     """
 
-    resource = "BaseResource"
+    __eiko_resource__ = "BaseResource"
 
     def __init__(self) -> None:
         self.created = False
@@ -23,12 +23,12 @@ class BaseHandler(AsyncCRUDHandler):
         ctx.deployed = True
 
 
-class MidHandler(AsyncCRUDHandler):
+class MidHandler(CRUDHandler):
     """
     Handles the deployment of MidResources.
     """
 
-    resource = "MidResource"
+    __eiko_resource__ = "MidResource"
 
     def __init__(self) -> None:
         self.created = False
@@ -46,12 +46,12 @@ class MidHandler(AsyncCRUDHandler):
             ctx.deployed = True
 
 
-class TopHandler(AsyncCRUDHandler):
+class TopHandler(CRUDHandler):
     """
     Handles the deployment of TopResource.
     """
 
-    resource = "TopResource"
+    __eiko_resource__ = "TopResource"
 
     def __init__(self) -> None:
         self.created = False

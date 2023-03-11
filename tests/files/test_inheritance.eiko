@@ -1,0 +1,29 @@
+resource BaseRes:
+    prop_1: str
+    prop_2: int
+
+
+resource SubRes(BaseRes):
+    prop_3: Union[str, int]
+
+
+resource SubSubRes(SubRes):
+    prop_4: int
+
+
+resource Test:
+    prop_1: BaseRes
+
+
+resource SubResPropOverwite(SubRes):
+    prop_3: str
+
+
+a = BaseRes("a", 1)
+b = SubRes("a", 1, 1)
+c = SubSubRes("a", 1, "a", 1)
+d = SubResPropOverwite("a", 1, "a")
+e = Test(a)
+f = Test(b)
+g = Test(c)
+h = Test(d)

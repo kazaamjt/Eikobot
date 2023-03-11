@@ -7,6 +7,6 @@ c = render_template(b, {"value": "test_value"})
 
 File(
     host=std.Host("127.0.0.1"),
-    path=Path("/home/yaron/eiko_test"),
+    path=Path("/home/eikobot/eiko_test"),
     content="It worked!",
 )

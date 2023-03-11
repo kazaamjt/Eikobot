@@ -3,15 +3,15 @@ Resource and ResourceProperty class definitions.
 Resource is the base building block of the eiko language model.
 """
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Dict, Optional
-
-from pydantic import BaseModel
+from typing import TYPE_CHECKING, Optional, Union
 
 from ...handlers import Handler
-from .._token import Token
-from .base_types import EikoBaseType, EikoObjectType, EikoType
+from .base_types import EikoBaseType, EikoPromise, EikoResource, EikoType
 
 if TYPE_CHECKING:
+    from .._parser import ResourceDefinitionAST
+    from .._token import Token
+    from .base_model import EikoBaseModel
     from .function import ConstructorDefinition
 
 
@@ -27,34 +27,61 @@ class ResourceProperty:
     default_value: Optional[EikoBaseType] = None
 
 
+@dataclass
+class EikoPromiseDefinition:
+    """
+    Internal representation of a promise constructor.
+    """
+
+    name: str
+    type: EikoType
+
+    def execute(self, callee_token: "Token", parent: EikoResource) -> EikoPromise:
+        return EikoPromise(
+            self.name,
+            self.type,
+            callee_token,
+            parent,
+        )
+
+
 EikoResourceDefinitionType = EikoType("ResourceDefinition")
+PropertiesDict = dict[str, Union[ResourceProperty, EikoPromiseDefinition]]
 
 
-class ResourceDefinition(EikoBaseType):
+class EikoResourceDefinition(EikoBaseType):
     """Internal representation of a resource definition."""
 
     def __init__(
         self,
-        name: str,
-        token: Token,
+        expr: "ResourceDefinitionAST",
         default_constructor: "ConstructorDefinition",
-        properties: Dict[str, ResourceProperty],
+        properties: PropertiesDict,
+        promises: list[EikoPromiseDefinition],
     ) -> None:
         super().__init__(EikoResourceDefinitionType)
-        self.token = token
-        self.name = name
-        self.instance_type = EikoType(name, EikoObjectType)
+        self.expr = expr
+        self.name = expr.name
+        self.instance_type: EikoType = expr.type
         self.default_constructor = default_constructor
         self.default_constructor.parent = self
-        self.properties = properties
+        self.properties: PropertiesDict = properties
         self.index_def = [list(properties.keys())[0]]
+        self.promises: list[EikoPromiseDefinition] = promises
         self.handler: Optional[type[Handler]] = None
-        self.linked_basemodel: Optional[type[EikoBaseModel]] = None
+        self.linked_basemodel: Optional[type["EikoBaseModel"]] = None
 
     def printable(self, indent: str = "") -> str:
-        return_str = f"{indent}Resource Definition '{self.name}': " + "{\n"
+        return_str = f"{indent}Resource Definition '{self.name}'"
+        if self.type.super is not None:
+            return_str += f"('{self.type.super.name}')"
+        return_str += ": " + "{\n"
+
         for value in self.properties.values():
-            return_str += f"{indent}    {value.name}: {value.type.name}\n"
+            return_str += indent + "    "
+            if isinstance(value, EikoPromiseDefinition):
+                return_str += "promise "
+            return_str += f"{value.name}: {value.type}\n"
 
         return_str += indent + "}\n"
 
@@ -62,23 +89,3 @@ class ResourceDefinition(EikoBaseType):
 
     def truthiness(self) -> bool:
         raise NotImplementedError
-
-
-class EikoBaseModel(BaseModel):
-    """
-    Used to handily convert eikoclasses to python classes
-    and back.
-    """
-
-    __eiko_resource__: ClassVar[str]
-    __eiko_linked_definition__: ClassVar[ResourceDefinition]
-
-    @classmethod
-    def link(cls, resource_cls: ResourceDefinition) -> None:
-        """Links a resource to a BaseModel."""
-        cls.__eiko_linked_definition__ = resource_cls
-        resource_cls.linked_basemodel = cls
-
-    @classmethod
-    def get_resource_name(cls) -> str:
-        return cls.__eiko_resource__

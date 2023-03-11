@@ -8,7 +8,7 @@ import pytest
 
 from eikobot.core.compiler import Compiler
 from eikobot.core.compiler._parser import Parser
-from eikobot.core.compiler.definitions._resource import ResourceDefinition
+from eikobot.core.compiler.definitions._resource import EikoResourceDefinition
 from eikobot.core.compiler.definitions.base_types import (
     EikoInt,
     EikoNone,
@@ -163,9 +163,9 @@ def test_custom_constructor(eiko_constructor_file: Path) -> None:
     compiler.compile(eiko_constructor_file)
 
     res_def = compiler.context.get("ConstructorTestResource")
-    assert isinstance(res_def, ResourceDefinition)
+    assert isinstance(res_def, EikoResourceDefinition)
 
-    var_a = var_a = compiler.context.get("a")
+    var_a = compiler.context.get("a")
     assert isinstance(var_a, EikoResource)
 
     prop_1 = var_a.get("prop_1")
@@ -179,3 +179,98 @@ def test_custom_constructor(eiko_constructor_file: Path) -> None:
     prop_3 = var_a.get("prop_3")
     assert isinstance(prop_3, EikoStr)
     assert prop_3.value == "testtest"
+
+
+def test_inheritance(eiko_inheritance_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_inheritance_file)
+
+    var_a = compiler.context.get("a")
+    assert isinstance(var_a, EikoResource)
+    assert var_a.type.name == "BaseRes"
+    assert var_a.to_py() == {
+        "__depends_on__": [],
+        "prop_1": "a",
+        "prop_2": 1,
+    }
+
+    var_b = compiler.context.get("b")
+    assert isinstance(var_b, EikoResource)
+    assert var_b.type.name == "SubRes"
+    assert var_b.type.super is not None
+    assert var_b.type.super.name == "BaseRes"
+    assert var_b.to_py() == {
+        "__depends_on__": [],
+        "prop_1": "a",
+        "prop_2": 1,
+        "prop_3": 1,
+    }
+
+    var_c = compiler.context.get("c")
+    assert isinstance(var_c, EikoResource)
+    assert var_c.type.name == "SubSubRes"
+    assert var_c.type.super is not None
+    assert var_c.type.super.name == "SubRes"
+    assert var_c.type.super.super is not None
+    assert var_c.type.super.super.name == "BaseRes"
+    assert var_c.to_py() == {
+        "__depends_on__": [],
+        "prop_1": "a",
+        "prop_2": 1,
+        "prop_3": "a",
+        "prop_4": 1,
+    }
+
+    var_d = compiler.context.get("d")
+    assert isinstance(var_d, EikoResource)
+    assert var_d.type.name == "SubResPropOverwite"
+    assert var_d.type.super is not None
+    assert var_d.type.super.name == "SubRes"
+    assert var_d.type.super.super is not None
+    assert var_d.type.super.super.name == "BaseRes"
+    assert var_d.to_py() == {
+        "__depends_on__": [],
+        "prop_1": "a",
+        "prop_2": 1,
+        "prop_3": "a",
+    }
+
+    var_e = compiler.context.get("e")
+    assert isinstance(var_e, EikoResource)
+    assert var_e.type.name == "Test"
+    assert var_e.type.super is not None
+    assert var_e.type.super.name == "Object"
+    assert var_e.to_py() == {
+        "__depends_on__": [],
+        "prop_1": var_a.to_py(),
+    }
+
+    var_f = compiler.context.get("f")
+    assert isinstance(var_f, EikoResource)
+    assert var_f.type.name == "Test"
+    assert var_f.type.super is not None
+    assert var_f.type.super.name == "Object"
+    assert var_f.to_py() == {
+        "__depends_on__": [],
+        "prop_1": var_b.to_py(),
+    }
+
+    var_g = compiler.context.get("g")
+    assert isinstance(var_g, EikoResource)
+    assert var_g.type.name == "Test"
+    assert var_g.type.super is not None
+    assert var_g.type.super.name == "Object"
+    assert var_g.to_py() == {
+        "__depends_on__": [],
+        "prop_1": var_c.to_py(),
+    }
+
+    var_h = compiler.context.get("h")
+    assert isinstance(var_h, EikoResource)
+    assert var_h.type.name == "Test"
+    assert var_h.type.super is not None
+    assert var_h.type.super.name == "Object"
+    assert var_h.to_py() == {
+        "__depends_on__": [],
+        "prop_1": var_d.to_py(),
+    }

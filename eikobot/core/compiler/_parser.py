@@ -20,7 +20,11 @@ from ..errors import (
 )
 from ._token import Token, TokenType, token_to_char
 from .decorator import EikoDecorator
-from .definitions._resource import ResourceDefinition, ResourceProperty
+from .definitions._resource import (
+    EikoPromiseDefinition,
+    EikoResourceDefinition,
+    ResourceProperty,
+)
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -35,10 +39,10 @@ from .definitions.base_types import (
     EikoIntType,
     EikoList,
     EikoListType,
-    EikoNone,
     EikoNoneType,
     EikoObjectType,
     EikoOptional,
+    EikoPromise,
     EikoResource,
     EikoStr,
     EikoStrType,
@@ -310,6 +314,18 @@ class BinOpExprAST(ExprAST):
                 token=self.token,
             )
 
+        if isinstance(lhs, EikoPromise):
+            raise EikoCompilationError(
+                "Binary operations cannot be used with promises.",
+                token=self.lhs.token,
+            )
+
+        if isinstance(rhs, EikoPromise):
+            raise EikoCompilationError(
+                "Binary operations cannot be used with promises.",
+                token=self.rhs.token,
+            )
+
         arg_a_matrix = BINOP_MATRIX.get(lhs.type.get_top_level_type().name)
         if arg_a_matrix is None:
             raise EikoCompilationError(
@@ -559,7 +575,7 @@ class DotExprAST(ExprAST):
         self.identifier: str = f"{self.lhs.identifier}.{self.rhs.identifier}"
 
     def compile(
-        self, context: Union[CompilerContext, EikoBaseType, ResourceDefinition]
+        self, context: Union[CompilerContext, EikoBaseType, EikoResourceDefinition]
     ) -> Optional[StorableTypes]:
         if isinstance(context, CompilerContext):
             lhs = self.lhs.compile(context)
@@ -569,7 +585,7 @@ class DotExprAST(ExprAST):
                 token=self.token,
             )
 
-        if isinstance(lhs, (EikoBaseType, ResourceDefinition, CompilerContext)):
+        if isinstance(lhs, (EikoBaseType, EikoResourceDefinition, CompilerContext)):
             return self.rhs.compile(lhs)
 
         raise EikoCompilationError(
@@ -654,10 +670,11 @@ class CallExprAst(ExprAST):
     def __post_init__(self) -> None:
         self.identifier = self.identifier_expr.identifier
 
+    # pylint: disable=too-many-statements
     def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
         eiko_callable = self.identifier_expr.compile(context)
 
-        if isinstance(eiko_callable, ResourceDefinition):
+        if isinstance(eiko_callable, EikoResourceDefinition):
             eiko_callable = eiko_callable.default_constructor
 
         args: list[PassedArg] = []
@@ -750,8 +767,9 @@ class CallExprAst(ExprAST):
                     token=self.args.elements[0].token,
                 )
             try:
-                # Unsure how to fix this mypy error...
-                return eiko_callable.convert(compiled_arg)  # type: ignore
+                if not isinstance(compiled_arg, EikoBuiltinTypes):
+                    raise ValueError
+                return eiko_callable.convert(compiled_arg)
             except ValueError as e:
                 raise EikoCompilationError(
                     f"Value of type '{compiled_arg.type.name}' "
@@ -860,6 +878,32 @@ class ResourcePropertyAST:
 
         self.name = self.token.content
 
+    def compile_type(self, context: CompilerContext) -> EikoType:
+        """
+        Compiles only the type of the expression.
+        """
+        if isinstance(self.expr, VariableExprAST):
+            if self.expr.type_expr is None:
+                raise EikoInternalError(
+                    "Unexpected behaviour in property typing.", token=self.token
+                )
+            return self.expr.type_expr.compile(context)
+
+        if isinstance(self.expr, AssignmentExprAST) and isinstance(
+            self.expr.lhs, VariableExprAST
+        ):
+            if self.expr.lhs.type_expr is not None:
+                return self.expr.lhs.type_expr.compile(context)
+
+            raise EikoCompilationError(
+                "Property expected type expression.",
+                token=self.token,
+            )
+        raise EikoInternalError(
+            "Unexpectedly ran in to issues, please report this on github.",
+            token=self.token,
+        )
+
     def compile(self, context: CompilerContext, res_name: str) -> ResourceProperty:
         """Compile the ResourceProperty to something the ResourceDefinitionAST understands."""
         if isinstance(self.expr, VariableExprAST):
@@ -893,13 +937,15 @@ class ResourcePropertyAST:
 
         if not _type.type_check(default_value.type):
             if _type.inverse_type_check(default_value.type):
-                _typedef = context.get(_type.name)
-                if not isinstance(_typedef, EikoTypeDef):
+                if _type.typedef is None:
                     raise EikoInternalError(
                         "Something went wrong trying to coerce a type to it's typedef.",
                         token=self.expr.token,
                     )
-                default_value = _typedef.execute(default_value, self.expr.rhs.token)
+                default_value = _type.typedef.execute(
+                    default_value,
+                    self.expr.rhs.token,
+                )
             else:
                 raise EikoCompilationError(
                     f"The default value of {res_name}.{self.name} does not fit type described in its type expression.",
@@ -938,6 +984,23 @@ class DecoratorExprAST(ExprAST):
 
 
 @dataclass
+class PromiseExprAST:
+    """
+    Construct represting a parsed EikoPromise.
+    """
+
+    token: Token
+    var: VariableExprAST
+    type_expr: "TypeExprAST"
+
+    def compile(self, context: CompilerContext) -> EikoPromiseDefinition:
+        return EikoPromiseDefinition(
+            self.var.token.content,
+            self.type_expr.compile(context),
+        )
+
+
+@dataclass
 class ResourceDefinitionAST(ExprAST):
     """
     A resource definition represents the resources properties and constructors.
@@ -945,30 +1008,64 @@ class ResourceDefinitionAST(ExprAST):
 
     name: str
     decorators: list[DecoratorExprAST]
-    constructor: Optional["ConstructorExprAST"] = None
+    super_expr: Optional[VariableExprAST]
 
     def __post_init__(self) -> None:
+        self.constructor: Optional["ConstructorExprAST"] = None
         self.type = EikoType(self.name, EikoObjectType)
         self.properties: dict[str, ResourcePropertyAST] = {}
+        self.promises: list[PromiseExprAST] = []
 
     def add_property(self, new_property: ResourcePropertyAST) -> None:
         self.properties[new_property.name] = new_property
 
-    def compile(self, context: CompilerContext) -> ResourceDefinition:
-        properties: dict[str, ResourceProperty] = {}
+    def add_promise(self, promise: PromiseExprAST) -> None:
+        self.promises.append(promise)
+
+    # pylint: disable = too-many-locals
+    def compile(self, context: CompilerContext) -> EikoResourceDefinition:
+        super_res: Optional[EikoResourceDefinition] = None
+        if self.super_expr is not None:
+            compiled_super_expr = self.super_expr.compile(context)
+            if not isinstance(compiled_super_expr, EikoResourceDefinition):
+                raise EikoCompilationError(
+                    "Expected a resource definition to inherit from.",
+                    token=self.super_expr.token,
+                )
+
+            super_res = compiled_super_expr
+            self.type.super = super_res.instance_type
+            new_prop_dict: dict[str, ResourcePropertyAST] = {}
+            for super_property_ast in super_res.expr.properties.values():
+                new_prop = self.properties.get(super_property_ast.name)
+                if new_prop is not None:
+                    new_type = new_prop.compile_type(context)
+                    prev_type = super_property_ast.compile_type(context)
+                    if not prev_type.type_check(new_type):
+                        raise EikoCompilationError(
+                            f"Property '{new_prop.name}' already defined "
+                            f"in super type '{super_res.name}'.",
+                            token=new_prop.token,
+                        )
+                new_prop_dict[super_property_ast.name] = super_property_ast
+            new_prop_dict.update(self.properties)
+            self.properties = new_prop_dict
+
+        arg_properties: dict[str, ResourceProperty] = {}
         for property_ast in self.properties.values():
             prop = property_ast.compile(context, self.name)
-            _prop = properties.get(prop.name)
+            _prop = arg_properties.get(prop.name)
             if _prop is not None:
                 raise EikoCompilationError(
-                    f"Property '{prop.name}' already defined.",
+                    f"Property '{prop.name}' was already defined in class '{self.name}'.",
                     token=property_ast.token,
                 )
-            properties[prop.name] = prop
+            arg_properties[prop.name] = prop
+
         if self.constructor is None:
             default_constructor = ConstructorDefinition("__init__", context)
             default_constructor.add_arg(ConstructorArg("self", self.type))
-            for prop in properties.values():
+            for prop in arg_properties.values():
                 default_constructor.add_arg(
                     ConstructorArg(prop.name, prop.type, prop.default_value)
                 )
@@ -991,8 +1088,25 @@ class ResourceDefinitionAST(ExprAST):
         else:
             default_constructor = self.constructor.compile(context)
 
-        resource_def = ResourceDefinition(
-            self.name, self.token, default_constructor, properties
+        # pylint: disable=unnecessary-comprehension
+        properties: dict[str, Union[EikoPromiseDefinition, ResourceProperty]] = {
+            key: value for key, value in arg_properties.items()
+        }
+        promises: list[EikoPromiseDefinition] = []
+        for promise_ast in self.promises:
+            promise_def = promise_ast.compile(context)
+            prev = properties.get(promise_def.name)
+            if prev is not None:
+                raise EikoCompilationError(
+                    f"Property '{promise_def.name}' was already defined in class '{self.name}'.",
+                    token=promise_ast.token,
+                )
+
+            promises.append(promise_def)
+            properties[promise_def.name] = promise_def
+
+        resource_def = EikoResourceDefinition(
+            self, default_constructor, properties, promises
         )
 
         for decorator in self.decorators:
@@ -1151,6 +1265,7 @@ class FromImportExprAST(ExprAST):
             self.lhs.to_import_traversable_list(import_module)
             self.lhs.to_import_traversable_list(from_import_list)
 
+        # pylint: disable=unnecessary-comprehension
         _full_import_list = [x for x in from_import_list[::-1]]
         _parent: Optional[CompilerContext] = context
         for _ in self.dots:
@@ -1190,7 +1305,8 @@ class FromImportExprAST(ExprAST):
             else:
                 imported_item = _context.get(item.identifier)
                 if isinstance(
-                    imported_item, (EikoBaseType, ResourceDefinition, CompilerContext)
+                    imported_item,
+                    (EikoBaseType, EikoResourceDefinition, CompilerContext),
                 ):
                     context.set(item.identifier, imported_item)
                 elif imported_item is None:
@@ -1300,7 +1416,7 @@ class TypeExprAST(ExprAST):
         if isinstance(primary_type, EikoType):
             return primary_type
 
-        if isinstance(primary_type, ResourceDefinition):
+        if isinstance(primary_type, EikoResourceDefinition):
             return primary_type.instance_type
 
         if isinstance(primary_type, EikoTypeDef):
@@ -1407,17 +1523,7 @@ class DictExprAST(ExprAST):
             if compiled_value.type not in value_types:
                 value_types.append(compiled_value.type)
 
-            _key: Union[EikoBaseType, bool, float, int, str]
-            if isinstance(compiled_key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
-                _key = compiled_key.value
-            elif isinstance(compiled_key, (EikoNone, EikoResource)):
-                _key = compiled_key
-            else:
-                raise EikoCompilationError(
-                    f"Object of type '{compiled_key.type.name}' can not be for keys in dictionairies.",
-                    token=key.token,
-                )
-
+            _key = EikoDict.convert_key(compiled_key, key.token)
             elements[_key] = compiled_value
 
         key_type = type_list_to_type(key_types)
@@ -1807,10 +1913,25 @@ class Parser:
                 token=self._next,
             )
 
-        rd_ast = ResourceDefinitionAST(self._current, self._next.content, decorators)
+        identifier_token = self._next
+        self._advance()
+        self._advance()
 
-        self._advance()
-        self._advance()
+        # Inheritance
+        super_expr: Optional[VariableExprAST] = None
+        if self._current.type == TokenType.LEFT_PAREN:
+            self._advance()
+            super_expr = self._parse_identifier()
+            if self._current.type != TokenType.RIGHT_PAREN:
+                raise EikoParserError(
+                    f"Unexpected token {self._current.content}. Expected ')'.",
+                    token=self._current,
+                )
+            self._advance()
+
+        rd_ast = ResourceDefinitionAST(
+            identifier_token, identifier_token.content, decorators, super_expr
+        )
 
         if self._current.type != TokenType.COLON:
             raise EikoParserError(
@@ -1823,6 +1944,11 @@ class Parser:
             self._advance()
 
         if self._current.content == "":
+            if self._next.type == TokenType.EOF:
+                raise EikoParserError(
+                    "Unexpectedly reached end of file, expected indented code block.",
+                    token=self._previous,
+                )
             raise EikoParserError(
                 f"Unexpected token {self._current.content}, "
                 "expected indented code block.",
@@ -1842,6 +1968,8 @@ class Parser:
                 constructor.return_type = rd_ast.type
             elif self._current.type == TokenType.IDENTIFIER:
                 rd_ast.add_property(self._parse_resource_property())
+            elif self._current.type == TokenType.PROMISE:
+                rd_ast.add_promise(self._parse_promise())
             elif self._current.type == TokenType.INDENT:
                 pass
             else:
@@ -1852,7 +1980,7 @@ class Parser:
 
         if not rd_ast.properties:
             raise EikoSyntaxError(
-                "A resource must have atleast 1 property.",
+                "A resource must have atleast 1 property. (Besides promises.)",
                 index=rd_ast.token.index,
             )
         rd_ast.constructor = constructor
@@ -1932,6 +2060,27 @@ class Parser:
             )
 
         return ConstructorArgExprAST(expr)
+
+    def _parse_promise(self) -> PromiseExprAST:
+        promise_token = self._current
+        self._advance()
+        if not self._current.type == TokenType.IDENTIFIER:
+            raise EikoParserError(
+                "Expected an identifier for promise expression.",
+                token=self._current,
+            )
+
+        var_expr = self._parse_identifier()
+        if self._current.type != TokenType.COLON:
+            raise EikoParserError(
+                "Expected a ':'.",
+                token=self._current,
+            )
+
+        self._advance()
+        type_expr = self._parse_type()
+
+        return PromiseExprAST(promise_token, var_expr, type_expr)
 
     def _parse_import(self) -> ImportExprAST:
         token = self._current

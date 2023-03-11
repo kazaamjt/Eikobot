@@ -5,7 +5,7 @@
 from pathlib import Path
 
 from eikobot.core.compiler import Compiler
-from eikobot.core.compiler.definitions._resource import ResourceDefinition
+from eikobot.core.compiler.definitions._resource import EikoResourceDefinition
 from eikobot.core.compiler.definitions.base_types import EikoResource
 from eikobot.core.compiler.definitions.context import CompilerContext
 from eikobot.core.compiler.definitions.function import PluginDefinition
@@ -61,7 +61,7 @@ def test_multi_import(eiko_multi_import_file: Path) -> None:
     assert isinstance(file, CompilerContext)
 
     file_definition = compiler.context.get("File")
-    assert isinstance(file_definition, ResourceDefinition)
+    assert isinstance(file_definition, EikoResourceDefinition)
 
     read_file = compiler.context.get("read_file")
     assert isinstance(read_file, PluginDefinition)

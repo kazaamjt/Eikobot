@@ -1,0 +1,10 @@
+resource PromiseTest_1:
+    prop_1: str
+    promise prop_2: str
+
+resource PromiseTest_2:
+    prop_1: str
+    prop_2: str
+
+test_1 = PromiseTest_1("127.0.0.1")
+test_2 = PromiseTest_2(test_1.prop_1, test_1.prop_2)

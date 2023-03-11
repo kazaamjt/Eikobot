@@ -8,6 +8,7 @@ import pytest
 
 from eikobot.core.compiler import Compiler
 from eikobot.core.compiler.definitions.base_types import EikoStr
+from eikobot.core.deployer import Deployer
 from eikobot.core.errors import EikoCompilationError
 
 
@@ -54,3 +55,23 @@ def test_bad_v6_addr(tmp_eiko_file: Path, param_input: str) -> None:
 
     with pytest.raises(EikoCompilationError):
         Compiler().compile(tmp_eiko_file)
+
+
+@pytest.mark.asyncio
+async def test_cmd_deploy(tmp_eiko_file: Path) -> None:
+    file_path = tmp_eiko_file.parent / "test_std_file_deploy"
+    model = f"""
+from std import Host, Cmd
+
+Cmd(
+    Host("127.0.0.1"),
+    "touch /{file_path}",
+)
+"""
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write(model)
+
+    deployer = Deployer()
+    await deployer.deploy_from_file(tmp_eiko_file)
+
+    assert file_path.exists()
