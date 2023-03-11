@@ -20,7 +20,7 @@ Some of it's notable features are:
 - sees the infrastructure as a tree of resources, rather than a flatland
 - completely stateless*
 
-The quickest way to get started is probably by doing some of the [quickstarts](https://github.com/kazaamjt/Eikobot/blob/main/docs/quickstart.md).  
+The quickest way to get started is probably by doing some of the [quickstarts](https://github.com/kazaamjt/Eikobot/blob/main/docs/quickstarts.md).  
 For a more complete idea of how the language works,
 please see the [language overview](https://github.com/kazaamjt/Eikobot/blob/main/docs/language_overview.md).  
 
@@ -28,8 +28,7 @@ please see the [language overview](https://github.com/kazaamjt/Eikobot/blob/main
 
 ## Installation
 
-Eikobot requires python 3.10 or up and has 3 external dependencies that can be installed using pip.  
-In fact, Eikobot can be installed using pip as well.  
+Eikobot requires python 3.10 or up and can be installed using pip.  
 
 Here is an example of how to install Eikobot:  
 (This should work on most platforms, although the python command is different if you are on windows)

@@ -10,7 +10,7 @@ this_directory = Path(__file__).parent
 with open(this_directory / "README.md", encoding="utf-8") as f:
     long_description = f.read()
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 REQUIRES = [
     "asyncssh==2.13.1",
     "click==8.1.3",
