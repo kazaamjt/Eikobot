@@ -1,0 +1,5 @@
+import std
+
+resource DockerHost:
+    host: std.Host
+    port: std.Port = 2375

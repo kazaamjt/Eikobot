@@ -1,0 +1,10 @@
+from std import Host
+
+from docker import DockerHost
+
+docker_1 = DockerHost(
+    Host(
+        "192.168.123.123",
+        password=std.get_pass("sudo password: "),
+    )
+)

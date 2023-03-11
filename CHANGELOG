@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 0.4.0
+
+- Added inheritance for `resource` definitions (inherits properties, not constructors)
+- Added a quickstart and expanded the tutorial
+- Added `std.get_pass` and protected strings (strings that are not printed to the console)
+- Added `Promise`. A class that allows for data to be filled in during deployment
+- Added plugin type conversion for python lists and dicts to eiko lists and dicts
+- Expanded `std.Host` with execution of SSH based commands
+- Removed automatic resolution of `Path` and instead pass it unresolved
+- Updated dependencies
+- Fixed a bug where the total number of tasks was not correctly calculated
+- Fixed a bug where a task could depend on antother task more than once and would thus stall forever
+- Added helper method `failed` to `std.CMDResult`
+- Fixed a bug for coercing types when importing a typedef
+- Added `std.env.secrets_file`, a plugin that takes a file and parses it in to secrets (like env vars)
+- Added `Path.parent` property
+- Use `asyncssh` library instead of `create_subprocess_exec` (Fixes various cross platform terminal issues)
+- Allow setting of promises in the model
+
 ## 0.3.0
 
 - Fixed a bug where a comment at the end of a file gets the compiler stuck
@@ -26,6 +45,7 @@ deploy and maintain a resource
 - Expose the python `std` module as `eikobot.core.std`
 - Added type coersion for default values of resource properties (like in the constructor)
 - Added caching of imports
+- Add dot expressions for indexes
 
 ## 0.2.0
 

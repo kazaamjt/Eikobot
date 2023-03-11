@@ -24,6 +24,7 @@ KEYWORDS = {
     "and": TokenType.AND,
     "or": TokenType.OR,
     "def": TokenType.DEF,
+    "promise": TokenType.PROMISE,
 }
 
 SPECIAL_CHARS = {

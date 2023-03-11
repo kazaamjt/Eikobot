@@ -2,9 +2,10 @@
 Handlers are a way to describe to Eikobot how something should be deployed.
 """
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 from . import logger
+from .compiler.definitions.base_model import BaseModel
 from .compiler.definitions.base_types import EikoResource
 
 
@@ -15,23 +16,40 @@ class HandlerContext:
     raw_resource: EikoResource
 
     def __post_init__(self) -> None:
-        self.resource = self.raw_resource.to_py()
+        self.resource: Union[dict, BaseModel]
         self.changes: dict[str, Any] = {}
         self.deployed = False
         self.updated = False
         self.failed = False
+        self.promises = self.raw_resource.promises
+        self.name = self.raw_resource.index()
 
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value
+
+    def debug(self, msg: str) -> None:
+        logger.debug(msg, pre=f"[{self.name}] ")
+
+    def info(self, msg: str) -> None:
+        logger.info(msg, pre=f"[{self.name}] ")
+
+    def warning(self, msg: str) -> None:
+        logger.warning(msg, pre=f"[{self.name}] ")
+
+    def error(self, msg: str) -> None:
+        logger.error(msg, pre=f"[{self.name}] ")
 
 
 class Handler:
     """A handler implements methods for a resource to be managed."""
 
-    resource: str
+    __eiko_resource__: str
 
     async def execute(self, ctx: HandlerContext) -> None:
         raise NotImplementedError
+
+    async def resolve_promises(self, ctx: HandlerContext) -> None:
+        pass
 
 
 class EikoCRUDHanlderMethodNotImplemented(Exception):
@@ -39,64 +57,6 @@ class EikoCRUDHanlderMethodNotImplemented(Exception):
 
 
 class CRUDHandler(Handler):
-    """
-    A CRUD resource handler implements python code that handles
-    the deployment and updating of resources in python code.
-    This handler is blocking. It is highly recommended to use
-    the non blocking AsyncCrudHandler instead.
-    """
-
-    async def execute(self, ctx: HandlerContext) -> None:
-        ctx.failed = False
-        try:
-            logger.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
-            self.read(ctx)
-        except EikoCRUDHanlderMethodNotImplemented:
-            pass
-
-        if not ctx.deployed:
-            try:
-                logger.debug(f"Deploying resource '{ctx.raw_resource.index()}'.")
-                self.create(ctx)
-            except EikoCRUDHanlderMethodNotImplemented:
-                logger.error(
-                    "Tried to deploy resource, but the handler does not have a create method."
-                )
-                return
-        else:
-            logger.debug(f"Resource '{ctx.raw_resource.index()}' exists.")
-            if ctx.changes:
-                try:
-                    ctx.deployed = False
-                    logger.debug(f"Updating resource '{ctx.raw_resource.index()}'.")
-                    self.update(ctx)
-                except EikoCRUDHanlderMethodNotImplemented:
-                    logger.warning(
-                        "Read returned changes for handler without update method."
-                    )
-            else:
-                logger.debug(
-                    f"Resource '{ctx.raw_resource.index()}' is in its desired state."
-                )
-
-        if not ctx.deployed:
-            ctx.failed = True
-            logger.error(f"Failed to deploy resource '{ctx.raw_resource.index()}'.")
-
-    def create(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-    def read(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-    def update(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-    def delete(self, ctx: HandlerContext) -> None:
-        raise EikoCRUDHanlderMethodNotImplemented
-
-
-class AsyncCRUDHandler(Handler):
     """
     An async crud resource handler is like a CRUDHandler,
     but it's methods are async.

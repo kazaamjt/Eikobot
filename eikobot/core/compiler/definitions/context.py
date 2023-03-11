@@ -12,8 +12,10 @@ from ...handlers import Handler
 from .._token import Token
 from ..decorator import index_decorator
 from ..importlib import import_python_code
-from ._resource import EikoBaseModel, ResourceDefinition
+from ._resource import EikoResourceDefinition
+from .base_model import EikoBaseModel
 from .base_types import (
+    BuiltinTypes,
     EikoBaseType,
     EikoBool,
     EikoDictType,
@@ -34,7 +36,7 @@ if TYPE_CHECKING:
     from .._parser import Parser
 
 _StorableTypes = Union[
-    EikoBaseType, ResourceDefinition, Type[EikoBaseType], EikoType, Type[EikoType]
+    EikoBaseType, EikoResourceDefinition, Type[EikoBaseType], EikoType, Type[EikoType]
 ]
 _builtins: dict[str, _StorableTypes] = {
     "int": EikoInt,
@@ -81,6 +83,7 @@ class CompilerContext:
     Used both by files/modules and functions.
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         name: str,
@@ -117,6 +120,10 @@ class CompilerContext:
         else:
             self.global_id_list = []
 
+    @classmethod
+    def convert(cls, _: "BuiltinTypes") -> "EikoBaseType":
+        raise ValueError
+
     def flag_as_compiled(self) -> None:
         self.compiled = True
 
@@ -132,7 +139,7 @@ class CompilerContext:
                 return_str += value.__repr__(extra_indent)
             elif isinstance(value, LazyLoadModule):
                 pass
-            elif isinstance(value, ResourceDefinition):
+            elif isinstance(value, EikoResourceDefinition):
                 return_str += value.printable(extra_indent)
             elif isinstance(value, EikoBaseType):
                 extra_extra_indent = extra_indent + "    "
@@ -252,14 +259,21 @@ class CompilerContext:
 
     def register_handler(self, handler: Type[Handler]) -> None:
         """Adds a handler to the context for later retrieval."""
-        prev_handler = self.handlers.get(handler.resource)
+        try:
+            prev_handler = self.handlers.get(handler.__eiko_resource__)
+        except AttributeError as e:
+            raise EikoCompilationError(
+                f"Handler '{handler.__name__}' requires an `__eiko_resource__` field "
+                "to link to its resource."
+            ) from e
+
         if prev_handler is not None:
             raise EikoCompilationError(
-                f"A handler for resource type '{handler.resource}' was already registered."
+                f"A handler for resource type '{handler.__eiko_resource__}' was already registered."
             )
 
-        self.handlers[handler.resource] = handler
-        self._connect_handler(handler.resource)
+        self.handlers[handler.__eiko_resource__] = handler
+        self._connect_handler(handler.__eiko_resource__)
 
     def _connect_handler(self, name: str) -> None:
         handler = self.handlers.get(name)
@@ -270,7 +284,7 @@ class CompilerContext:
         if resource is None:
             return
 
-        if not isinstance(resource, ResourceDefinition):
+        if not isinstance(resource, EikoResourceDefinition):
             raise EikoCompilationError(
                 f"Tried to connect a handler to '{name}', which is not a resource definition."
             )
@@ -315,7 +329,7 @@ class CompilerContext:
         if resource_cls is None:
             return
 
-        if not isinstance(resource_cls, ResourceDefinition):
+        if not isinstance(resource_cls, EikoResourceDefinition):
             raise EikoCompilationError(
                 f"Tried to connect a Python model to '{name}', which is not a resource definition."
             )

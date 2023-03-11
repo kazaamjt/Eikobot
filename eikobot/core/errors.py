@@ -79,3 +79,15 @@ class EikoPluginError(EikoError):
     ) -> None:
         super().__init__("PluginError: " + reason, *args, token=token)
         self.python_exception = python_exception
+
+
+class EikoExportError(EikoError):
+    """
+    Something went wrong inside the compiler,
+    most likely caused by a bug and not the user.
+    """
+
+    def __init__(
+        self, reason: str, *args: object, token: Optional[Token] = None
+    ) -> None:
+        super().__init__("ExportError: " + reason, *args, token=token)

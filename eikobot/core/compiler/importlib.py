@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING, Optional
 
 from .. import logger
 from ..errors import EikoCompilationError
-from ..handlers import AsyncCRUDHandler, CRUDHandler, Handler
+from ..handlers import CRUDHandler, Handler
 from ._token import Token
-from .definitions._resource import EikoBaseModel
+from .definitions.base_model import EikoBaseModel
 from .definitions.function import PluginArg, PluginDefinition
 
 if TYPE_CHECKING:
@@ -174,7 +174,6 @@ def import_python_code(
             if isclass(_obj):
                 if issubclass(_obj, Handler) and _obj not in (
                     Handler,
-                    AsyncCRUDHandler,
                     CRUDHandler,
                 ):
                     logger.debug(
@@ -185,8 +184,8 @@ def import_python_code(
                     issubclass(_obj, EikoBaseModel)
                     and _obj is not EikoBaseModel
                     and (
-                        _obj.__module__ == module_name
-                        or _obj.__module__ == "eikobot.core.lib." + module_name
+                        _obj.__module__
+                        in (module_name, "eikobot.core.lib." + module_name)
                     )
                 ):
                     logger.debug(

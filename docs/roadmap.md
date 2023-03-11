@@ -2,6 +2,9 @@
 
 ## Phase 1
 
+Phase 1 is all about the MVP.  
+Writing the basic tutorials and quickstarts.  
+
 ### Compiler
 
 Features and bug fixes:
@@ -21,9 +24,9 @@ Features and bug fixes:
 - [x] add a `None` type
 - [x] add `Optional`, allowing for something to be either None or some other type.
 - [x] allow for NotSet
-- [x] add a `Union` type
-- [x] add a `List` type
-- [x] add a `Dict` type
+- [x] add a `union` type
+- [x] add a `list` type
+- [x] add a `dict` type
 - [x] automatic/lazy sub imports
 - [x] add decorators
 - [x] indexes used to track items
@@ -32,11 +35,14 @@ Features and bug fixes:
 - [x] link handlers to resources
 - [x] custom constructors
 - [x] add relative imports
-- [ ] implement `isinstance`
-- [ ] inheritance for `resource`
+- [ ] add `isinstance`
+- [x] inheritance for `resource`
+- [x] add protected strings (strings that will not be printed)
 - [ ] add `Tuple` data type and automatic unpacking of tuples
 - [ ] add `for` keyword, to loop over lists, dicts and tuples
 - [ ] expand type system to take module in to account when resolving types
+- [ ] add `enum`
+- [x] add `promise` (A piece of data that will be filled in during the deploy step)
 
 Code cleanup:
 
@@ -51,13 +57,23 @@ Code cleanup:
 - [x] File module
 - [x] Templates using jinja
 - [x] add `Host`, a resource that represents a machine.
-- [x] add `std.ssh.Command`. Runs a command on a machine.
+- [x] ~~add `std.ssh.Command`. Runs a command on a machine.~~ (Replaced by `std.Cmd`)
 - [x] add `File` and `FileHandler`
+- [x] add `std.get_pass`
+- [x] add `HostModel.execute` and `HostModel.execute_sudo` to execute commands
+- [x] add `std.Cmd`, a single command that executes on a given remote host
+- [ ] add `std.Script`, a collection of commands that are executed on a remote host
 
 ### Engine
 
-- [x] add `CRUDHandlers` and `HandlerContext`, that reflect how a resource is deployed
+- [x] add `Handler`, `CRUDHandler` and `HandlerContext`, that reflect how a resource is deployed
 - [x] add exporter, that generates tasks and links these tasks to each other correctly
 - [x] add deployer that takes tasks and executes them
 - [x] add linked pydantic classes
-- [ ] add logging to HandlerContext
+- [x] add logging to HandlerContext
+- [ ] add dry run to `deploy`
+
+## Phase 2: Packages
+
+Phase 2 is all about allowing reuse of code and such.  
+The initial idea is to use GIT.  
