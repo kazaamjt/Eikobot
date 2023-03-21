@@ -9,23 +9,25 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Generic,
     Iterator,
     Optional,
     Type,
+    TypeVar,
     Union,
 )
 
 from pydantic import BaseModel, ValidationError
 
-from ...errors import EikoCompilationError, EikoInternalError
+from ...errors import EikoCompilationError, EikoError, EikoInternalError
 from .._token import Token
 
 if TYPE_CHECKING:
+    from ...handlers import HandlerContext
     from ._resource import EikoResourceDefinition
     from .base_model import EikoBaseModel
     from .context import StorableTypes
     from .typedef import EikoTypeDef
-    from ...handlers import HandlerContext
 
 
 class EikoType:
@@ -447,7 +449,10 @@ class EikoPath(EikoBaseType):
         return self.value
 
 
-class EikoPromise(EikoBaseType):
+T = TypeVar("T")
+
+
+class EikoPromise(EikoBaseType, Generic[T]):
     """
     A promise is a piece of information that
     Eikobot might not be able to retrieve at compile time.
@@ -523,7 +528,7 @@ class EikoPromise(EikoBaseType):
         if self.value is None:
             raise EikoCompilationError(
                 "An unfulfilled Promise cannot be checked for truthiness, "
-                "as its value does not yet exist at compile time."
+                "as its value does not yet exist."
             )
 
         return self.value.truthiness()
@@ -534,8 +539,28 @@ class EikoPromise(EikoBaseType):
     def index(self) -> str:
         return f"promise-{self.parent.index()}.{self.name}"
 
-    def to_py(self) -> "EikoPromise":
+    def to_py(self) -> "EikoPromise[T]":
         return self
+
+    def resolve(self, expect: Type[T]) -> T:
+        """
+        Gets the value of a promise if it exists.
+        Raises EikoError if the promise has no value.
+        The expect param allows for runtime type checking.
+        """
+        if self.value is None:
+            raise EikoError("Unresolved Promise was accessed.")
+
+        value = self.value.to_py()
+        if isinstance(value, EikoPromise):
+            value = value.resolve(expect)
+
+        if not isinstance(value, expect):
+            raise EikoError(
+                f"Promise value is of type '{type(value)}', but user expected type '{expect}'."
+            )
+
+        return value
 
 
 BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone]
@@ -608,6 +633,7 @@ class EikoResource(EikoBaseType):
 
         elif isinstance(prop, EikoPromise):
             prop.assign(value, token)
+            return
 
         elif prop is not None:
             raise EikoCompilationError(
@@ -644,9 +670,16 @@ class EikoResource(EikoBaseType):
     def to_py(self) -> Union[BaseModel, dict]:
         if self._py_object is not None:
             return self._py_object
+
         new_dict: dict[str, Union[PyTypes, EikoPromise]] = {}
         for name, value in self.properties.items():
-            new_dict[name] = value.to_py()
+            if name in ["__depends_on__"]:
+                continue
+            new_value = value.to_py()
+            if isinstance(new_value, EikoPromise):
+                if new_value.name not in self.promises:
+                    new_value = new_value.resolve(object)
+            new_dict[name] = new_value
 
         if self.class_ref.linked_basemodel is not None:
             try:
