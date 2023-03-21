@@ -108,18 +108,18 @@ class FileHandler(CRUDHandler):
             return
 
         if ctx.resource.requires_sudo:
-            ssh_exec = ctx.resource.host.execute_sudo
             sudo = "sudo "
         else:
-            ssh_exec = ctx.resource.host.execute
             sudo = ""
 
-        result = await ssh_exec(f"{sudo}mkdir -p {ctx.resource.path.parent}", ctx)
+        result = await ctx.resource.host.execute(
+            f"{sudo}mkdir -p {ctx.resource.path.parent}", ctx
+        )
         if result.returncode != 0:
             ctx.failed = True
             return
 
-        result = await ssh_exec(
+        result = await ctx.resource.host.execute(
             f'echo -n "{ctx.resource.content}" | {sudo}tee {ctx.resource.path}',
             ctx,
         )
@@ -127,7 +127,7 @@ class FileHandler(CRUDHandler):
             ctx.failed = True
             return
 
-        result = await ssh_exec(
+        result = await ctx.resource.host.execute(
             f"{sudo}chmod {ctx.resource.mode} " f"{ctx.resource.path}",
             ctx,
         )
@@ -136,7 +136,7 @@ class FileHandler(CRUDHandler):
             return
 
         if ctx.resource.owner is not None:
-            result = await ssh_exec(
+            result = await ctx.resource.host.execute(
                 f"{sudo}chown {ctx.resource.owner} {ctx.resource.path}",
                 ctx,
             )
@@ -145,7 +145,7 @@ class FileHandler(CRUDHandler):
                 return
 
         if ctx.resource.group is not None:
-            result = await ssh_exec(
+            result = await ctx.resource.host.execute(
                 f"{sudo}chgrp {ctx.resource.group} {ctx.resource.path}",
                 ctx,
             )
@@ -161,22 +161,24 @@ class FileHandler(CRUDHandler):
             return
 
         if ctx.resource.requires_sudo:
-            ssh_exec = ctx.resource.host.execute_sudo
             sudo = "sudo "
         else:
-            ssh_exec = ctx.resource.host.execute
             sudo = ""
 
-        cat_result = await ssh_exec(f"{sudo}cat {ctx.resource.path}", ctx)
+        cat_result = await ctx.resource.host.execute(
+            f"{sudo}cat {ctx.resource.path}", ctx
+        )
         if cat_result.returncode == 0:
             ctx.deployed = True
-            if cat_result.stdout != ctx.resource.content:
-                ctx.add_change("content", cat_result.stdout)
+            if cat_result.output != ctx.resource.content:
+                ctx.add_change("content", cat_result.output)
 
-            ls_result = await ssh_exec(f"{sudo}ls -l {ctx.resource.path}", ctx)
+            ls_result = await ctx.resource.host.execute(
+                f"{sudo}ls -l {ctx.resource.path}", ctx
+            )
             if ls_result.returncode == 0:
-                if isinstance(ls_result.stdout, str):
-                    ls_parsed = ls_result.stdout.split(" ")
+                if isinstance(ls_result.output, str):
+                    ls_parsed = ls_result.output.split(" ")
                     if parse_rwx_mode(ls_parsed[0]) != ctx.resource.mode:
                         ctx.add_change("mode", parse_rwx_mode(ls_parsed[0]))
                     if (
@@ -198,46 +200,40 @@ class FileHandler(CRUDHandler):
             return
 
         if ctx.resource.requires_sudo:
-            ssh_exec = ctx.resource.host.execute_sudo
             sudo = "sudo "
         else:
-            ssh_exec = ctx.resource.host.execute
             sudo = ""
 
         if ctx.changes.get("content") is not None:
-            result = await ssh_exec(
+            result = await ctx.resource.host.execute(
                 f'echo -n "{ctx.resource.content}" | {sudo}tee {ctx.resource.path}',
                 ctx,
             )
-            if result.returncode != 0:
-                ctx.failed = True
+            if result.failed():
                 return
 
         if ctx.changes.get("mode") is not None:
-            result = await ssh_exec(
+            result = await ctx.resource.host.execute(
                 f"{sudo}chmod {ctx.resource.mode} " f"{ctx.resource.path}",
                 ctx,
             )
-            if result.returncode != 0:
-                ctx.failed = True
+            if result.failed():
                 return
 
         if ctx.changes.get("owner") is not None:
-            result = await ssh_exec(
+            result = await ctx.resource.host.execute(
                 f"{sudo}chown {ctx.resource.owner} {ctx.resource.path}",
                 ctx,
             )
-            if result.returncode != 0:
-                ctx.failed = True
+            if result.failed():
                 return
 
         if ctx.changes.get("group") is not None:
-            result = await ssh_exec(
+            result = await ctx.resource.host.execute(
                 f"{sudo}chgrp {ctx.resource.group} {ctx.resource.path}",
                 ctx,
             )
-            if result.returncode != 0:
-                ctx.failed = True
+            if result.failed():
                 return
 
         ctx.deployed = True

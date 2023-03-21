@@ -41,8 +41,8 @@ class PromiseTestHandler2(Handler):
     async def execute(self, ctx: HandlerContext) -> None:
         ctx.deployed = True
         if not isinstance(ctx.resource, PromiseTest2):
-            raise Exception
+            raise  # pylint: disable=misplaced-bare-raise
         if isinstance(ctx.resource.prop_2, EikoPromise):
-            raise Exception
-        if isinstance(ctx.raw_resource.properties.get("prop_2"), EikoPromise):
-            raise Exception
+            raise  # pylint: disable=misplaced-bare-raise
+        if not isinstance(ctx.raw_resource.properties.get("prop_2"), EikoPromise):
+            raise  # pylint: disable=misplaced-bare-raise

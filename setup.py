@@ -12,6 +12,7 @@ with open(this_directory / "README.md", encoding="utf-8") as f:
 
 VERSION = "0.5.0"
 REQUIRES = [
+    "toml-0.10.2",
     "asyncssh==2.13.1",
     "click==8.1.3",
     "colorama==0.4.6",
@@ -32,9 +33,14 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+        "Topic :: System :: Systems Administration",
+        "Topic :: Utilities",
+        "Intended Audience :: System Administrators",
+        "Development Status :: 3 - Alpha",
+        "Environment :: Console",
     ],
     packages=setuptools.find_packages(),
-    package_data={"": ["**/*.eiko", "**/*.py", "requirements.xt"]},
+    package_data={"": ["**/*.eiko", "**/*.py"]},
     include_package_data=True,
     python_requires=">=3.10",
     install_requires=REQUIRES,

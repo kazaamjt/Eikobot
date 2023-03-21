@@ -189,7 +189,6 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert isinstance(var_a, EikoResource)
     assert var_a.type.name == "BaseRes"
     assert var_a.to_py() == {
-        "__depends_on__": [],
         "prop_1": "a",
         "prop_2": 1,
     }
@@ -200,7 +199,6 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_b.type.super is not None
     assert var_b.type.super.name == "BaseRes"
     assert var_b.to_py() == {
-        "__depends_on__": [],
         "prop_1": "a",
         "prop_2": 1,
         "prop_3": 1,
@@ -214,7 +212,6 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_c.type.super.super is not None
     assert var_c.type.super.super.name == "BaseRes"
     assert var_c.to_py() == {
-        "__depends_on__": [],
         "prop_1": "a",
         "prop_2": 1,
         "prop_3": "a",
@@ -229,7 +226,6 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_d.type.super.super is not None
     assert var_d.type.super.super.name == "BaseRes"
     assert var_d.to_py() == {
-        "__depends_on__": [],
         "prop_1": "a",
         "prop_2": 1,
         "prop_3": "a",
@@ -241,7 +237,6 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_e.type.super is not None
     assert var_e.type.super.name == "Object"
     assert var_e.to_py() == {
-        "__depends_on__": [],
         "prop_1": var_a.to_py(),
     }
 
@@ -251,7 +246,6 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_f.type.super is not None
     assert var_f.type.super.name == "Object"
     assert var_f.to_py() == {
-        "__depends_on__": [],
         "prop_1": var_b.to_py(),
     }
 
@@ -261,7 +255,6 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_g.type.super is not None
     assert var_g.type.super.name == "Object"
     assert var_g.to_py() == {
-        "__depends_on__": [],
         "prop_1": var_c.to_py(),
     }
 
@@ -271,6 +264,5 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_h.type.super is not None
     assert var_h.type.super.name == "Object"
     assert var_h.to_py() == {
-        "__depends_on__": [],
         "prop_1": var_d.to_py(),
     }

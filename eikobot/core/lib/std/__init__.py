@@ -5,6 +5,7 @@ plugins and resources.
 import asyncio
 import getpass
 import os
+import subprocess
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Optional, Type, Union
@@ -15,7 +16,12 @@ from colorama import Fore
 from pydantic import Extra
 
 from eikobot.core.handlers import Handler, HandlerContext
-from eikobot.core.helpers import EikoBaseModel, EikoBaseType, EikoProtectedStr
+from eikobot.core.helpers import (
+    EikoBaseModel,
+    EikoBaseType,
+    EikoPromise,
+    EikoProtectedStr,
+)
 from eikobot.core.plugin import eiko_plugin
 
 
@@ -59,8 +65,7 @@ class CmdResult:
 
     cmd: str
     returncode: int
-    stdout: str
-    stderr: str
+    output: str
     ctx: HandlerContext
 
     def failed(self) -> bool:
@@ -71,7 +76,7 @@ class CmdResult:
         if self.returncode != 0:
             self.ctx.failed = True
             self.ctx.error("Failed to execute " + f'"{self.cmd}"')
-            self.ctx.error(f"log:\n{self.stderr}")
+            self.ctx.error(f"log:\n{self.output}")
             return True
 
         return False
@@ -92,6 +97,10 @@ class HostModel(EikoBaseModel):
     ssh_requires_pass: bool = False
     sudo_requires_pass: bool = True
 
+    os_platform: EikoPromise
+    os_name: EikoPromise
+    os_version: EikoPromise
+
     class Config:
         arbitrary_types_allowed = True
         extra = Extra.allow
@@ -101,6 +110,7 @@ class HostModel(EikoBaseModel):
         self._con_ref_count: int = 0
         self._connected: asyncio.Event = asyncio.Event()
         self._disconnect_tasks: list[asyncio.Task] = []
+        self._ssh_lock = asyncio.Lock()
 
     async def _connect(self, ctx: HandlerContext) -> None:
         self._con_ref_count += 1
@@ -146,7 +156,16 @@ class HostModel(EikoBaseModel):
     async def wait_until_disconnected(self) -> None:
         await asyncio.gather(*self._disconnect_tasks)
 
-    async def execute(
+    async def execute(self, cmd: str, ctx: HandlerContext) -> CmdResult:
+        """Executes one or more commands in an ssh session."""
+        if "sudo " in cmd:
+            ssh_exec = self._execute_sudo
+        else:
+            ssh_exec = self._execute
+
+        return await ssh_exec(cmd, ctx)
+
+    async def _execute(
         self,
         cmd: str,
         ctx: HandlerContext,
@@ -161,8 +180,21 @@ class HostModel(EikoBaseModel):
         ctx.debug("Execute: " + original_command)
         cmd_str = 'HISTIGNORE="*" ' + cmd
 
-        await self._connect(ctx)
-        process = await self._connection.run(cmd_str, term_type="xterm-color")
+        try:
+            await self._connect(ctx)
+        except OSError:
+            return CmdResult(
+                original_command, 1, "SSH: Failed to connect to host.", ctx
+            )
+
+        # Not sure this lock is always required,
+        # but some devices might not like multiple channels.
+        async with self._ssh_lock:
+            process = await self._connection.run(
+                cmd_str,
+                term_type="xterm-color",
+                stderr=subprocess.STDOUT,
+            )
         self._set_idle(ctx)
 
         if process.stdout is None:
@@ -178,19 +210,14 @@ class HostModel(EikoBaseModel):
         if process.returncode is not None:
             returncode = process.returncode
 
-        return CmdResult(original_command, returncode, stdout, "", ctx)
+        return CmdResult(original_command, returncode, stdout, ctx)
 
-    async def execute_sudo(self, cmd: str, ctx: HandlerContext) -> CmdResult:
-        """
-        Runs commands that require sudo.
-        Sudo still needs to be put in to the commands,
-        but you don't have to pass the password yourself.
-        """
+    async def _execute_sudo(self, cmd: str, ctx: HandlerContext) -> CmdResult:
         if self.sudo_requires_pass and self.password is None:
-            return CmdResult(cmd, 1, "", "Sudo password is required, but not set!", ctx)
+            return CmdResult(cmd, 1, "Sudo password is required, but not set!", ctx)
 
         if self.sudo_requires_pass:
-            return await self.execute(
+            return await self._execute(
                 f"echo -n {self.password} | sudo -S ls > /dev/null && " + cmd,
                 ctx,
                 cmd,
@@ -229,17 +256,14 @@ class HostHandler(Handler):
                 return
 
         result = await ctx.resource.execute("echo $OSTYPE", ctx)
-        if result.returncode == 0:
-            ctx.deployed = True
-        else:
-            ctx.failed = True
+        if result.failed():
             return
 
         os_platform_promis = ctx.resource.raw_resource.promises["os_platform"]
         os_name_promise = ctx.resource.raw_resource.promises["os_name"]
         os_version_promis = ctx.resource.raw_resource.promises["os_version"]
 
-        os_string = result.stdout.replace("\n", "")
+        os_string = result.output.replace("\n", "")
         os_platform_promis.set(os_string, ctx)
         if os_string == "":
             os_name_promise.set("windows", ctx)
@@ -247,11 +271,11 @@ class HostHandler(Handler):
                 r'(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId',
                 ctx,
             )
-            os_version_promis.set(os_version_result.stdout.replace("\n", ""), ctx)
+            os_version_promis.set(os_version_result.output.replace("\n", ""), ctx)
         elif os_string == "linux-gnu":
             os_release = await ctx.resource.execute("cat /etc/os-release", ctx)
             os_info: dict[str, str] = {}
-            for line in os_release.stdout.splitlines():
+            for line in os_release.output.splitlines():
                 key, value = line.split("=")
                 os_info[key] = value
 
@@ -261,6 +285,8 @@ class HostHandler(Handler):
         else:
             os_name_promise.set("unknown", ctx)
             os_version_promis.set("unknown", ctx)
+
+        ctx.deployed = True
 
 
 @eiko_plugin()
@@ -281,8 +307,7 @@ class CmdModel(EikoBaseModel):
 
 class CmdHandler(Handler):
     """
-    Represents a remote host.
-
+    Represents a command executed on remote host.
     """
 
     __eiko_resource__ = "Cmd"
@@ -292,13 +317,45 @@ class CmdHandler(Handler):
             ctx.failed = True
             return
 
-        if "sudo" in ctx.resource.cmd:
-            ssh_exec = ctx.resource.host.execute_sudo
-        else:
-            ssh_exec = ctx.resource.host.execute
-
-        result = await ssh_exec(ctx.resource.cmd, ctx)
+        result = await ctx.resource.host.execute(ctx.resource.cmd, ctx)
         if result.failed():
             return
 
         ctx.deployed = True
+
+
+class ScriptModel(EikoBaseModel):
+    """
+    A command that will be executed on a remote host.
+    """
+
+    __eiko_resource__ = "Script"
+
+    host: HostModel
+    script: str
+
+
+class ScriptHandler(Handler):
+    """
+    Runs scripts on remote hosts.
+    Writes given script to a file and executes said file.
+    Then it cleans up the file.
+    """
+
+    __eiko_resource__ = "Script"
+
+    async def execute(self, ctx: HandlerContext) -> None:
+        if not isinstance(ctx.resource, ScriptModel):
+            ctx.failed = True
+            return
+
+        result = await ctx.resource.host.execute(ctx.resource.script, ctx)
+        if result.failed():
+            return
+
+        ctx.deployed = True
+
+
+@eiko_plugin("hash")
+def hash_plugin(string: str) -> str:
+    return hex(hash(string))

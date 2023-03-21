@@ -52,6 +52,12 @@ class Task:
                 "Deployer failed to execute a task because a handler was missing. "
             )
 
+        if self.ctx.failed or not self.ctx.deployed:
+            logger.error(f"Failed task '{self.task_id}'")
+            if self._failure_cb is not None:
+                self._failure_cb()
+            return
+
         for name, promise in self.ctx.raw_resource.promises.items():
             if promise.value is None:
                 logger.error(
@@ -62,15 +68,7 @@ class Task:
                     self._failure_cb()
                 return
 
-            self.ctx.raw_resource.properties[name] = promise.value
-
         self.ctx.resource = self.ctx.raw_resource.to_py()
-
-        if self.ctx.failed or not self.ctx.deployed:
-            logger.error(f"Failed task '{self.task_id}'")
-            if self._failure_cb is not None:
-                self._failure_cb()
-            return
 
         logger.debug(f"Done executing task '{self.task_id}'")
         for sub_task in self.dependants:
@@ -81,7 +79,7 @@ class Task:
 
     def _resolve_promises(self) -> None:
         """Resolves external promises."""
-        for name, promise in self.ctx.raw_resource.get_external_promises():
+        for _, promise in self.ctx.raw_resource.get_external_promises():
             logger.debug(
                 f"Task '{self.task_id}' is resolving extenral promise "
                 f"'{promise.parent.index()}.{promise.name}'."
@@ -92,8 +90,6 @@ class Task:
                     "This should have been caught earlier.",
                     token=promise.token,
                 )
-
-            self.ctx.raw_resource.properties[name] = promise.value
 
         self.ctx.resource = self.ctx.raw_resource.to_py()
 

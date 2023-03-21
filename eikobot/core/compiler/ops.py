@@ -7,7 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Callable, Union
 
-from ..errors import EikoCompilationError, EikoInternalError
+from ..errors import EikoCompilationError, EikoInternalError, EikoSyntaxError
 from .definitions.base_types import (
     EikoBaseType,
     EikoBool,
@@ -53,10 +53,9 @@ class BinOP(Enum):
         if op == "**":
             return BinOP.EXPONENTIATION
 
-        raise EikoInternalError(
-            "Issue occured trying to parse binop. "
-            "This is deffinetly a bug, please report it on github.",
-            token=token,
+        raise EikoSyntaxError(
+            "Issue occured trying to parse binop.",
+            index=token.index,
         )
 
     def __str__(self) -> str:
@@ -210,10 +209,9 @@ class ComparisonOP(Enum):
         if token.content == "<=":
             return ComparisonOP.EQ_OR_LT
 
-        raise EikoInternalError(
-            "Issue occured trying to parse binop. "
-            "This is deffinetly a bug, please report it on github.",
-            token=token,
+        raise EikoSyntaxError(
+            "Issue occured trying to parse binop.",
+            index=token.index,
         )
 
     def __str__(self) -> str:
