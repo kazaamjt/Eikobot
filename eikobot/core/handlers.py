@@ -16,7 +16,7 @@ class HandlerContext:
     raw_resource: EikoResource
 
     def __post_init__(self) -> None:
-        self.resource: Union[dict, BaseModel]
+        self.resource: Union[dict, BaseModel] = self.raw_resource.to_py()
         self.changes: dict[str, Any] = {}
         self.deployed = False
         self.updated = False

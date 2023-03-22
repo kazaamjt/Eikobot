@@ -68,8 +68,6 @@ class Task:
                     self._failure_cb()
                 return
 
-        self.ctx.resource = self.ctx.raw_resource.to_py()
-
         logger.debug(f"Done executing task '{self.task_id}'")
         for sub_task in self.dependants:
             sub_task.remove_dep(self)
@@ -90,8 +88,6 @@ class Task:
                     "This should have been caught earlier.",
                     token=promise.token,
                 )
-
-        self.ctx.resource = self.ctx.raw_resource.to_py()
 
     def remove_dep(self, task: "Task") -> None:
         self.depends_on_copy.remove(task)

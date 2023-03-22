@@ -26,6 +26,8 @@ resource Cmd:
 resource Script:
     host: Host
     script: str
+    exec_shell: Optional[str]
+
     _hash: str
 
     def __init__(self, host: Host, script: str, exec_shell: Optional[str] = None):

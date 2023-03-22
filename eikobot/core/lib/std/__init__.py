@@ -97,9 +97,9 @@ class HostModel(EikoBaseModel):
     ssh_requires_pass: bool = False
     sudo_requires_pass: bool = True
 
-    os_platform: EikoPromise
-    os_name: EikoPromise
-    os_version: EikoPromise
+    os_platform: EikoPromise[str]
+    os_name: EikoPromise[str]
+    os_version: EikoPromise[str]
 
     class Config:
         arbitrary_types_allowed = True
@@ -110,9 +110,9 @@ class HostModel(EikoBaseModel):
         self._con_ref_count: int = 0
         self._connected: asyncio.Event = asyncio.Event()
         self._disconnect_tasks: list[asyncio.Task] = []
-        self._ssh_lock = asyncio.Lock()
 
-    async def _connect(self, ctx: HandlerContext) -> None:
+    async def connect(self, ctx: HandlerContext) -> None:
+        """Connects or reuses a existing connection."""
         self._con_ref_count += 1
         if self._con_ref_count == 1:
             ctx.debug(f"SSH: Connecting to '{self.host}'.")
@@ -135,7 +135,8 @@ class HostModel(EikoBaseModel):
 
         return await asyncssh.connect(self.host, **extra_args)
 
-    def _set_idle(self, ctx: HandlerContext) -> None:
+    def disconnect(self, ctx: HandlerContext) -> None:
+        """Disconnects if nothing else is using the same connection."""
         self._disconnect_tasks.append(
             asyncio.create_task(
                 self._disconnect_delay(ctx),
@@ -145,9 +146,6 @@ class HostModel(EikoBaseModel):
 
     async def _disconnect_delay(self, ctx: HandlerContext) -> None:
         await asyncio.sleep(1)
-        self._disconnect(ctx)
-
-    def _disconnect(self, ctx: HandlerContext) -> None:
         self._con_ref_count -= 1
         if self._con_ref_count == 0:
             self._connection.close()
@@ -155,6 +153,18 @@ class HostModel(EikoBaseModel):
 
     async def wait_until_disconnected(self) -> None:
         await asyncio.gather(*self._disconnect_tasks)
+
+    async def script(
+        self, script: str, exec_shell: str, ctx: HandlerContext
+    ) -> CmdResult:
+        """Runs a script on the remote host."""
+        if "sudo " in script:
+            ssh_exec = self._execute_sudo
+        else:
+            ssh_exec = self._execute
+
+        _script = f"{exec_shell} << EOF\n{script}\nEOF"
+        return await ssh_exec(_script, ctx, script)
 
     async def execute(self, cmd: str, ctx: HandlerContext) -> CmdResult:
         """Executes one or more commands in an ssh session."""
@@ -181,21 +191,18 @@ class HostModel(EikoBaseModel):
         cmd_str = 'HISTIGNORE="*" ' + cmd
 
         try:
-            await self._connect(ctx)
+            await self.connect(ctx)
         except OSError:
             return CmdResult(
                 original_command, 1, "SSH: Failed to connect to host.", ctx
             )
 
-        # Not sure this lock is always required,
-        # but some devices might not like multiple channels.
-        async with self._ssh_lock:
-            process = await self._connection.run(
-                cmd_str,
-                term_type="xterm-color",
-                stderr=subprocess.STDOUT,
-            )
-        self._set_idle(ctx)
+        process = await self._connection.run(
+            cmd_str,
+            term_type="xterm-color",
+            stderr=subprocess.STDOUT,
+        )
+        self.disconnect(ctx)
 
         if process.stdout is None:
             _stdout = ""
@@ -212,7 +219,11 @@ class HostModel(EikoBaseModel):
 
         return CmdResult(original_command, returncode, stdout, ctx)
 
-    async def _execute_sudo(self, cmd: str, ctx: HandlerContext) -> CmdResult:
+    async def _execute_sudo(
+        self, cmd: str, ctx: HandlerContext, original_command: Optional[str] = None
+    ) -> CmdResult:
+        if original_command is None:
+            original_command = cmd
         if self.sudo_requires_pass and self.password is None:
             return CmdResult(cmd, 1, "Sudo password is required, but not set!", ctx)
 
@@ -266,6 +277,7 @@ class HostHandler(Handler):
         os_string = result.output.replace("\n", "")
         os_platform_promis.set(os_string, ctx)
         if os_string == "":
+            os_platform_promis.set("windows", ctx)
             os_name_promise.set("windows", ctx)
             os_version_result = await ctx.resource.execute(
                 r'(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId',
@@ -333,6 +345,7 @@ class ScriptModel(EikoBaseModel):
 
     host: HostModel
     script: str
+    exec_shell: Optional[str] = None
 
 
 class ScriptHandler(Handler):
@@ -349,7 +362,18 @@ class ScriptHandler(Handler):
             ctx.failed = True
             return
 
-        result = await ctx.resource.host.execute(ctx.resource.script, ctx)
+        if ctx.resource.exec_shell is None:
+            platform = ctx.resource.host.os_platform.resolve(str)
+            if platform == "linux-gnu":
+                exec_shell = "bash"
+            elif platform == "windows":
+                exec_shell = "powershell"
+            else:
+                exec_shell = "bash"
+        else:
+            exec_shell = ctx.resource.exec_shell
+
+        result = await ctx.resource.host.script(ctx.resource.script, exec_shell, ctx)
         if result.failed():
             return
 

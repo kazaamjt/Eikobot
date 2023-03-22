@@ -1342,15 +1342,13 @@ class Car(EikoBaseModel):
 When using a Python model that has a promise, you can manually `resolve` the promise.  
 The resolve method will return a value that is the type defined in the container.  
 
-However, due to how Python does type checking,
-the compiler cannot perfrom a runtime type check on this value
+However, the compiler cannot perfrom a runtime type check on this value
 unless it is passed manually to the resolve method.  
+This is due to how the 
 
-So, if we were to try and access the timestmap in the dir_name function,
-it would look like this:
+So, if we were to have an instance of `std.Host`,
+and we would like to access its `os_platform` property, we would do it like so:
 
 ```Python
-    def dir_name(self) -> str:
-        timestamp = self.timestamp.resolve(str)
-        return f"{self.brand}-{self.serial}"
+platform = some_host.os_platform.resolve(str)
 ```

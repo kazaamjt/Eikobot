@@ -6,6 +6,7 @@
 - Make some errors clearer
 - Added `std.script`
 - Remove `exec_sudo`
+- Fixed a bug that caused python models to be duplicated when converted from eiko objects through nested models
 
 ## 0.4.0
 

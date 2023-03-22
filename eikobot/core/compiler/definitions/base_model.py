@@ -3,7 +3,7 @@ Based on the pydantic BaseModel,
 the EikoBaseModel allows for linking of Eiko resources
 to a more easily useable python model.
 """
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import BaseModel
 
@@ -22,6 +22,10 @@ class EikoBaseModel(BaseModel):
     raw_resource: EikoResource
     __eiko_resource__: ClassVar[str]
     __eiko_linked_definition__: ClassVar["EikoResourceDefinition"]
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         pass
