@@ -672,6 +672,7 @@ class EikoResource(EikoBaseType):
             return self._py_object
 
         new_dict: dict[str, Union[PyTypes, EikoPromise]] = {}
+        pydantic_nested: dict[str, BaseModel] = {}
         for name, value in self.properties.items():
             if name in ["__depends_on__"]:
                 continue
@@ -679,6 +680,15 @@ class EikoResource(EikoBaseType):
             if isinstance(new_value, EikoPromise):
                 if new_value.name not in self.promises:
                     new_value = new_value.resolve(object)
+
+            # Ok follow me on this:
+            # Pydantic calls __dict__ when validating nested models
+            # thereby returning new instances of objects that should not be recreated.
+            # This can cause bugs as we assume the objects stays the same.
+            # So we keep track of all of the nested and attributes and
+            # monkey patch them back in to place
+            if isinstance(new_value, BaseModel) and isinstance(value, EikoResource):
+                pydantic_nested[name] = new_value
             new_dict[name] = new_value
 
         if self.class_ref.linked_basemodel is not None:
@@ -686,7 +696,8 @@ class EikoResource(EikoBaseType):
                 self._py_object = self.class_ref.linked_basemodel(
                     raw_resource=self, **new_dict
                 )
-                self._py_object.__post_init__()
+                for name, pydantic_object in pydantic_nested.items():
+                    setattr(self._py_object, name, pydantic_object)
                 return self._py_object
             except ValidationError as e:
                 raise EikoCompilationError(
