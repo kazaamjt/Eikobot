@@ -5,7 +5,6 @@ plugins and resources.
 import asyncio
 import getpass
 import os
-import subprocess
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Optional, Type, Union
@@ -200,7 +199,7 @@ class HostModel(EikoBaseModel):
         process = await self._connection.run(
             cmd_str,
             term_type="xterm-color",
-            stderr=subprocess.STDOUT,
+            stderr=asyncssh.STDOUT,
         )
         self.disconnect(ctx)
 
