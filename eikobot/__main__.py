@@ -11,7 +11,7 @@ from pathlib import Path
 
 import click
 
-from .core import logger
+from .core import logger, package_manager
 from .core.compiler import Compiler
 from .core.compiler.lexer import Token
 from .core.deployer import Deployer
@@ -115,7 +115,7 @@ def _compile(
 
 
 @cli.command()
-@click.option("-f", "--file", prompt="File", help="Path to entrypoint file.")
+@click.option("-f", "--file", "file", prompt="File", help="Path to entrypoint file.")
 @click.option(
     "--enable-plugin-stacktrace",
     is_flag=True,
@@ -143,6 +143,44 @@ def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
         time_taken = time.time() - start
         time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
         logger.info(f"Deployed in {time_taken_formatted}")
+
+
+@cli.group()
+def package() -> None:
+    pass
+
+
+@package.command(name="build")
+def build_pkg() -> None:
+    package_manager.build_pkg()
+
+
+@package.command(name="install")
+@click.argument("target")
+def install_pkg(target: str) -> None:
+    """
+    Install a package from different sources.
+    """
+    package_manager.install_pkg(target)
+
+
+@package.command(name="list")
+def list_pkg() -> None:
+    """
+    Lists all installed packages.
+    """
+    packages = package_manager.get_installed_pkg()
+    for pkg in packages.values():
+        print(f"{pkg.name}=={pkg.version}")
+
+
+@package.command(name="uninstall")
+@click.argument("name")
+def uninstall_pkg(name: str) -> None:
+    """
+    Performs all required steps to delete a package.
+    """
+    package_manager.uninstall_pkg(name)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,6 @@ with open(this_directory / "README.md", encoding="utf-8") as f:
 
 VERSION = "0.5.0"
 REQUIRES = [
-    "toml-0.10.2",
     "asyncssh==2.13.1",
     "click==8.1.3",
     "colorama==0.4.6",

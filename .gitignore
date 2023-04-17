@@ -8,6 +8,13 @@ __pycache__/
 build/
 dist/
 
+# Eikobot internals
+eikobot/core/package_manager/cache
+eikobot/core/package_manager/lib
+eikobot/core/lib/
+!eikobot/core/lib/__init__.py
+!eikobot/core/lib/std/
+
 # Test files
 /test.eiko
 /test.py
