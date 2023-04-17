@@ -42,7 +42,7 @@ class Task:
 
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
-        logger.info(f"starting task '{self.task_id}'")
+        logger.info(f"Starting task '{self.task_id}'")
         self._resolve_promises()
         if self.handler is not None:
             await self.handler.execute(self.ctx)
