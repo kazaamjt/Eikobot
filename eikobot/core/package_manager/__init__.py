@@ -100,7 +100,11 @@ def build_pkg() -> None:
     shutil.rmtree(build_dir, ignore_errors=True)
     build_dir.mkdir()
     # Compile every file here to make sure they are valid?
-    shutil.copytree(pkg_data.source_dir, (build_dir / pkg_data.source_dir))
+    shutil.copytree(
+        pkg_data.source_dir,
+        build_dir / pkg_data.source_dir,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
     shutil.copy(eiko_toml_path, build_dir)
 
     logger.debug("Creating tar archive.")
@@ -126,8 +130,8 @@ def install_pkg(pkg_def: str) -> None:
     if pkg_def.startswith("http://") or pkg_def.startswith("https://"):
         pass  # Either direct or git
 
-    elif pkg_def.startswith("git@"):
-        pass  # Probably a git repo
+    elif pkg_def.startswith("git+ssh://"):
+        pass  # A git repo
 
     elif pkg_def.endswith(".eiko.tar.gz"):
         _install_pkg_from_path(Path(pkg_def))
