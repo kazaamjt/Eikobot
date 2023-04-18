@@ -2,12 +2,14 @@
 
 ## 0.5.0
 
-- Made EikoPromise a Generic
+- Made EikoPromise a `Generic`
 - Make some errors clearer
 - Added `std.script`
 - Remove `exec_sudo`
 - Fixed a bug that caused python models to be duplicated when converted from eiko objects through nested models
 - Added a package manager
+- Fixed a bug that caused indentation in the constructor definition argument list to break, resulting in a syntax error
+- Remove python3.10 support due to it not supporting tomllib
 
 ## 0.4.0
 

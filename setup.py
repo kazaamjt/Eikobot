@@ -12,6 +12,7 @@ with open(this_directory / "README.md", encoding="utf-8") as f:
 
 VERSION = "0.5.0"
 REQUIRES = [
+    "aiohttp==3.8.4",
     "asyncssh==2.13.1",
     "click==8.1.3",
     "colorama==0.4.6",
@@ -41,7 +42,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     package_data={"": ["**/*.eiko", "**/*.py"]},
     include_package_data=True,
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     install_requires=REQUIRES,
     entry_points={"console_scripts": ["eikobot=eikobot.__main__:cli"]},
 )

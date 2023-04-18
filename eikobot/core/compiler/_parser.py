@@ -2015,7 +2015,7 @@ class Parser:
 
         if self._current.type != TokenType.LEFT_PAREN:
             raise EikoSyntaxError("Expected a '('.", index=self._current.index)
-        self._advance()
+        self._advance(skip_indentation=True)
 
         self_arg = VariableExprAST(self._current)
         self._advance()
@@ -2029,8 +2029,10 @@ class Parser:
                 raise EikoSyntaxError(
                     "Expected a ',' or a ')'.", index=self._current.index
                 )
-            self._advance()
+            self._advance(skip_indentation=True)
             args.append(self._parse_consructor_arg())
+            if self._current.type == TokenType.INDENT:
+                self._advance(skip_indentation=True)
 
         if self._current.type != TokenType.COLON:
             raise EikoSyntaxError("Expected a ':'.", index=self._current.index)
