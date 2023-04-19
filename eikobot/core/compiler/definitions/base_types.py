@@ -684,7 +684,7 @@ class EikoResource(EikoBaseType):
             # Ok follow me on this:
             # Pydantic calls __dict__ when validating nested models
             # thereby returning new instances of objects that should not be recreated.
-            # This can cause bugs as we assume the objects stays the same.
+            # This can cause bugs as we rely on the objects staying the same.
             # So we keep track of all of the nested and attributes and
             # monkey patch them back in to place
             if isinstance(new_value, BaseModel) and isinstance(value, EikoResource):

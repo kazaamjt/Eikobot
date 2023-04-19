@@ -128,21 +128,27 @@ def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
     start = time.time()
     compiler = _compile(file, False, enable_plugin_stacktrace)
     logger.info("Exporting model.")
-    exporter = Exporter()
-    exporter.export_from_context(compiler.context)
-    logger.info("Deploying model.")
-    deployer = Deployer()
-    asyncio.run(deployer.deploy(exporter, log_progress=True))
+    try:
+        exporter = Exporter()
+        exporter.export_from_context(compiler.context)
+        logger.info("Deploying model.")
+        deployer = Deployer()
+        asyncio.run(deployer.deploy(exporter, log_progress=True))
+    except EikoError as e:
+        logger.error(str(e))
 
-    if deployer.failed:
-        logger.error(
-            "Failed to deploy model. "
-            f"({deployer.progress.done} out of {deployer.progress.total} tasks done)"
-        )
+        if e.index is not None:
+            logger.print_error_trace(e.index)
     else:
-        time_taken = time.time() - start
-        time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
-        logger.info(f"Deployed in {time_taken_formatted}")
+        if deployer.failed:
+            logger.error(
+                "Failed to deploy model. "
+                f"({deployer.progress.done} out of {deployer.progress.total} tasks done)"
+            )
+        else:
+            time_taken = time.time() - start
+            time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+            logger.info(f"Deployed in {time_taken_formatted}")
 
 
 @cli.group()

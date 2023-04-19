@@ -43,7 +43,7 @@ class Task:
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
         logger.info(f"Starting task '{self.task_id}'")
-        self._resolve_promises()
+        self.ctx.resource = self.ctx.raw_resource.to_py()
         if self.handler is not None:
             await self.handler.execute(self.ctx)
             await self.handler.resolve_promises(self.ctx)
@@ -74,20 +74,6 @@ class Task:
 
         if self._done_cb is not None:
             self._done_cb()
-
-    def _resolve_promises(self) -> None:
-        """Resolves external promises."""
-        for _, promise in self.ctx.raw_resource.get_external_promises():
-            logger.debug(
-                f"Task '{self.task_id}' is resolving extenral promise "
-                f"'{promise.parent.index()}.{promise.name}'."
-            )
-            if promise.value is None:
-                raise EikoInternalError(
-                    "An external promise was not resolved. "
-                    "This should have been caught earlier.",
-                    token=promise.token,
-                )
 
     def remove_dep(self, task: "Task") -> None:
         self.depends_on_copy.remove(task)
