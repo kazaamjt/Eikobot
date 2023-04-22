@@ -11,6 +11,7 @@
 - Fixed a bug that caused indentation in the constructor definition argument list to break, resulting in a syntax error
 - Remove python3.10 support due to it not supporting tomllib
 - Fixed a bug that caused the deployer to reolve promises before the resource it comes from was deployed
+- Add `py.typed` to enable python typing when developing modules and other things that rely on eikobots python code
 
 ## 0.4.0
 

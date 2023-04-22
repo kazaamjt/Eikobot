@@ -40,7 +40,7 @@ setuptools.setup(
         "Environment :: Console",
     ],
     packages=setuptools.find_packages(),
-    package_data={"": ["**/*.eiko", "**/*.py"]},
+    package_data={"": ["**/*.eiko", "**/*.py", "py.typed"]},
     include_package_data=True,
     python_requires=">=3.11",
     install_requires=REQUIRES,
