@@ -46,6 +46,17 @@ class PackageData(BaseModel):
     license: Optional[str] = None
     requires: list[str] = []
 
+    def pkg_name_version(self) -> str:
+        """
+        Returns the name that was used for the install dir
+        under package_manager/lib.
+        """
+        name = self.name
+        if self.version is not None:
+            name += "-" + self.version
+
+        return name
+
 
 def _construct_pkg_index() -> None:
     for pkg_dir in LIB_PATH.glob("*"):
@@ -65,18 +76,6 @@ def _read_pkg_toml(path: Path) -> PackageData:
         raise EikoPackageError(f"Failed to parse eiko.toml: {e}") from e
 
     return pkg_data
-
-
-def get_pkg_name_version(pkg_data: PackageData) -> str:
-    """
-    Returns the name that was used for the install dir
-    under package_manager/lib.
-    """
-    name = pkg_data.name
-    if pkg_data.version is not None:
-        name += "-" + pkg_data.version
-
-    return name
 
 
 def build_pkg() -> None:
@@ -108,7 +107,7 @@ def build_pkg() -> None:
     shutil.copy(eiko_toml_path, build_dir)
 
     logger.debug("Creating tar archive.")
-    dist_name = get_pkg_name_version(pkg_data)
+    dist_name = pkg_data.pkg_name_version()
     dist_file_name = dist_name + ".eiko.tar.gz"
     dist_file = dist / dist_file_name
 
@@ -158,9 +157,7 @@ def _install_pkg_from_cache(archive_name: str) -> None:
     pkg_data = _read_pkg_toml(pkg_lib_path / "eiko.toml")
     prev_pkg = PKG_INDEX.get(pkg_data.name)
     if prev_pkg is not None:
-        # Compare versions here
-        logger.error("A version of this package has already been installed.")
-        return
+        _uninstall_pkg(prev_pkg)
 
     if pkg_data.version is None:
         logger.info(f"Installing '{pkg_data.name}'.")
@@ -196,5 +193,10 @@ def uninstall_pkg(name: str) -> None:
         logger.error(f"Package not installed: '{name}'")
         return
 
+    _uninstall_pkg(pkg_data)
+
+
+def _uninstall_pkg(pkg_data: PackageData) -> None:
+    logger.info(f"Uninstalling '{pkg_data.pkg_name_version()}'")
     os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
-    shutil.rmtree(LIB_PATH / get_pkg_name_version(pkg_data))
+    shutil.rmtree(LIB_PATH / pkg_data.pkg_name_version())
