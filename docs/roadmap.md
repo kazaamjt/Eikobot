@@ -62,7 +62,7 @@ Code cleanup:
 - [x] add `std.get_pass`
 - [x] add `HostModel.execute` and `HostModel.execute_sudo` to execute commands
 - [x] add `std.Cmd`, a single command that executes on a given remote host
-- [ ] add `std.Script`, a collection of commands that are executed on a remote host
+- [x] add `std.Script`, a collection of commands that are executed on a remote host
 
 ### Engine
 
@@ -76,4 +76,10 @@ Code cleanup:
 ## Phase 2: Packages
 
 Phase 2 is all about allowing reuse of code and such.  
-The initial idea is to use GIT.  
+Adding a package manager and a way to build, install and uninstall packages easily
+
+- [x] build packages
+- [x] install packages using a path to the `tar.gz` file
+- [x] uninstall packages by name
+- [ ] install packages using https
+- [ ] install packages using git
