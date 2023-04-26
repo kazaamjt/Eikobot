@@ -1344,7 +1344,7 @@ The resolve method will return a value that is the type defined in the container
 
 However, the compiler cannot perfrom a runtime type check on this value
 unless it is passed manually to the resolve method.  
-This is due to how the 
+This is due to how python type annotations for generics work.  
 
 So, if we were to have an instance of `std.Host`,
 and we would like to access its `os_platform` property, we would do it like so:
@@ -1352,3 +1352,7 @@ and we would like to access its `os_platform` property, we would do it like so:
 ```Python
 platform = some_host.os_platform.resolve(str)
 ```
+
+So resolve makes sure we get a value of the type we expect and that the value actually already exists.  
+While Eikobot takes promises in to account when calculating task dependencies,
+this is an extra safety measure.  
