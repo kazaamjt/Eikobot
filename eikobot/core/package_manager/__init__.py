@@ -9,8 +9,10 @@ import tomllib
 from pathlib import Path
 from typing import Optional
 
+from packaging import version
 from pydantic import BaseModel, ValidationError
 
+from ... import VERSION
 from .. import logger
 from ..compiler.importlib import INTERNAL_LIB_PATH
 
@@ -44,6 +46,7 @@ class PackageData(BaseModel):
     author: Optional[str] = None
     author_email: Optional[str] = None
     license: Optional[str] = None
+    eikobot_requires: Optional[str] = None
     requires: list[str] = []
 
     def pkg_name_version(self) -> str:
@@ -56,6 +59,56 @@ class PackageData(BaseModel):
             name += "-" + self.version
 
         return name
+
+    def eiko_version_match(self) -> bool:  # pylint: disable=too-many-branches
+        """
+        Checks to see if the library is compatible with
+        the currently installed version of eikobot.
+        """
+        if self.eikobot_requires is None:
+            return True
+
+        eiko_version = version.parse(VERSION)
+        for version_req in self.eikobot_requires.split(","):
+            if version_req.startswith(">="):
+                if eiko_version < _parse_version(version_req[2:]):
+                    return False
+
+            elif version_req.startswith("<="):
+                if eiko_version > _parse_version(version_req[2:]):
+                    return False
+
+            elif version_req.startswith("=="):
+                if eiko_version != _parse_version(version_req[2:]):
+                    return False
+
+            elif version_req.startswith("!="):
+                if eiko_version == _parse_version(version_req[2:]):
+                    return False
+
+            elif version_req.startswith(">"):
+                if eiko_version <= _parse_version(version_req[1:]):
+                    return False
+
+            elif version_req.startswith("<"):
+                if eiko_version >= _parse_version(version_req[1:]):
+                    return False
+
+            else:
+                raise EikoPackageError(
+                    f"Failed to parse eiko.toml option eikobot_requires '{self.eikobot_requires}'."
+                )
+
+        return True
+
+
+def _parse_version(_version: str) -> version.Version:
+    try:
+        return version.parse(_version)
+    except version.InvalidVersion as e:
+        raise EikoPackageError(
+            f"failed to parse `eikobot_requires` version `{_version}`"
+        ) from e
 
 
 def _construct_pkg_index() -> None:
@@ -99,6 +152,7 @@ def build_pkg() -> None:
     shutil.rmtree(build_dir, ignore_errors=True)
     build_dir.mkdir()
     # Compile every file here to make sure they are valid?
+    # This would also be the place to check for dangerous sources.
     shutil.copytree(
         pkg_data.source_dir,
         build_dir / pkg_data.source_dir,
