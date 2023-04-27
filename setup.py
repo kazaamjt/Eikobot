@@ -17,6 +17,7 @@ REQUIRES = [
     "click==8.1.3",
     "colorama==0.4.6",
     "jinja2==3.1.2",
+    "packaging==23.1",
     "pydantic==1.10.4",
 ]
 
