@@ -244,7 +244,7 @@ def uninstall_pkg(name: str) -> None:
     _construct_pkg_index()
     pkg_data = PKG_INDEX.get(name)
     if pkg_data is None:
-        logger.error(f"Package not installed: '{name}'")
+        logger.error(f"Failed to install package: '{name}'")
         return
 
     _uninstall_pkg(pkg_data)
@@ -254,3 +254,4 @@ def _uninstall_pkg(pkg_data: PackageData) -> None:
     logger.info(f"Uninstalling '{pkg_data.pkg_name_version()}'")
     os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
     shutil.rmtree(LIB_PATH / pkg_data.pkg_name_version())
+    logger.info(f"Uninstalled '{pkg_data.pkg_name_version()}'")

@@ -160,6 +160,7 @@ def package() -> None:
 
 @package.command(name="build")
 def build_pkg() -> None:
+    """Builds a package in the cwd, using an eiko.toml file."""
     package_manager.build_pkg()
 
 
