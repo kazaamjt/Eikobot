@@ -1532,6 +1532,16 @@ class DictExprAST(ExprAST):
         return EikoDict(key_type, value_type, elements)
 
 
+@dataclass
+class EnumValueExprAst(ExprAST):
+    value: Optional[int] = None
+
+
+@dataclass
+class EnumExprAst(ExprAST):
+    values: list[EnumValueExprAst]
+
+
 class Parser:
     """
     Parses tokens 1 by 1, and turns them in to Expressions.
@@ -1615,9 +1625,9 @@ class Parser:
             self._advance()
 
     def _parse_top_level(self) -> ExprAST:
-        if not (
-            self._current.type in [TokenType.INDENT, TokenType.EOF]
-            or self._current.content == ""
+        if (
+            self._current.type not in [TokenType.INDENT, TokenType.EOF]
+            or self._current.content != ""
         ):
             raise EikoParserError(
                 f"Unexpected token: '{self._current.content}'.", token=self._current
@@ -1704,6 +1714,9 @@ class Parser:
 
         if self._current.type == TokenType.AT_SIGN:
             return self._parse_decorator([])
+
+        if self._current.type == TokenType.ENUM:
+            return self._parse_enum()
 
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
@@ -2316,3 +2329,63 @@ class Parser:
                 break
 
         return DictExprAST(token, kv_pairs)
+
+    def _parse_enum(self) -> EnumExprAst:
+        if self._next.type != TokenType.IDENTIFIER:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, "
+                "expected resource identifier.",
+                token=self._next,
+            )
+
+        identifier_token = self._next
+        self._advance()
+        self._advance()
+
+        if self._current.type != TokenType.COLON:
+            raise EikoParserError(
+                f"Unexpected token '{self._current.content}'.",
+                token=self._current,
+            )
+        self._advance()
+
+        values: list[EnumValueExprAst] = []
+        if self._current.type != TokenType.INDENT:
+            raise EikoParserError(
+                f"Unexpected token '{self._current.content}'.",
+                token=self._current,
+            )
+        indent = self._current.content
+        self._advance()
+        while True:
+            if self._current.type != TokenType.IDENTIFIER:
+                raise EikoParserError(
+                    f"Unexpected token '{self._current.content}'.",
+                    token=self._current,
+                )
+
+            identifier = self._current
+            self._advance()
+            if self._current.type == TokenType.ASSIGNMENT_OP:
+                self._advance()
+                if self._current.type != TokenType.INTEGER:
+                    raise EikoParserError(
+                        f"Unexpected token '{self._current.content}'. Expected an integer.",
+                        token=self._current,
+                    )
+                value = int(self._current.content)
+            else:
+                value = None
+            values.append(EnumValueExprAst(identifier, value))
+
+            while self._next.type == TokenType.INDENT:
+                self._advance()
+            if self._current.type != TokenType.INDENT:
+                raise EikoInternalError(
+                    "Unexpected issue, please report this on github."
+                )
+            if self._current.content != indent:
+                break
+            self._advance()
+
+        return EnumExprAst(identifier_token, values)
