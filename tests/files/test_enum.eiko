@@ -1,0 +1,9 @@
+enum TestEnum:
+    option_1
+    option_2
+    option_3 = 4
+    option_4
+
+
+resource TestRes:
+    prop_1: TestEnum

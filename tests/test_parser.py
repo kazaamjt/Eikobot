@@ -11,6 +11,7 @@ from eikobot.core.compiler._parser import (
     BinOP,
     BinOpExprAST,
     CallExprAst,
+    EnumExprAst,
     FromImportExprAST,
     FStringExprAST,
     FStringLexer,
@@ -251,3 +252,14 @@ def test_parse_typedef(eiko_typedef: Path) -> None:
     assert expr_3.name == "IPv4Address"
     assert expr_3.super_type_expr.token.content == "str"
     assert isinstance(expr_3.condition, CallExprAst)
+
+
+def test_parse_enum(eiko_enum_file: Path) -> None:
+    parser = Parser(eiko_enum_file)
+    parse_iter = parser.parse()
+
+    expr_1 = next(parse_iter)
+    assert isinstance(expr_1, EnumExprAst)
+
+    expr_2 = next(parse_iter)
+    assert isinstance(expr_2, ResourceDefinitionAST)
