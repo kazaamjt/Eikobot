@@ -686,7 +686,7 @@ class EikoResource(EikoBaseType):
             # thereby returning new instances of objects that should not be recreated.
             # This can cause bugs as we rely on the objects staying the same.
             # So we keep track of all of the nested and attributes and
-            # monkey patch them back in to place
+            # monkey patch them back in
             if isinstance(new_value, BaseModel) and isinstance(value, EikoResource):
                 pydantic_nested[name] = new_value
             new_dict[name] = new_value
@@ -1154,3 +1154,14 @@ def to_eiko(value: Any) -> EikoBaseType:
         return eiko_none_object
 
     raise ValueError
+
+
+EikoEnumDefinitionType = EikoType("EnumDefinition")
+
+
+class EikoEnumDefinition(EikoBaseType):
+    """Internal representation of a resource definition."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(EikoEnumDefinitionType)
+        self.name = name

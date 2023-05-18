@@ -266,3 +266,8 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_h.to_py() == {
         "prop_1": var_d.to_py(),
     }
+
+
+def test_enum(eiko_enum_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_enum_file)

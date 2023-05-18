@@ -1,9 +1,12 @@
 enum TestEnum:
     option_1
     option_2
-    option_3 = 4
-    option_4
+    option_3
 
 
 resource TestRes:
     prop_1: TestEnum
+
+
+test_1 = TestRes(TestEnum.option_2)
+test_2 = TestRes(TestEnum("option_1"))

@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Optional, Tuple, Union
 
+from eikobot.core.compiler.definitions.context import (
+    CompilerContext,
+    StorableTypes,
+)
+
 from .. import logger
 from ..errors import (
     EikoCompilationError,
@@ -33,6 +38,7 @@ from .definitions.base_types import (
     EikoBuiltinTypes,
     EikoDict,
     EikoDictType,
+    EikoEnumDefinition,
     EikoFloat,
     EikoFloatType,
     EikoInt,
@@ -1534,12 +1540,17 @@ class DictExprAST(ExprAST):
 
 @dataclass
 class EnumValueExprAst(ExprAST):
-    value: Optional[int] = None
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.value = self.token.content.lower()
 
 
 @dataclass
 class EnumExprAst(ExprAST):
     values: list[EnumValueExprAst]
+
+    def compile(self, context: CompilerContext) -> EikoEnumDefinition:
+        pass
 
 
 class Parser:
@@ -1625,9 +1636,9 @@ class Parser:
             self._advance()
 
     def _parse_top_level(self) -> ExprAST:
-        if (
-            self._current.type not in [TokenType.INDENT, TokenType.EOF]
-            or self._current.content != ""
+        if not (
+            (self._current.type == TokenType.INDENT and self._current.content == "")
+            or (self._current.type == TokenType.EOF and self._current.content == "EOF")
         ):
             raise EikoParserError(
                 f"Unexpected token: '{self._current.content}'.", token=self._current
@@ -2364,19 +2375,8 @@ class Parser:
                     token=self._current,
                 )
 
-            identifier = self._current
+            values.append(EnumValueExprAst(self._current))
             self._advance()
-            if self._current.type == TokenType.ASSIGNMENT_OP:
-                self._advance()
-                if self._current.type != TokenType.INTEGER:
-                    raise EikoParserError(
-                        f"Unexpected token '{self._current.content}'. Expected an integer.",
-                        token=self._current,
-                    )
-                value = int(self._current.content)
-            else:
-                value = None
-            values.append(EnumValueExprAst(identifier, value))
 
             while self._next.type == TokenType.INDENT:
                 self._advance()
