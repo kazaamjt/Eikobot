@@ -10,6 +10,7 @@ from eikobot.core.compiler import Compiler
 from eikobot.core.compiler._parser import Parser
 from eikobot.core.compiler.definitions._resource import EikoResourceDefinition
 from eikobot.core.compiler.definitions.base_types import (
+    EikoEnumValue,
     EikoInt,
     EikoNone,
     EikoResource,
@@ -266,3 +267,26 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
     assert var_h.to_py() == {
         "prop_1": var_d.to_py(),
     }
+
+
+def test_enum(eiko_enum_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_enum_file)
+
+    var_test_1 = compiler.context.get("test_1")
+    assert isinstance(var_test_1, EikoResource)
+    assert var_test_1.type.name == "TestRes"
+    var_test_1_enum_opt_2 = var_test_1.properties.get("prop_1")
+    assert isinstance(var_test_1_enum_opt_2, EikoEnumValue)
+    assert var_test_1_enum_opt_2.value == "option_2"
+
+    var_test_2 = compiler.context.get("test_2")
+    assert isinstance(var_test_2, EikoResource)
+    assert var_test_2.type.name == "TestRes"
+    var_test_2_enum_opt_1 = var_test_2.properties.get("prop_1")
+    assert isinstance(var_test_2_enum_opt_1, EikoEnumValue)
+    assert var_test_2_enum_opt_1.value == "option_1"
+
+    var_enum_to_str = compiler.context.get("enum_to_str")
+    assert isinstance(var_enum_to_str, EikoStr)
+    assert var_enum_to_str.value == "option_3"
