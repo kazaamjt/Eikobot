@@ -10,3 +10,5 @@ resource TestRes:
 
 test_1 = TestRes(TestEnum.option_2)
 test_2 = TestRes(TestEnum("option_1"))
+
+enum_to_str = str(TestEnum.option_3)

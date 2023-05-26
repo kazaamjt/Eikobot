@@ -11,11 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Optional, Tuple, Union
 
-from eikobot.core.compiler.definitions.context import (
-    CompilerContext,
-    StorableTypes,
-)
-
 from .. import logger
 from ..errors import (
     EikoCompilationError,
@@ -39,6 +34,7 @@ from .definitions.base_types import (
     EikoDict,
     EikoDictType,
     EikoEnumDefinition,
+    EikoEnumValue,
     EikoFloat,
     EikoFloatType,
     EikoInt,
@@ -758,6 +754,28 @@ class CallExprAst(ExprAST):
                 args.append(PassedArg(arg_expr.token, arg_value))
 
             return eiko_callable.execute(self.token, args)
+
+        if isinstance(eiko_callable, EikoEnumDefinition):
+            if len(self.args.elements) != 1:
+                raise EikoCompilationError(
+                    f"Enum '{eiko_callable.name}' takes exactly 1 argument.",
+                    token=self.token,
+                )
+
+            compiled_arg = self.args.elements[0].compile(context)
+            if compiled_arg is None:
+                raise EikoCompilationError(
+                    "Expected a value, but expression did not return one.",
+                    token=self.args.elements[0].token,
+                )
+
+            if not isinstance(compiled_arg, EikoStr):
+                raise EikoCompilationError(
+                    "Expected a value of type 'str'.",
+                    token=self.args.elements[0].token,
+                )
+
+            return eiko_callable.get(compiled_arg.value, self.args.elements[0].token)
 
         if eiko_callable in EikoBuiltinTypes:
             if len(self.args.elements) != 1:
@@ -1484,6 +1502,9 @@ class TypeExprAST(ExprAST):
 
             return EikoDictType(key_type, self.sub_expressions[1].compile(context))
 
+        if isinstance(primary_type, EikoEnumDefinition):
+            return primary_type.value_type
+
         raise EikoCompilationError(
             "Not a valid type expressions.",
             token=self.token,
@@ -1540,17 +1561,31 @@ class DictExprAST(ExprAST):
 
 @dataclass
 class EnumValueExprAst(ExprAST):
+    """Represents a value tied to an enum class."""
+
     def __post_init__(self) -> None:
         super().__post_init__()
         self.value = self.token.content.lower()
 
+    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+        raise NotImplementedError(self.token)
+
 
 @dataclass
 class EnumExprAst(ExprAST):
+    """Represents an enum definition."""
+
     values: list[EnumValueExprAst]
 
     def compile(self, context: CompilerContext) -> EikoEnumDefinition:
-        pass
+        value_type = EikoType(self.token.content)
+        values: dict[str, EikoEnumValue] = {}
+        for value in self.values:
+            values[value.value] = EikoEnumValue(value_type, value.value)
+
+        definition = EikoEnumDefinition(self.token.content, value_type, values)
+        context.set(definition.name, definition)
+        return definition
 
 
 class Parser:
@@ -2360,18 +2395,22 @@ class Parser:
             )
         self._advance()
 
-        values: list[EnumValueExprAst] = []
         if self._current.type != TokenType.INDENT:
             raise EikoParserError(
                 f"Unexpected token '{self._current.content}'.",
-                token=self._current,
+                token=self._previous,
             )
+
+        if self._current.content == "":
+            raise EikoParserError("Expected indentation.", token=self._previous)
+
+        values: list[EnumValueExprAst] = []
         indent = self._current.content
         self._advance()
         while True:
             if self._current.type != TokenType.IDENTIFIER:
                 raise EikoParserError(
-                    f"Unexpected token '{self._current.content}'.",
+                    f"Unexpected token '{self._current.content}', expected an enum value identifier.",
                     token=self._current,
                 )
 

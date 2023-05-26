@@ -563,8 +563,91 @@ class EikoPromise(EikoBaseType, Generic[T]):
         return value
 
 
-BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone]
-EikoBuiltinTypes = (EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone)
+EikoEnumDefinitionType = EikoType("EnumDefinition")
+
+
+class EikoEnumValue(EikoBaseType):
+    """Represents values and instances of enum values"""
+
+    def __init__(self, eiko_type: EikoType, value: str) -> None:
+        super().__init__(eiko_type)
+        self.value = value
+
+    def index(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def printable(self, _: str = "") -> str:
+        return f"{self.type.name} '{self.value}'"
+
+    def get_value(self) -> str:
+        return self.value
+
+    def truthiness(self) -> bool:
+        return True
+
+    def to_py(self) -> str:
+        return self.value
+
+
+class EikoEnumDefinition(EikoBaseType):
+    """Internal representation of a resource definition."""
+
+    def __init__(
+        self, name: str, value_type: EikoType, values: dict[str, EikoEnumValue]
+    ) -> None:
+        super().__init__(EikoEnumDefinitionType)
+        self.name = name
+        self.value_type = value_type
+        self.values = values
+
+    def get(self, name: str, token: Optional[Token] = None) -> EikoEnumValue:
+        value = self.values.get(name)
+        if value is None:
+            raise EikoCompilationError(
+                f"Enum '{self.name}' has no value '{name}'.",
+                token=token,
+            )
+
+        return value
+
+    def printable(self, indent: str = "") -> str:
+        string = f"ENUM '{self.name}':" + " {\n"
+        n_indent = indent + "    "
+        for value in self.values.values():
+            string += n_indent + value.printable(n_indent) + ",\n"
+        string += indent + "}\n"
+
+        return string
+
+    @classmethod
+    def convert(cls, _: "BuiltinTypes") -> "EikoBaseType":
+        raise ValueError
+
+    def get_value(self) -> PyTypes:
+        raise NotImplementedError
+
+    def truthiness(self) -> bool:
+        raise NotImplementedError
+
+    def index(self) -> str:
+        raise NotImplementedError
+
+    def to_py(self) -> Union[PyTypes, "EikoPromise"]:
+        raise NotImplementedError
+
+
+BuiltinTypes = Union[
+    EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone, EikoEnumValue
+]
+EikoBuiltinTypes = (
+    EikoBool,
+    EikoFloat,
+    EikoInt,
+    EikoStr,
+    EikoPath,
+    EikoNone,
+    EikoEnumValue,
+)
 
 
 class EikoResource(EikoBaseType):
@@ -718,6 +801,7 @@ INDEXABLE_TYPES = (
     EikoPath,
     EikoPromise,
     EikoResource,
+    EikoEnumValue,
 )
 _builtin_function_type = EikoType("builtin_function", EikoObjectType)
 
@@ -1154,14 +1238,3 @@ def to_eiko(value: Any) -> EikoBaseType:
         return eiko_none_object
 
     raise ValueError
-
-
-EikoEnumDefinitionType = EikoType("EnumDefinition")
-
-
-class EikoEnumDefinition(EikoBaseType):
-    """Internal representation of a resource definition."""
-
-    def __init__(self, name: str) -> None:
-        super().__init__(EikoEnumDefinitionType)
-        self.name = name
