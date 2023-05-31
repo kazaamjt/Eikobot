@@ -8,7 +8,7 @@ from typing import Callable, Optional, Union
 
 from . import logger
 from .compiler import Compiler, CompilerContext
-from .errors import EikoExportError, EikoInternalError
+from .errors import EikoDeployError, EikoExportError, EikoInternalError
 from .handlers import Handler, HandlerContext
 from .helpers import EikoDict, EikoList, EikoResource
 
@@ -45,8 +45,14 @@ class Task:
         logger.info(f"Starting task '{self.task_id}'")
         self.ctx.resource = self.ctx.raw_resource.to_py()
         if self.handler is not None:
-            await self.handler.execute(self.ctx)
-            await self.handler.resolve_promises(self.ctx)
+            try:
+                await self.handler.__pre__(self.ctx)
+                await self.handler.execute(self.ctx)
+                await self.handler.resolve_promises(self.ctx)
+            except Exception as e:
+                raise EikoDeployError(f"Failed to deploy '{self.task_id}': {e}") from e
+            finally:
+                await self.handler.__post__(self.ctx)
         else:
             raise EikoInternalError(
                 "Deployer failed to execute a task because a handler was missing. "

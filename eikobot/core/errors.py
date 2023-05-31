@@ -91,3 +91,15 @@ class EikoExportError(EikoError):
         self, reason: str, *args: object, token: Optional[Token] = None
     ) -> None:
         super().__init__("ExportError: " + reason, *args, token=token)
+
+
+class EikoDeployError(EikoError):
+    """
+    Something went wrong inside the compiler,
+    most likely caused by a bug and not the user.
+    """
+
+    def __init__(
+        self, reason: str, *args: object, token: Optional[Token] = None
+    ) -> None:
+        super().__init__("DeployError: " + reason, *args, token=token)
