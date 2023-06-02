@@ -181,10 +181,7 @@ def install_pkg(pkg_def: str) -> None:
     """
     _construct_pkg_index()
     if pkg_def.startswith("http://") or pkg_def.startswith("https://"):
-        pass  # Either direct or git
-
-    elif pkg_def.startswith("git+ssh://"):
-        pass  # A git repo
+        pass
 
     elif pkg_def.endswith(".eiko.tar.gz"):
         _install_pkg_from_path(Path(pkg_def))

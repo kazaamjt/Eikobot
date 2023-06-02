@@ -44,19 +44,7 @@ class Task:
         """Executes the task, than let's it's dependants know it's done."""
         logger.info(f"Starting task '{self.task_id}'")
         self.ctx.resource = self.ctx.raw_resource.to_py()
-        if self.handler is not None:
-            try:
-                await self.handler.__pre__(self.ctx)
-                await self.handler.execute(self.ctx)
-                await self.handler.resolve_promises(self.ctx)
-            except Exception as e:
-                raise EikoDeployError(f"Failed to deploy '{self.task_id}': {e}") from e
-            finally:
-                await self.handler.__post__(self.ctx)
-        else:
-            raise EikoInternalError(
-                "Deployer failed to execute a task because a handler was missing. "
-            )
+        await self._run_handler()
 
         if self.ctx.failed or not self.ctx.deployed:
             logger.error(f"Failed task '{self.task_id}'")
@@ -80,6 +68,37 @@ class Task:
 
         if self._done_cb is not None:
             self._done_cb()
+
+    async def _run_handler(self) -> None:
+        if self.handler is not None:
+            try:
+                await self.handler.__pre__(self.ctx)
+                if self.ctx.failed:
+                    raise EikoDeployError("Pre deploy failed.")
+
+                await self.handler.execute(self.ctx)
+                if self.ctx.failed or not self.ctx.deployed:
+                    raise EikoDeployError("Handler execution failed.")
+
+                await self.handler.resolve_promises(self.ctx)
+                if self.ctx.failed:
+                    raise EikoDeployError("Resolving promises failed.")
+
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                self.ctx.failed = True
+                logger.error(f"Failed to deploy '{self.task_id}': {e}")
+
+            try:
+                await self.handler.__post__(self.ctx)
+            except Exception as e:
+                raise EikoDeployError(
+                    f"Failed to cleanup for task '{self.task_id}': {e}",
+                ) from e
+
+        else:
+            raise EikoInternalError(
+                "Deployer failed to execute a task because a handler was missing. "
+            )
 
     def remove_dep(self, task: "Task") -> None:
         self.depends_on_copy.remove(task)

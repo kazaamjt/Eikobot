@@ -45,10 +45,19 @@ class Handler:
 
     __eiko_resource__: str
 
+    async def __pre__(self, ctx: HandlerContext) -> None:
+        pass
+
     async def execute(self, ctx: HandlerContext) -> None:
         raise NotImplementedError
 
     async def resolve_promises(self, ctx: HandlerContext) -> None:
+        pass
+
+    async def __post__(self, ctx: HandlerContext) -> None:
+        pass
+
+    async def cleanup(self, ctx: HandlerContext) -> None:
         pass
 
 

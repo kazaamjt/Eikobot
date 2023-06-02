@@ -3,7 +3,7 @@
 ## 0.5.0
 
 - Made EikoPromise a `Generic`
-- Make some errors clearer
+- Made some errors clearer
 - Added `std.script`
 - Remove `exec_sudo`
 - Fixed a bug that caused python models to be duplicated when converted from eiko objects through nested models
@@ -14,7 +14,11 @@
 - Added `py.typed` to enable python typing when developing modules and other things that rely on eikobots python code
 - Fixed a bug where top level expressions starting with an illegal indent were still parsed as normal
 - Added `enum`, a class like object that behaves much like enums in C
-- Added `__pre__` and `__post__` methods, which are called before and after handlers are executed
+- Added `__pre__` and `__post__` methods to `Handler` class, which are called before and after handlers are executed
+- Added port forwarding to `std.host`
+- Added `cleanup` method to `Handler` class, which is called after _everything_ is deployed
+- Use `Handler.cleanup` to more acuratly wait for ssh to close, instead of hoping asyncio.sleep was long enough
+- Fixed a bug where variables starting with an underscore being converted to basemodel in python would crash the compiler
 
 ## 0.4.0
 

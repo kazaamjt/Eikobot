@@ -780,7 +780,7 @@ class EikoResource(EikoBaseType):
                     raw_resource=self, **new_dict
                 )
                 for name, pydantic_object in pydantic_nested.items():
-                    setattr(self._py_object, name, pydantic_object)
+                    object.__setattr__(self._py_object, name, pydantic_object)
                 return self._py_object
             except ValidationError as e:
                 raise EikoCompilationError(

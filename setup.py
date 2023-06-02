@@ -37,7 +37,7 @@ setuptools.setup(
         "Topic :: System :: Systems Administration",
         "Topic :: Utilities",
         "Intended Audience :: System Administrators",
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Environment :: Console",
     ],
     packages=setuptools.find_packages(),

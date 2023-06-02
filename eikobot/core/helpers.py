@@ -16,3 +16,4 @@ from .compiler.definitions.base_types import (
     EikoResource,
     EikoStr,
 )
+from .errors import EikoDeployError

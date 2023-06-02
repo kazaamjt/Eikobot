@@ -11,6 +11,7 @@ from typing import Optional, Type, Union
 
 import asyncssh
 from asyncssh.connection import SSHClientConnection as SSHConnection
+from asyncssh.listener import SSHListener
 from colorama import Fore
 from pydantic import Extra
 
@@ -18,6 +19,7 @@ from eikobot.core.handlers import Handler, HandlerContext
 from eikobot.core.helpers import (
     EikoBaseModel,
     EikoBaseType,
+    EikoDeployError,
     EikoPromise,
     EikoProtectedStr,
 )
@@ -81,6 +83,18 @@ class CmdResult:
         return False
 
 
+class ForwardedPortListener:
+    """Represents a forwarded port that needs to be closed."""
+
+    def __init__(
+        self, listener: SSHListener, local_port: int, remote_port: int
+    ) -> None:
+        self.local_port = local_port
+        self.remote_port = remote_port
+        self.listener = listener
+        self.connections = 1
+
+
 class HostModel(EikoBaseModel):
     """
     Respresents a host to which you can deploy a resource.
@@ -109,6 +123,8 @@ class HostModel(EikoBaseModel):
         self._con_ref_count: int = 0
         self._connected: asyncio.Event = asyncio.Event()
         self._disconnect_tasks: list[asyncio.Task] = []
+        self._forwarded_ports: dict[int, ForwardedPortListener] = {}
+        self._forwarded_ports_stop_tasks: list[asyncio.Task] = []
 
     async def connect(self, ctx: HandlerContext) -> None:
         """Connects or reuses a existing connection."""
@@ -151,6 +167,7 @@ class HostModel(EikoBaseModel):
             ctx.debug(f"SSH: Disconnected from '{self.host}'.")
 
     async def wait_until_disconnected(self) -> None:
+        await asyncio.gather(*self._forwarded_ports_stop_tasks)
         await asyncio.gather(*self._disconnect_tasks)
 
     async def script(
@@ -246,6 +263,72 @@ class HostModel(EikoBaseModel):
         sudo_log_str += ": "
         return log.replace(sudo_log_str, "")
 
+    async def forward_port(
+        self, ctx: HandlerContext, local_port: int, remote_port: int | None = None
+    ) -> None:
+        """
+        Forwards a port using ssh.
+        """
+        if remote_port is None:
+            remote_port = local_port
+
+        forward_port = self._forwarded_ports.get(local_port)
+        if forward_port is None:
+            await self.connect(ctx)
+
+            listener = await self._connection.forward_local_port(
+                "",
+                local_port,
+                "",
+                remote_port,
+            )
+            ctx.debug(
+                f"SSH: Forwarding port '{local_port}' to '{self.host}:{remote_port}'."
+            )
+
+            self._forwarded_ports[local_port] = ForwardedPortListener(
+                listener, local_port, remote_port
+            )
+        else:
+            if forward_port.remote_port != remote_port:
+                raise EikoDeployError(
+                    "Trying to forward a port from a local port that is already in use."
+                )
+
+            ctx.debug(
+                f"SSH: Reusing Forwarded port '{local_port}' to '{self.host}:{remote_port}'."
+            )
+            forward_port.connections += 1
+
+    async def stop_forwarding_port(self, ctx: HandlerContext, local_port: int) -> None:
+        """
+        Stop forwarding a previously forwarded port.
+        """
+        forward_port = self._forwarded_ports.get(local_port)
+        if forward_port is None or forward_port.connections == 0:
+            ctx.warning("Tried to stop forwarding a port that is not being forwarded.")
+            return
+
+        self._forwarded_ports_stop_tasks.append(
+            asyncio.create_task(
+                self._forward_port_stop_delay(ctx, forward_port),
+                name=f"forward_port_stop-{self.host}-{forward_port.connections}",
+            )
+        )
+
+    async def _forward_port_stop_delay(
+        self, ctx: HandlerContext, forward_port: ForwardedPortListener
+    ) -> None:
+        await asyncio.sleep(1)
+        forward_port.connections -= 1
+        if forward_port.connections == 0:
+            forward_port.listener.close()
+            await forward_port.listener.wait_closed()
+            ctx.debug(
+                f"SSH: stopped Forwarding port '{forward_port.local_port}' to '{self.host}:{forward_port.remote_port}'."
+            )
+            self.disconnect(ctx)
+
 
 class HostHandler(Handler):
     """
@@ -298,6 +381,11 @@ class HostHandler(Handler):
             os_version_promis.set("unknown", ctx)
 
         ctx.deployed = True
+
+    async def cleanup(self, ctx: HandlerContext) -> None:
+        ctx.debug("Cleaning up ssh connection.")
+        if isinstance(ctx.resource, HostModel):
+            await ctx.resource.wait_until_disconnected()
 
 
 @eiko_plugin()
