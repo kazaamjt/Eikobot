@@ -161,7 +161,10 @@ def package() -> None:
 @package.command(name="build")
 def build_pkg() -> None:
     """Builds a package in the cwd, using an eiko.toml file."""
-    package_manager.build_pkg()
+    try:
+        package_manager.build_pkg()
+    except EikoError as e:
+        logger.error(str(e))
 
 
 @package.command(name="install")
@@ -170,7 +173,10 @@ def install_pkg(target: str) -> None:
     """
     Install a package from different sources.
     """
-    package_manager.install_pkg(target)
+    try:
+        package_manager.install_pkg(target)
+    except EikoError as e:
+        logger.error(str(e))
 
 
 @package.command(name="list")
@@ -189,7 +195,10 @@ def uninstall_pkg(name: str) -> None:
     """
     Performs all required steps to delete a package.
     """
-    package_manager.uninstall_pkg(name)
+    try:
+        package_manager.uninstall_pkg(name)
+    except EikoError as e:
+        logger.error(str(e))
 
 
 if __name__ == "__main__":

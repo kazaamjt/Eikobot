@@ -4,6 +4,8 @@ For help with creating, distributing and installing packages.
 import copy
 import os
 import shutil
+import subprocess
+import sys
 import tarfile
 import tomllib
 from pathlib import Path
@@ -192,7 +194,7 @@ def _install_pkg_from_path(pkg_path: Path) -> None:
     Install a package using a path to an .eiko.tar.gz file.
     """
     if not pkg_path.exists():
-        pass  # raise error
+        raise EikoPackageError(f"Package path does not exist: '{pkg_path}'.")
     logger.debug("Adding archive to cache.")
     shutil.copy(pkg_path, CACHE_PATH)
     _install_pkg_from_cache(pkg_path.name)
@@ -214,6 +216,14 @@ def _install_pkg_from_cache(archive_name: str) -> None:
         logger.info(f"Installing '{pkg_data.name}'.")
     else:
         logger.info(f"Installing '{pkg_data.name}=={pkg_data.version}'.")
+
+    requirements_file = pkg_lib_path / "requirements.txt"
+    if requirements_file.exists():
+        logger.debug("Installing python requirements.")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", requirements_file],
+            check=True,
+        )
 
     logger.debug("Installing requirements.")
     for req in pkg_data.requires:
