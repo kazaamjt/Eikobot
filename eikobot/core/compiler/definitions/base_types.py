@@ -708,11 +708,21 @@ class EikoResource(EikoBaseType):
         prop = self.properties.get(name)
         if isinstance(prop, EikoUnset):
             if not value.type_check(prop.type):
-                raise EikoCompilationError(
-                    f"Type error: Tried to assign value of type '{value.type}' "
-                    f"to a property of type '{prop.type}'.",
-                    token=token,
-                )
+                if prop.type.inverse_type_check(value.type):
+                    if prop.type.typedef is not None:
+                        value = prop.type.typedef.execute(value, token)
+                    else:
+                        raise EikoInternalError(
+                            "Ran in to a typedef that does not have a constructor. "
+                            "This is most likely a bug. PLease report this on Github.",
+                            token=token,
+                        )
+                else:
+                    raise EikoCompilationError(
+                        f"Type error: Tried to assign value of type '{value.type}' "
+                        f"to a property of type '{prop.type}'.",
+                        token=token,
+                    )
 
         elif isinstance(prop, EikoPromise):
             prop.assign(value, token)
