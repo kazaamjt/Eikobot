@@ -277,9 +277,9 @@ class HostModel(EikoBaseModel):
             await self.connect(ctx)
 
             listener = await self._connection.forward_local_port(
-                "",
+                "127.0.0.1",
                 local_port,
-                "",
+                "127.0.0.1",
                 remote_port,
             )
             ctx.debug(
