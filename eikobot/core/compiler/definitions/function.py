@@ -5,7 +5,7 @@ constructors and plugins do, and they need some kind of representation.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Type, Union
 
-from ...errors import EikoCompilationError, EikoPluginError
+from ...errors import EikoCompilationError, EikoInternalError, EikoPluginError
 from ...plugin import EikoPluginException, EikoPluginTyping
 from .._token import Token
 from .base_types import (
@@ -215,11 +215,24 @@ class ConstructorDefinition(EikoBaseType):
                 )
 
             if not passed_arg.value.type_check(kw_arg.type):
-                raise EikoCompilationError(
-                    f"Argument '{kw_arg.name}' expected value of type '{kw_arg.type}', "
-                    f"but got value of type '{passed_arg.value.type}'.",
-                    token=passed_arg.token,
-                )
+                if kw_arg.type.inverse_type_check(passed_arg.value.type):
+                    if kw_arg.type.typedef is not None:
+                        passed_arg.value = kw_arg.type.typedef.execute(
+                            passed_arg.value,
+                            passed_arg.token,
+                        )
+                    else:
+                        raise EikoInternalError(
+                            "Ran in to a typedef that does not have a constructor. "
+                            "This is most likely a bug. PLease report this on Github.",
+                            token=passed_arg.token,
+                        )
+                else:
+                    raise EikoCompilationError(
+                        f"Argument '{kw_arg.name}' expected value of type '{kw_arg.type}', "
+                        f"but got value of type '{passed_arg.value.type}'.",
+                        token=passed_arg.token,
+                    )
 
             handled_args[arg_name] = passed_arg.value
 

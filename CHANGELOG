@@ -17,7 +17,7 @@
 - Added `__pre__` and `__post__` methods to `Handler` class, which are called before and after handlers are executed
 - Added port forwarding to `std.host`
 - Added `cleanup` method to `Handler` class, which is called after _everything_ is deployed
-- Use `Handler.cleanup` to more acuratly wait for ssh to close, instead of hoping asyncio.sleep was long enough
+- Use `Handler.cleanup` to more accuratly wait for ssh to close, instead of hoping asyncio.sleep was long enough
 - Fixed a bug where variables starting with an underscore being converted to basemodel in python would crash the compiler
 - Fixed a bug where properties inside constructors were not correctly type coerced
 
