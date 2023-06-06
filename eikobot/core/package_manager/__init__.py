@@ -1,6 +1,7 @@
 """
 For help with creating, distributing and installing packages.
 """
+import asyncio
 import copy
 import os
 import shutil
@@ -8,9 +9,12 @@ import subprocess
 import sys
 import tarfile
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
+import aiohttp
 from packaging import version
 from pydantic import BaseModel, ValidationError
 
@@ -183,10 +187,65 @@ def install_pkg(pkg_def: str) -> None:
     """
     _construct_pkg_index()
     if pkg_def.startswith("http://") or pkg_def.startswith("https://"):
-        pass
+        _download_pkg(pkg_def)
 
     elif pkg_def.endswith(".eiko.tar.gz"):
         _install_pkg_from_path(Path(pkg_def))
+
+    raise EikoPackageError("Failed to properly parse package url or path.")
+
+
+def _download_pkg(url: str) -> None:
+    if url.endswith(".eiko.tar.gz"):
+        logger.debug("Directly downloading package.")
+        asyncio.run(_download_to_cache(url))
+
+    else:
+        raise EikoPackageError(
+            "Currently only direct links to an eiko package are supported."
+        )
+
+
+def _human_readable(number: int) -> str:
+    number = number // 8
+    for unit in ["", "K", "M", "G", "T"]:
+        if number < 10240:
+            return f"{number}{unit}B"
+        number = number // 1024
+    return f"{number}PB"
+
+
+async def _download_to_cache(url: str) -> None:
+    pkg_path = CACHE_PATH / Path(urlparse(url).path).name
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10)) as session:
+        logger.info(f"Fetching {url}")
+        try:
+            response = await session.get(url)
+            total_dl_size = int(response.headers.get("CONTENT-LENGTH", 0))
+            downloaded = 0
+
+            with open(pkg_path, "wb") as f:
+                async for data, _ in response.content.iter_chunks():
+                    f.write(data)
+                    downloaded += sys.getsizeof(data)
+                    percent = int((downloaded / total_dl_size) * 20)
+                    pg_bar = "=" * percent
+                    if percent == 20:
+                        print(
+                            f"    [{pg_bar}]",
+                            f"{_human_readable(total_dl_size)}/{_human_readable(total_dl_size)}",
+                        )
+                    else:
+                        print(
+                            f"    [{pg_bar}>{(20 - percent - 1) * ' '}]",
+                            f"{_human_readable(downloaded)}/{_human_readable(total_dl_size)}",
+                            end="\r",
+                        )
+
+        except aiohttp.ClientError as e:
+            raise EikoPackageError(f"Failed to download {url}: {e}") from e
+
+    _install_pkg_from_cache(pkg_path.name)
 
 
 def _install_pkg_from_path(pkg_path: Path) -> None:
@@ -213,9 +272,9 @@ def _install_pkg_from_cache(archive_name: str) -> None:
         _uninstall_pkg(prev_pkg)
 
     if pkg_data.version is None:
-        logger.info(f"Installing '{pkg_data.name}'.")
+        logger.debug(f"Installing '{pkg_data.name}'.")
     else:
-        logger.info(f"Installing '{pkg_data.name}=={pkg_data.version}'.")
+        logger.debug(f"Installing '{pkg_data.name}=={pkg_data.version}'.")
 
     requirements_file = pkg_lib_path / "requirements.txt"
     if requirements_file.exists():
@@ -234,7 +293,7 @@ def _install_pkg_from_cache(archive_name: str) -> None:
     )
 
     if pkg_data.version is None:
-        logger.info(f"Finished installing '{pkg_data.name}'.")
+        logger.info(f"Installed '{pkg_data.name}'.")
     else:
         logger.info(f"Installed '{pkg_data.name}=={pkg_data.version}'.")
 
@@ -258,7 +317,7 @@ def uninstall_pkg(name: str) -> None:
 
 
 def _uninstall_pkg(pkg_data: PackageData) -> None:
-    logger.info(f"Uninstalling '{pkg_data.pkg_name_version()}'")
+    logger.debug(f"Uninstalling '{pkg_data.pkg_name_version()}'")
     os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
     shutil.rmtree(LIB_PATH / pkg_data.pkg_name_version())
     logger.info(f"Uninstalled '{pkg_data.pkg_name_version()}'")

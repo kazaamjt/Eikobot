@@ -20,7 +20,6 @@ from .base_types import (
     to_eiko,
     to_eiko_type,
 )
-from .typedef import EikoTypeDef
 
 if TYPE_CHECKING:
     from .._parser import ExprAST
@@ -88,9 +87,7 @@ class ConstructorDefinition(EikoBaseType):
         self_arg = list(self.args.values())[0]
         resource = EikoResource(self.parent)
         handled_args[self_arg.name] = resource
-        self._handle_args(
-            handled_args, positional_args, keyword_args, self.execution_context
-        )
+        self._handle_args(handled_args, positional_args, keyword_args)
 
         for arg_name, arg in self.args.items():
             if arg_name not in handled_args:
@@ -169,28 +166,24 @@ class ConstructorDefinition(EikoBaseType):
 
         return resource
 
-    def _handle_args(
+    def _handle_args(  # pylint: disable=too-many-branches
         self,
         handled_args: dict[str, EikoBaseType],
         positional_args: list[PassedArg],
         keyword_args: dict[str, PassedArg],
-        context: "CompilerContext",
     ) -> None:
         for passed_arg, arg in zip(positional_args, list(self.args.values())[1:]):
             if not passed_arg.value.type_check(arg.type):
                 # Try to coerce the type
                 if arg.type.inverse_type_check(passed_arg.value.type):
-                    type_constr = context.get(arg.type.name)
-                    if isinstance(type_constr, EikoTypeDef):
-                        passed_arg.value = type_constr.execute(
-                            passed_arg.value, passed_arg.token
-                        )
-                    else:
-                        raise EikoCompilationError(
-                            f"Argument '{arg.name}' expected value of type '{arg.type}', "
-                            f"but got value of type '{passed_arg.value.type}'.",
+                    if arg.type.typedef is None:
+                        raise EikoInternalError(
+                            "Failed to coerce type.",
                             token=passed_arg.token,
                         )
+                    passed_arg.value = arg.type.typedef.execute(
+                        passed_arg.value, passed_arg.token
+                    )
                 else:
                     raise EikoCompilationError(
                         f"Argument '{arg.name}' expected value of type '{arg.type}', "
