@@ -41,7 +41,7 @@ Features and bug fixes:
 - [ ] add `Tuple` data type and automatic unpacking of tuples
 - [ ] add `for` keyword, to loop over lists, dicts and tuples
 - [ ] expand type system to take module in to account when resolving types
-- [ ] add `enum`
+- [x] add `enum`
 - [x] add `promise` (A piece of data that will be filled in during the deploy step)
 
 Code cleanup:
@@ -81,5 +81,5 @@ Adding a package manager and a way to build, install and uninstall packages easi
 - [x] build packages
 - [x] install packages using a path to the `tar.gz` file
 - [x] uninstall packages by name
-- [ ] install packages using https
+- [x] install packages using https
 - [ ] install packages using git
