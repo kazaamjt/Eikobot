@@ -11,7 +11,8 @@ from pathlib import Path
 
 import click
 
-from .core import logger
+from . import VERSION
+from .core import logger, package_manager
 from .core.compiler import Compiler
 from .core.compiler.lexer import Token
 from .core.deployer import Deployer
@@ -21,6 +22,7 @@ from .core.exporter import Exporter
 
 @click.group()
 @click.option("--debug", is_flag=True)
+@click.version_option(VERSION)
 def cli(debug: bool = False) -> None:
     """
     The Eikobot CLI allows for compilation
@@ -115,34 +117,100 @@ def _compile(
 
 
 @cli.command()
-@click.option("-f", "--file", prompt="File", help="Path to entrypoint file.")
+@click.option("-f", "--file", "file", prompt="File", help="Path to entrypoint file.")
 @click.option(
     "--enable-plugin-stacktrace",
     is_flag=True,
     help="Outputs a plugins stacktrace if it raises an exception.",
 )
-def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Does a dry run of all the tasks in a given model.",
+)
+def deploy(
+    file: str,
+    enable_plugin_stacktrace: bool = False,
+    dry_run: bool = False,
+) -> None:
     """
     Compile, export and deploy a model from a given file.
     """
     start = time.time()
     compiler = _compile(file, False, enable_plugin_stacktrace)
     logger.info("Exporting model.")
-    exporter = Exporter()
-    exporter.export_from_context(compiler.context)
-    logger.info("Deploying model.")
-    deployer = Deployer()
-    asyncio.run(deployer.deploy(exporter, log_progress=True))
+    try:
+        exporter = Exporter()
+        exporter.export_from_context(compiler.context)
+        logger.info("Deploying model.")
+        deployer = Deployer()
+        if dry_run:
+            asyncio.run(deployer.dry_run(exporter))
+        else:
+            asyncio.run(deployer.deploy(exporter, log_progress=True))
+    except EikoError as e:
+        logger.error(str(e))
 
-    if deployer.failed:
-        logger.error(
-            "Failed to deploy model. "
-            f"({deployer.progress.done} out of {deployer.progress.total} tasks done)"
-        )
+        if e.index is not None:
+            logger.print_error_trace(e.index)
     else:
-        time_taken = time.time() - start
-        time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
-        logger.info(f"Deployed in {time_taken_formatted}")
+        if deployer.failed:
+            logger.error(
+                "Failed to deploy model. "
+                f"({deployer.progress.done} out of {deployer.progress.total} tasks done)"
+            )
+        else:
+            time_taken = time.time() - start
+            time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
+            logger.info(f"Deployed in {time_taken_formatted}")
+
+
+@cli.group()
+def package() -> None:
+    pass
+
+
+@package.command(name="build")
+def build_pkg() -> None:
+    """Builds a package in the cwd, using an eiko.toml file."""
+    try:
+        package_manager.build_pkg()
+    except EikoError as e:
+        logger.error(str(e))
+
+
+@package.command(name="install")
+@click.argument("target")
+def install_pkg(target: str) -> None:
+    """
+    Install a package from different sources.
+    """
+    try:
+        package_manager.install_pkg(target)
+    except EikoError as e:
+        logger.error(str(e))
+
+
+@package.command(name="list")
+def list_pkg() -> None:
+    """
+    Lists all installed packages.
+    """
+    packages = package_manager.get_installed_pkg()
+    for pkg in packages.values():
+        print(f"{pkg.name}=={pkg.version}")
+
+
+@package.command(name="uninstall")
+@click.argument("name")
+def uninstall_pkg(name: str) -> None:
+    """
+    Performs all required steps to delete a package.
+    """
+    try:
+        package_manager.uninstall_pkg(name)
+    except EikoError as e:
+        logger.error(str(e))
 
 
 if __name__ == "__main__":

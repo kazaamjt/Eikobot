@@ -33,6 +33,8 @@ from .definitions.base_types import (
     EikoBuiltinTypes,
     EikoDict,
     EikoDictType,
+    EikoEnumDefinition,
+    EikoEnumValue,
     EikoFloat,
     EikoFloatType,
     EikoInt,
@@ -752,6 +754,28 @@ class CallExprAst(ExprAST):
                 args.append(PassedArg(arg_expr.token, arg_value))
 
             return eiko_callable.execute(self.token, args)
+
+        if isinstance(eiko_callable, EikoEnumDefinition):
+            if len(self.args.elements) != 1:
+                raise EikoCompilationError(
+                    f"Enum '{eiko_callable.name}' takes exactly 1 argument.",
+                    token=self.token,
+                )
+
+            compiled_arg = self.args.elements[0].compile(context)
+            if compiled_arg is None:
+                raise EikoCompilationError(
+                    "Expected a value, but expression did not return one.",
+                    token=self.args.elements[0].token,
+                )
+
+            if not isinstance(compiled_arg, EikoStr):
+                raise EikoCompilationError(
+                    "Expected a value of type 'str'.",
+                    token=self.args.elements[0].token,
+                )
+
+            return eiko_callable.get(compiled_arg.value, self.args.elements[0].token)
 
         if eiko_callable in EikoBuiltinTypes:
             if len(self.args.elements) != 1:
@@ -1478,6 +1502,9 @@ class TypeExprAST(ExprAST):
 
             return EikoDictType(key_type, self.sub_expressions[1].compile(context))
 
+        if isinstance(primary_type, EikoEnumDefinition):
+            return primary_type.value_type
+
         raise EikoCompilationError(
             "Not a valid type expressions.",
             token=self.token,
@@ -1530,6 +1557,35 @@ class DictExprAST(ExprAST):
         value_type = type_list_to_type(value_types)
 
         return EikoDict(key_type, value_type, elements)
+
+
+@dataclass
+class EnumValueExprAst(ExprAST):
+    """Represents a value tied to an enum class."""
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.value = self.token.content.lower()
+
+    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+        raise NotImplementedError(self.token)
+
+
+@dataclass
+class EnumExprAst(ExprAST):
+    """Represents an enum definition."""
+
+    values: list[EnumValueExprAst]
+
+    def compile(self, context: CompilerContext) -> EikoEnumDefinition:
+        value_type = EikoType(self.token.content)
+        values: dict[str, EikoEnumValue] = {}
+        for value in self.values:
+            values[value.value] = EikoEnumValue(value_type, value.value)
+
+        definition = EikoEnumDefinition(self.token.content, value_type, values)
+        context.set(definition.name, definition)
+        return definition
 
 
 class Parser:
@@ -1616,8 +1672,8 @@ class Parser:
 
     def _parse_top_level(self) -> ExprAST:
         if not (
-            self._current.type in [TokenType.INDENT, TokenType.EOF]
-            or self._current.content == ""
+            (self._current.type == TokenType.INDENT and self._current.content == "")
+            or (self._current.type == TokenType.EOF and self._current.content == "EOF")
         ):
             raise EikoParserError(
                 f"Unexpected token: '{self._current.content}'.", token=self._current
@@ -1704,6 +1760,9 @@ class Parser:
 
         if self._current.type == TokenType.AT_SIGN:
             return self._parse_decorator([])
+
+        if self._current.type == TokenType.ENUM:
+            return self._parse_enum()
 
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
@@ -2015,7 +2074,7 @@ class Parser:
 
         if self._current.type != TokenType.LEFT_PAREN:
             raise EikoSyntaxError("Expected a '('.", index=self._current.index)
-        self._advance()
+        self._advance(skip_indentation=True)
 
         self_arg = VariableExprAST(self._current)
         self._advance()
@@ -2029,8 +2088,10 @@ class Parser:
                 raise EikoSyntaxError(
                     "Expected a ',' or a ')'.", index=self._current.index
                 )
-            self._advance()
+            self._advance(skip_indentation=True)
             args.append(self._parse_consructor_arg())
+            if self._current.type == TokenType.INDENT:
+                self._advance(skip_indentation=True)
 
         if self._current.type != TokenType.COLON:
             raise EikoSyntaxError("Expected a ':'.", index=self._current.index)
@@ -2314,3 +2375,56 @@ class Parser:
                 break
 
         return DictExprAST(token, kv_pairs)
+
+    def _parse_enum(self) -> EnumExprAst:
+        if self._next.type != TokenType.IDENTIFIER:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, "
+                "expected resource identifier.",
+                token=self._next,
+            )
+
+        identifier_token = self._next
+        self._advance()
+        self._advance()
+
+        if self._current.type != TokenType.COLON:
+            raise EikoParserError(
+                f"Unexpected token '{self._current.content}'.",
+                token=self._current,
+            )
+        self._advance()
+
+        if self._current.type != TokenType.INDENT:
+            raise EikoParserError(
+                f"Unexpected token '{self._current.content}'.",
+                token=self._previous,
+            )
+
+        if self._current.content == "":
+            raise EikoParserError("Expected indentation.", token=self._previous)
+
+        values: list[EnumValueExprAst] = []
+        indent = self._current.content
+        self._advance()
+        while True:
+            if self._current.type != TokenType.IDENTIFIER:
+                raise EikoParserError(
+                    f"Unexpected token '{self._current.content}', expected an enum value identifier.",
+                    token=self._current,
+                )
+
+            values.append(EnumValueExprAst(self._current))
+            self._advance()
+
+            while self._next.type == TokenType.INDENT:
+                self._advance()
+            if self._current.type != TokenType.INDENT:
+                raise EikoInternalError(
+                    "Unexpected issue, please report this on github."
+                )
+            if self._current.content != indent:
+                break
+            self._advance()
+
+        return EnumExprAst(identifier_token, values)

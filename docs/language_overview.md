@@ -1266,7 +1266,7 @@ This can either be done in the `Handler.execute` function
 or it can be done in the `Handler.resolve_promises` method.  
 Of these 2 options, the latter is recommended, as it will always be called without fault.  
 
-So, because our `CarHandler` inherits from `CRUDHanlder`, we will use implement a
+So, because our `CarHandler` inherits from `CRUDHanlder`, we will implement a
 `resolve_promises` method that reads the directory's creation timestamp
 and sets it as the timestamp promise:
 
@@ -1285,7 +1285,7 @@ we are required to set.
 If one of the promises isn't set when `Handler.execute` and `Handler.resolve_promises` are done,
 the orchestrator will consider the resource to be in a failed state.  
 
-Now, if there are resources that use the value of `Car.timestamp`, they will get the value we just set it to.  
+Now, if there are resources that use the value of `Car.timestamp`, they can resolve the value we just set it to.  
 It will also tag any resource using this value as a dependant of our `car` resource.  
 
 To see this in action, let's create a new resource that uses the value of this promise:
@@ -1301,23 +1301,58 @@ Ofcourse, the resource will not be picked up until it has a handler.
 Let's create a simple handler that takes the timestamp and prints it:  
 
 ```Python
+class ManufactureDateModel(EikoBaseModel):
+    __eiko_resource__ = "ManufactureDate"
+
+    timestamp: int
+
+
 class MDHandler(Handler):
     __eiko_resource__ = "ManufactureDate"
 
     async def execute(self, ctx: HandlerContext) -> None:
-        if not isinstance(ctx.resource, dict):
+        if not isinstance(ctx.resource, ManufactureDateModel):
             ctx.failed = True
             return
 
-        timestamp = ctx.resource.get("timestamp")
-        if not isinstance(timestamp, int):
-            ctx.failed = True
-            return
-
-        print(f"timestamp: {timestamp}")
+        print(f"timestamp: {ctx.resource.timestamp}")
         ctx.deployed = True
 ```
 
 Now if we deploy, the timestamp will be printed. (as epoch time in seconds)  
 This should always work, because the system garantuees the value for `ManufactureDate.timestamp` exists
 by the time the handler is called.  
+In this case, the compiler automatically resolves the timestamp promise and
+does a type check on the value it returns.  
+
+However if you access a Model; that has a promis directly, the Promises get translated to `EikoPromise`.
+`EikoPromise` is a container/generic, so we can pass it the expected type.  
+
+So when updating the Model for our car, it would look like this:
+
+```Python
+class Car(EikoBaseModel):
+    __eiko_resource__ = "Car"
+
+    serial: str
+    brand: str
+    timestamp: EikoPromis[int]
+```
+
+When using a Python model that has a promise, you can manually `resolve` the promise.  
+The resolve method will return a value that is the type defined in the container.  
+
+However, the compiler cannot perfrom a runtime type check on this value
+unless it is passed manually to the resolve method.  
+This is due to how python type annotations for generics work.  
+
+So, if we were to have an instance of `std.Host`,
+and we would like to access its `os_platform` property, we would do it like so:
+
+```Python
+platform = some_host.os_platform.resolve(str)
+```
+
+So resolve makes sure we get a value of the type we expect and that the value actually already exists.  
+While Eikobot takes promises in to account when calculating task dependencies,
+this is an extra safety measure.  

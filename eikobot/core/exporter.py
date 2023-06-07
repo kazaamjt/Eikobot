@@ -8,7 +8,7 @@ from typing import Callable, Optional, Union
 
 from . import logger
 from .compiler import Compiler, CompilerContext
-from .errors import EikoExportError, EikoInternalError
+from .errors import EikoDeployError, EikoExportError, EikoInternalError
 from .handlers import Handler, HandlerContext
 from .helpers import EikoDict, EikoList, EikoResource
 
@@ -42,15 +42,15 @@ class Task:
 
     async def execute(self) -> None:
         """Executes the task, than let's it's dependants know it's done."""
-        logger.info(f"starting task '{self.task_id}'")
-        self._resolve_promises()
-        if self.handler is not None:
-            await self.handler.execute(self.ctx)
-            await self.handler.resolve_promises(self.ctx)
-        else:
-            raise EikoInternalError(
-                "Deployer failed to execute a task because a handler was missing. "
-            )
+        logger.info(f"Starting task '{self.task_id}'")
+        self.ctx.resource = self.ctx.raw_resource.to_py()
+        await self._run_handler()
+
+        if self.ctx.failed or not self.ctx.deployed:
+            logger.error(f"Failed task '{self.task_id}'")
+            if self._failure_cb is not None:
+                self._failure_cb()
+            return
 
         for name, promise in self.ctx.raw_resource.promises.items():
             if promise.value is None:
@@ -62,16 +62,6 @@ class Task:
                     self._failure_cb()
                 return
 
-            self.ctx.raw_resource.properties[name] = promise.value
-
-        self.ctx.resource = self.ctx.raw_resource.to_py()
-
-        if self.ctx.failed or not self.ctx.deployed:
-            logger.error(f"Failed task '{self.task_id}'")
-            if self._failure_cb is not None:
-                self._failure_cb()
-            return
-
         logger.debug(f"Done executing task '{self.task_id}'")
         for sub_task in self.dependants:
             sub_task.remove_dep(self)
@@ -79,23 +69,36 @@ class Task:
         if self._done_cb is not None:
             self._done_cb()
 
-    def _resolve_promises(self) -> None:
-        """Resolves external promises."""
-        for name, promise in self.ctx.raw_resource.get_external_promises():
-            logger.debug(
-                f"Task '{self.task_id}' is resolving extenral promise "
-                f"'{promise.parent.index()}.{promise.name}'."
+    async def _run_handler(self) -> None:
+        if self.handler is not None:
+            try:
+                await self.handler.__pre__(self.ctx)
+                if self.ctx.failed:
+                    raise EikoDeployError("Pre deploy failed.")
+
+                await self.handler.execute(self.ctx)
+                if self.ctx.failed or not self.ctx.deployed:
+                    raise EikoDeployError("Handler execution failed.")
+
+                await self.handler.resolve_promises(self.ctx)
+                if self.ctx.failed:
+                    raise EikoDeployError("Resolving promises failed.")
+
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                self.ctx.failed = True
+                logger.error(f"Failed to deploy '{self.task_id}': {e}")
+
+            try:
+                await self.handler.__post__(self.ctx)
+            except Exception as e:
+                raise EikoDeployError(
+                    f"Failed to cleanup for task '{self.task_id}': {e}",
+                ) from e
+
+        else:
+            raise EikoInternalError(
+                "Deployer failed to execute a task because a handler was missing. "
             )
-            if promise.value is None:
-                raise EikoInternalError(
-                    "An external promise was not resolved. "
-                    "This should have been caught earlier.",
-                    token=promise.token,
-                )
-
-            self.ctx.raw_resource.properties[name] = promise.value
-
-        self.ctx.resource = self.ctx.raw_resource.to_py()
 
     def remove_dep(self, task: "Task") -> None:
         self.depends_on_copy.remove(task)

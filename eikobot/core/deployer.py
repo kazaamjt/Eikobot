@@ -47,7 +47,20 @@ class Deployer:
         while self.asyncio_tasks:
             await asyncio.gather(*self.asyncio_tasks)
 
-        await self._clean_up()
+        logger.info("Cleaning up.")
+        for task in exporter.task_index.values():
+            if task.handler is not None:
+                await task.handler.cleanup(task.ctx)
+
+    async def dry_run(self, exporter: Exporter) -> None:
+        """Executes a dry run of all tasks."""
+        for task in exporter.base_tasks:
+            task.init()
+
+        for task in exporter.task_index.values():
+            if task.handler is not None:
+                task.ctx.resource = task.ctx.raw_resource.to_py()
+                await task.handler.__dry_run__(task.ctx)
 
     async def deploy_from_file(self, eiko_file: Path) -> None:
         """Helper funcion meant mostly for testing."""
@@ -76,9 +89,3 @@ class Deployer:
 
     def _failure_cb(self) -> None:
         self.failed = True
-
-    async def _clean_up(self) -> None:
-        # Bit of a hack.
-        # We timeout ssh connections after 1 second of idle time
-        # so this gives them time to close automatically.
-        await asyncio.sleep(1)

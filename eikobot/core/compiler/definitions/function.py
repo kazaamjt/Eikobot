@@ -5,7 +5,7 @@ constructors and plugins do, and they need some kind of representation.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Type, Union
 
-from ...errors import EikoCompilationError, EikoPluginError
+from ...errors import EikoCompilationError, EikoInternalError, EikoPluginError
 from ...plugin import EikoPluginException, EikoPluginTyping
 from .._token import Token
 from .base_types import (
@@ -20,7 +20,6 @@ from .base_types import (
     to_eiko,
     to_eiko_type,
 )
-from .typedef import EikoTypeDef
 
 if TYPE_CHECKING:
     from .._parser import ExprAST
@@ -88,9 +87,7 @@ class ConstructorDefinition(EikoBaseType):
         self_arg = list(self.args.values())[0]
         resource = EikoResource(self.parent)
         handled_args[self_arg.name] = resource
-        self._handle_args(
-            handled_args, positional_args, keyword_args, self.execution_context
-        )
+        self._handle_args(handled_args, positional_args, keyword_args)
 
         for arg_name, arg in self.args.items():
             if arg_name not in handled_args:
@@ -169,28 +166,24 @@ class ConstructorDefinition(EikoBaseType):
 
         return resource
 
-    def _handle_args(
+    def _handle_args(  # pylint: disable=too-many-branches
         self,
         handled_args: dict[str, EikoBaseType],
         positional_args: list[PassedArg],
         keyword_args: dict[str, PassedArg],
-        context: "CompilerContext",
     ) -> None:
         for passed_arg, arg in zip(positional_args, list(self.args.values())[1:]):
             if not passed_arg.value.type_check(arg.type):
                 # Try to coerce the type
                 if arg.type.inverse_type_check(passed_arg.value.type):
-                    type_constr = context.get(arg.type.name)
-                    if isinstance(type_constr, EikoTypeDef):
-                        passed_arg.value = type_constr.execute(
-                            passed_arg.value, passed_arg.token
-                        )
-                    else:
-                        raise EikoCompilationError(
-                            f"Argument '{arg.name}' expected value of type '{arg.type}', "
-                            f"but got value of type '{passed_arg.value.type}'.",
+                    if arg.type.typedef is None:
+                        raise EikoInternalError(
+                            "Failed to coerce type.",
                             token=passed_arg.token,
                         )
+                    passed_arg.value = arg.type.typedef.execute(
+                        passed_arg.value, passed_arg.token
+                    )
                 else:
                     raise EikoCompilationError(
                         f"Argument '{arg.name}' expected value of type '{arg.type}', "
@@ -215,11 +208,24 @@ class ConstructorDefinition(EikoBaseType):
                 )
 
             if not passed_arg.value.type_check(kw_arg.type):
-                raise EikoCompilationError(
-                    f"Argument '{kw_arg.name}' expected value of type '{kw_arg.type}', "
-                    f"but got value of type '{passed_arg.value.type}'.",
-                    token=passed_arg.token,
-                )
+                if kw_arg.type.inverse_type_check(passed_arg.value.type):
+                    if kw_arg.type.typedef is not None:
+                        passed_arg.value = kw_arg.type.typedef.execute(
+                            passed_arg.value,
+                            passed_arg.token,
+                        )
+                    else:
+                        raise EikoInternalError(
+                            "Ran in to a typedef that does not have a constructor. "
+                            "This is most likely a bug. PLease report this on Github.",
+                            token=passed_arg.token,
+                        )
+                else:
+                    raise EikoCompilationError(
+                        f"Argument '{kw_arg.name}' expected value of type '{kw_arg.type}', "
+                        f"but got value of type '{passed_arg.value.type}'.",
+                        token=passed_arg.token,
+                    )
 
             handled_args[arg_name] = passed_arg.value
 

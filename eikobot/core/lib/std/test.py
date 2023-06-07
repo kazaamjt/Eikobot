@@ -17,4 +17,4 @@ def test_raise_exception() -> None:
 
 @eiko_plugin()
 def test_python_exception() -> None:
-    raise Exception("A python exception to test the plugin exception handling.")
+    raise ValueError("A python exception to test the plugin exception handling.")

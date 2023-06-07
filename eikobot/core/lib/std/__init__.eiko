@@ -20,3 +20,18 @@ resource Host:
 resource Cmd:
     host: Host
     cmd: str
+
+
+@index(["host.host", "_hash"])
+resource Script:
+    host: Host
+    script: str
+    exec_shell: Optional[str]
+
+    _hash: str
+
+    def __init__(self, host: Host, script: str, exec_shell: Optional[str] = None):
+        self.host = host
+        self.script = script
+        self.exec_shell = exec_shell
+        self._hash = hash(self.script)

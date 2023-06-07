@@ -9,23 +9,30 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Generic,
     Iterator,
     Optional,
     Type,
+    TypeVar,
     Union,
 )
 
 from pydantic import BaseModel, ValidationError
 
-from ...errors import EikoCompilationError, EikoInternalError
+from ...errors import (
+    EikoCompilationError,
+    EikoError,
+    EikoInternalError,
+    EikoUnresolvedPromiseError,
+)
 from .._token import Token
 
 if TYPE_CHECKING:
+    from ...handlers import HandlerContext
     from ._resource import EikoResourceDefinition
     from .base_model import EikoBaseModel
     from .context import StorableTypes
     from .typedef import EikoTypeDef
-    from ...handlers import HandlerContext
 
 
 class EikoType:
@@ -447,7 +454,10 @@ class EikoPath(EikoBaseType):
         return self.value
 
 
-class EikoPromise(EikoBaseType):
+T = TypeVar("T")
+
+
+class EikoPromise(EikoBaseType, Generic[T]):
     """
     A promise is a piece of information that
     Eikobot might not be able to retrieve at compile time.
@@ -523,7 +533,7 @@ class EikoPromise(EikoBaseType):
         if self.value is None:
             raise EikoCompilationError(
                 "An unfulfilled Promise cannot be checked for truthiness, "
-                "as its value does not yet exist at compile time."
+                "as its value does not yet exist."
             )
 
         return self.value.truthiness()
@@ -534,12 +544,118 @@ class EikoPromise(EikoBaseType):
     def index(self) -> str:
         return f"promise-{self.parent.index()}.{self.name}"
 
-    def to_py(self) -> "EikoPromise":
+    def to_py(self) -> "EikoPromise[T]":
         return self
 
+    def resolve(self, expect: Type[T]) -> T:
+        """
+        Gets the value of a promise if it exists.
+        Raises EikoError if the promise has no value.
+        The expect param allows for runtime type checking.
+        """
+        if self.value is None:
+            raise EikoUnresolvedPromiseError(
+                "Unresolved Promise was accessed.",
+                token=self.token,
+            )
 
-BuiltinTypes = Union[EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone]
-EikoBuiltinTypes = (EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone)
+        value = self.value.to_py()
+        if isinstance(value, EikoPromise):
+            value = value.resolve(expect)
+
+        if not isinstance(value, expect):
+            raise EikoError(
+                f"Promise value is of type '{type(value)}', but user expected type '{expect}'."
+            )
+
+        return value
+
+
+EikoEnumDefinitionType = EikoType("EnumDefinition")
+
+
+class EikoEnumValue(EikoBaseType):
+    """Represents values and instances of enum values"""
+
+    def __init__(self, eiko_type: EikoType, value: str) -> None:
+        super().__init__(eiko_type)
+        self.value = value
+
+    def index(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def printable(self, _: str = "") -> str:
+        return f"{self.type.name} '{self.value}'"
+
+    def get_value(self) -> str:
+        return self.value
+
+    def truthiness(self) -> bool:
+        return True
+
+    def to_py(self) -> str:
+        return self.value
+
+
+class EikoEnumDefinition(EikoBaseType):
+    """Internal representation of a resource definition."""
+
+    def __init__(
+        self, name: str, value_type: EikoType, values: dict[str, EikoEnumValue]
+    ) -> None:
+        super().__init__(EikoEnumDefinitionType)
+        self.name = name
+        self.value_type = value_type
+        self.values = values
+
+    def get(self, name: str, token: Optional[Token] = None) -> EikoEnumValue:
+        value = self.values.get(name)
+        if value is None:
+            raise EikoCompilationError(
+                f"Enum '{self.name}' has no value '{name}'.",
+                token=token,
+            )
+
+        return value
+
+    def printable(self, indent: str = "") -> str:
+        string = f"ENUM '{self.name}':" + " {\n"
+        n_indent = indent + "    "
+        for value in self.values.values():
+            string += n_indent + value.printable(n_indent) + ",\n"
+        string += indent + "}\n"
+
+        return string
+
+    @classmethod
+    def convert(cls, _: "BuiltinTypes") -> "EikoBaseType":
+        raise ValueError
+
+    def get_value(self) -> PyTypes:
+        raise NotImplementedError
+
+    def truthiness(self) -> bool:
+        raise NotImplementedError
+
+    def index(self) -> str:
+        raise NotImplementedError
+
+    def to_py(self) -> Union[PyTypes, "EikoPromise"]:
+        raise NotImplementedError
+
+
+BuiltinTypes = Union[
+    EikoBool, EikoFloat, EikoInt, EikoStr, EikoPath, EikoNone, EikoEnumValue
+]
+EikoBuiltinTypes = (
+    EikoBool,
+    EikoFloat,
+    EikoInt,
+    EikoStr,
+    EikoPath,
+    EikoNone,
+    EikoEnumValue,
+)
 
 
 class EikoResource(EikoBaseType):
@@ -600,14 +716,25 @@ class EikoResource(EikoBaseType):
         prop = self.properties.get(name)
         if isinstance(prop, EikoUnset):
             if not value.type_check(prop.type):
-                raise EikoCompilationError(
-                    f"Type error: Tried to assign value of type '{value.type}' "
-                    f"to a property of type '{prop.type}'.",
-                    token=token,
-                )
+                if prop.type.inverse_type_check(value.type):
+                    if prop.type.typedef is not None:
+                        value = prop.type.typedef.execute(value, token)
+                    else:
+                        raise EikoInternalError(
+                            "Ran in to a typedef that does not have a constructor. "
+                            "This is most likely a bug. PLease report this on Github.",
+                            token=token,
+                        )
+                else:
+                    raise EikoCompilationError(
+                        f"Type error: Tried to assign value of type '{value.type}' "
+                        f"to a property of type '{prop.type}'.",
+                        token=token,
+                    )
 
         elif isinstance(prop, EikoPromise):
             prop.assign(value, token)
+            return
 
         elif prop is not None:
             raise EikoCompilationError(
@@ -644,16 +771,34 @@ class EikoResource(EikoBaseType):
     def to_py(self) -> Union[BaseModel, dict]:
         if self._py_object is not None:
             return self._py_object
+
         new_dict: dict[str, Union[PyTypes, EikoPromise]] = {}
+        pydantic_nested: dict[str, BaseModel] = {}
         for name, value in self.properties.items():
-            new_dict[name] = value.to_py()
+            if name in ["__depends_on__"]:
+                continue
+            new_value = value.to_py()
+            if isinstance(new_value, EikoPromise):
+                if new_value.name not in self.promises:
+                    new_value = new_value.resolve(object)
+
+            # Ok follow me on this:
+            # Pydantic calls __dict__ when validating nested models
+            # thereby returning new instances of objects that should not be recreated.
+            # This can cause bugs as we rely on the objects staying the same.
+            # So we keep track of all of the nested and attributes and
+            # monkey patch them back in
+            if isinstance(new_value, BaseModel) and isinstance(value, EikoResource):
+                pydantic_nested[name] = new_value
+            new_dict[name] = new_value
 
         if self.class_ref.linked_basemodel is not None:
             try:
                 self._py_object = self.class_ref.linked_basemodel(
                     raw_resource=self, **new_dict
                 )
-                self._py_object.__post_init__()
+                for name, pydantic_object in pydantic_nested.items():
+                    object.__setattr__(self._py_object, name, pydantic_object)
                 return self._py_object
             except ValidationError as e:
                 raise EikoCompilationError(
@@ -674,6 +819,7 @@ INDEXABLE_TYPES = (
     EikoPath,
     EikoPromise,
     EikoResource,
+    EikoEnumValue,
 )
 _builtin_function_type = EikoType("builtin_function", EikoObjectType)
 

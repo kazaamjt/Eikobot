@@ -18,6 +18,10 @@ class EikoError(Exception):
         self.index = None if token is None else token.index
 
 
+class EikoUnresolvedPromiseError(EikoError):
+    """A promise that wasn't resolved by the time it was accessed"""
+
+
 class EikoInternalError(EikoError):
     """
     Something went wrong inside the compiler,
@@ -91,3 +95,15 @@ class EikoExportError(EikoError):
         self, reason: str, *args: object, token: Optional[Token] = None
     ) -> None:
         super().__init__("ExportError: " + reason, *args, token=token)
+
+
+class EikoDeployError(EikoError):
+    """
+    Something went wrong inside the compiler,
+    most likely caused by a bug and not the user.
+    """
+
+    def __init__(
+        self, reason: str, *args: object, token: Optional[Token] = None
+    ) -> None:
+        super().__init__("DeployError: " + reason, *args, token=token)
