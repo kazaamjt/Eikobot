@@ -7,6 +7,7 @@ from typing import Any, Union
 from . import logger
 from .compiler.definitions.base_model import BaseModel
 from .compiler.definitions.base_types import EikoResource
+from .errors import EikoUnresolvedPromiseError
 
 
 @dataclass
@@ -59,6 +60,9 @@ class Handler:
 
     async def cleanup(self, ctx: HandlerContext) -> None:
         pass
+
+    async def __dry_run__(self, ctx: HandlerContext) -> None:
+        ctx.info(f"Task '{ctx.name}' would execute.")
 
 
 class EikoCRUDHanlderMethodNotImplemented(Exception):
@@ -118,3 +122,25 @@ class CRUDHandler(Handler):
 
     async def delete(self, ctx: HandlerContext) -> None:
         raise EikoCRUDHanlderMethodNotImplemented
+
+    async def __dry_run__(self, ctx: HandlerContext) -> None:
+        try:
+            logger.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
+            await self.read(ctx)
+        except EikoCRUDHanlderMethodNotImplemented:
+            logger.info(f"Resource '{ctx.name}' would be created.")
+        except EikoUnresolvedPromiseError:
+            logger.info(
+                f"Resource '{ctx.name}' relies on promises that are unresolved and thus its state is unknown."
+            )
+            return
+
+        if ctx.deployed:
+            if not ctx.changes:
+                logger.info(f"Resource '{ctx.name}' is in its desired state.")
+            else:
+                logger.info(
+                    f"Resource '{ctx.name}' would be updated. (changes: {ctx.changes})"
+                )
+        else:
+            logger.info(f"Resource '{ctx.name}' would be created.")

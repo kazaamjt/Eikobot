@@ -52,6 +52,16 @@ class Deployer:
             if task.handler is not None:
                 await task.handler.cleanup(task.ctx)
 
+    async def dry_run(self, exporter: Exporter) -> None:
+        """Executes a dry run of all tasks."""
+        for task in exporter.base_tasks:
+            task.init()
+
+        for task in exporter.task_index.values():
+            if task.handler is not None:
+                task.ctx.resource = task.ctx.raw_resource.to_py()
+                await task.handler.__dry_run__(task.ctx)
+
     async def deploy_from_file(self, eiko_file: Path) -> None:
         """Helper funcion meant mostly for testing."""
         exporter = Exporter()

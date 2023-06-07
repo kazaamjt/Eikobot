@@ -20,6 +20,7 @@
 - Use `Handler.cleanup` to more accuratly wait for ssh to close, instead of hoping asyncio.sleep was long enough
 - Fixed a bug where variables starting with an underscore being converted to basemodel in python would crash the compiler
 - Fixed a bug where properties inside constructors were not correctly type coerced
+- A first implementation of `--dry-run`
 
 ## 0.4.0
 

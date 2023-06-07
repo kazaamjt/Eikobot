@@ -18,6 +18,10 @@ class EikoError(Exception):
         self.index = None if token is None else token.index
 
 
+class EikoUnresolvedPromiseError(EikoError):
+    """A promise that wasn't resolved by the time it was accessed"""
+
+
 class EikoInternalError(EikoError):
     """
     Something went wrong inside the compiler,

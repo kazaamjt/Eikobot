@@ -123,7 +123,16 @@ def _compile(
     is_flag=True,
     help="Outputs a plugins stacktrace if it raises an exception.",
 )
-def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Does a dry run of all the tasks in a given model.",
+)
+def deploy(
+    file: str,
+    enable_plugin_stacktrace: bool = False,
+    dry_run: bool = False,
+) -> None:
     """
     Compile, export and deploy a model from a given file.
     """
@@ -135,7 +144,10 @@ def deploy(file: str, enable_plugin_stacktrace: bool = False) -> None:
         exporter.export_from_context(compiler.context)
         logger.info("Deploying model.")
         deployer = Deployer()
-        asyncio.run(deployer.deploy(exporter, log_progress=True))
+        if dry_run:
+            asyncio.run(deployer.dry_run(exporter))
+        else:
+            asyncio.run(deployer.deploy(exporter, log_progress=True))
     except EikoError as e:
         logger.error(str(e))
 

@@ -19,7 +19,12 @@ from typing import (
 
 from pydantic import BaseModel, ValidationError
 
-from ...errors import EikoCompilationError, EikoError, EikoInternalError
+from ...errors import (
+    EikoCompilationError,
+    EikoError,
+    EikoInternalError,
+    EikoUnresolvedPromiseError,
+)
 from .._token import Token
 
 if TYPE_CHECKING:
@@ -549,7 +554,10 @@ class EikoPromise(EikoBaseType, Generic[T]):
         The expect param allows for runtime type checking.
         """
         if self.value is None:
-            raise EikoError("Unresolved Promise was accessed.")
+            raise EikoUnresolvedPromiseError(
+                "Unresolved Promise was accessed.",
+                token=self.token,
+            )
 
         value = self.value.to_py()
         if isinstance(value, EikoPromise):
