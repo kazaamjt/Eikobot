@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.5.1 HOTFIX
+
+This patch fixes a bug in the package manager that wrongly reports a package was not installed
+due to the url not being parsed properly.  
+
 ## 0.5.0
 
 - Made EikoPromise a `Generic`

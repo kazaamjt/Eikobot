@@ -192,7 +192,8 @@ def install_pkg(pkg_def: str) -> None:
     elif pkg_def.endswith(".eiko.tar.gz"):
         _install_pkg_from_path(Path(pkg_def))
 
-    raise EikoPackageError("Failed to properly parse package url or path.")
+    else:
+        raise EikoPackageError("Failed to properly parse package url or path.")
 
 
 def _download_pkg(url: str) -> None:
@@ -288,9 +289,17 @@ def _install_pkg_from_cache(archive_name: str) -> None:
     for req in pkg_data.requires:
         install_pkg(req)
 
-    os.symlink(
-        pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
-    )
+    try:
+        os.symlink(
+            pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
+        )
+    except FileExistsError:
+        # This is a bug in the package index
+        # I have no idea what causes it, but this is hack around the issue.
+        os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
+        os.symlink(
+            pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
+        )
 
     if pkg_data.version is None:
         logger.info(f"Installed '{pkg_data.name}'.")
