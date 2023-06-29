@@ -22,15 +22,21 @@ resource Cmd:
     cmd: str
 
 
+enum Shell:
+    powershell
+    bash
+    sh
+
+
 @index(["host.host", "_hash"])
 resource Script:
     host: Host
     script: str
-    exec_shell: Optional[str]
+    exec_shell: Optional[Shell]
 
     _hash: str
 
-    def __init__(self, host: Host, script: str, exec_shell: Optional[str] = None):
+    def __init__(self, host: Host, script: str, exec_shell: Optional[Shell] = None):
         self.host = host
         self.script = script
         self.exec_shell = exec_shell

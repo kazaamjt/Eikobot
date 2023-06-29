@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.6.0
+
+- Much better support for windows hosts!
+- Added `HostModel.scp_to` and `HostModel.scp_from` to copy files with SCP
+
 ## 0.5.1 HOTFIX
 
 This patch fixes a bug in the package manager that wrongly reports a package was not installed
