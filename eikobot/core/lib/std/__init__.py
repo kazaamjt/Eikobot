@@ -272,10 +272,8 @@ class HostModel(EikoBaseModel):
         if original_command is None:
             original_command = cmd
         ctx.debug("Execute: " + original_command)
-        if self._windows_host:
-            cmd_str = cmd
-        else:
-            cmd_str = 'HISTIGNORE="*" ' + cmd
+
+        cmd_str = 'HISTIGNORE="*" ' + cmd
 
         try:
             await self.connect(ctx)
@@ -343,6 +341,7 @@ class HostModel(EikoBaseModel):
     ) -> CmdResult:
         if original_command is None:
             original_command = cmd
+        ctx.debug("Execute: " + original_command)
 
         if not cmd.startswith("powershell"):
             cmd_str = f"powershell {cmd}"
@@ -545,11 +544,12 @@ class HostHandler(Handler):
             os_platform_promis.set("windows", ctx)
             os_name_promise.set("windows", ctx)
             os_version_result = await ctx.resource.execute(
-                '(Get-ItemProperty \\"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\").ReleaseId',
+                "(Get-ComputerInfo).WindowsProductName",
                 ctx,
             )
             os_version_promis.set(os_version_result.output.replace("\n", ""), ctx)
             await ctx.resource.execute("Set-ExecutionPolicy RemoteSigned", ctx)
+            ctx.debug(f"OS Detection: {os_version_promis.resolve(str)}")
         elif os_string == "linux-gnu":
             os_platform_promis.set("linux-gnu", ctx)
             os_release = await ctx.resource.execute("cat /etc/os-release", ctx)
@@ -560,16 +560,20 @@ class HostHandler(Handler):
 
             os_name_promise.set(os_info["ID"], ctx)
             os_version_promis.set(os_info["VERSION_ID"], ctx)
+            ctx.debug(
+                "OS Detection: "
+                f"{os_platform_promis.resolve(str)}-{os_name_promise.resolve(str)}-{os_version_promis.resolve(str)}"
+            )
 
         else:
             os_platform_promis.set("unknown", ctx)
             os_name_promise.set("unknown", ctx)
             os_version_promis.set("unknown", ctx)
 
-        ctx.debug(
-            "OS Detection: "
-            f"{os_platform_promis.resolve(str)}-{os_name_promise.resolve(str)}-{os_version_promis.resolve(str)}"
-        )
+            ctx.debug(
+                "OS Detection: "
+                f"{os_platform_promis.resolve(str)}-{os_name_promise.resolve(str)}-{os_version_promis.resolve(str)}"
+            )
 
         ctx.deployed = True
 
