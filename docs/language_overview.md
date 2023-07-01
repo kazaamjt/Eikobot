@@ -1245,14 +1245,14 @@ resource Car:
 ```
 
 While a promise can be passed around to other objects and even stored in a variable,
-keep in mind that it more restricted in its uses than normal values.  
-For example, due to the nature of a promise only be resolved during deployment,
-rather then during compilation, this means it can not be used in binary operations.  
+keep in mind that it is more restricted in its uses than normal values.  
+For example, due to the nature of promises, they can only be resolved during deployment,
+rather then during compilation.
 Nor can it be passed to plugins, unless the plugin is expressly written to support this.  
 
 Another potential pitfall is that promises can not be used for the index of the
 resource that is going to resolve them.  
-However, they _can_ be used to generate the index of toher resources.  
+However, they _can_ be used to generate the index of other resources.  
 When doing this, rather than using the eventual value to generate the index
 (a value that might change in the future for example), it will return a string
 based on its property name and the name of the resource it belong to.  
@@ -1354,5 +1354,5 @@ platform = some_host.os_platform.resolve(str)
 ```
 
 So resolve makes sure we get a value of the type we expect and that the value actually already exists.  
-While Eikobot takes promises in to account when calculating task dependencies,
-this is an extra safety measure.  
+Eikobot takes promises in to account when calculating task dependencies,
+as an extra safety measure.  

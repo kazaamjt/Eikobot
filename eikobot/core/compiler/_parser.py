@@ -1050,14 +1050,13 @@ class ResourceDefinitionAST(ExprAST):
     def compile(self, context: CompilerContext) -> EikoResourceDefinition:
         super_res: Optional[EikoResourceDefinition] = None
         if self.super_expr is not None:
-            compiled_super_expr = self.super_expr.compile(context)
-            if not isinstance(compiled_super_expr, EikoResourceDefinition):
+            super_res = self.super_expr.compile(context)
+            if not isinstance(super_res, EikoResourceDefinition):
                 raise EikoCompilationError(
                     "Expected a resource definition to inherit from.",
                     token=self.super_expr.token,
                 )
 
-            super_res = compiled_super_expr
             self.type.super = super_res.instance_type
             new_prop_dict: dict[str, ResourcePropertyAST] = {}
             for super_property_ast in super_res.expr.properties.values():
@@ -1074,6 +1073,16 @@ class ResourceDefinitionAST(ExprAST):
                 new_prop_dict[super_property_ast.name] = super_property_ast
             new_prop_dict.update(self.properties)
             self.properties = new_prop_dict
+
+            for super_promise in super_res.expr.promises:
+                for promise in self.promises:
+                    if super_promise.var.identifier == promise.var.identifier:
+                        raise EikoCompilationError(
+                            f"Promise '{super_promise.var.identifier}' already defined "
+                            f"in super type '{super_res.name}'.",
+                            token=super_promise.token,
+                        )
+                self.promises.append(super_promise)
 
         arg_properties: dict[str, ResourceProperty] = {}
         for property_ast in self.properties.values():
@@ -1977,10 +1986,19 @@ class Parser:
         self._advance()
 
         # Inheritance
-        super_expr: Optional[VariableExprAST] = None
+        super_expr: VariableExprAST | DotExprAST | None = None
         if self._current.type == TokenType.LEFT_PAREN:
             self._advance()
             super_expr = self._parse_identifier()
+            while True:
+                if self._current.type != TokenType.DOT:
+                    break
+
+                self._advance()
+                super_expr = DotExprAST(
+                    self._previous, super_expr, self._parse_identifier()
+                )
+
             if self._current.type != TokenType.RIGHT_PAREN:
                 raise EikoParserError(
                     f"Unexpected token {self._current.content}. Expected ')'.",

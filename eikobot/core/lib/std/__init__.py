@@ -120,13 +120,14 @@ class HostModel(EikoBaseModel):
         extra = Extra.allow
 
     def __post_init__(self) -> None:
+        self.is_windows_host: bool = False
+
         self._connection: SSHConnection
         self._con_ref_count: int = 0
         self._connected: asyncio.Event = asyncio.Event()
         self._disconnect_tasks: list[asyncio.Task] = []
         self._forwarded_ports: dict[int, ForwardedPortListener] = {}
         self._forwarded_ports_stop_tasks: list[asyncio.Task] = []
-        self._windows_host: bool = False
 
     async def connect(self, ctx: HandlerContext) -> None:
         """Connects or reuses a existing connection."""
@@ -214,7 +215,7 @@ class HostModel(EikoBaseModel):
         self, script: str, exec_shell: str, ctx: HandlerContext
     ) -> CmdResult:
         """Runs a script on the remote host."""
-        if self._windows_host:
+        if self.is_windows_host:
             file_name = "script.ps1"
             with open(file_name, "w", encoding="utf-8") as f:
                 f.write(script)
@@ -250,7 +251,7 @@ class HostModel(EikoBaseModel):
 
     async def execute(self, cmd: str, ctx: HandlerContext) -> CmdResult:
         """Executes one or more commands in an ssh session."""
-        if self._windows_host:
+        if self.is_windows_host:
             ssh_exec = self._execute_windows
         elif "sudo " in cmd:
             ssh_exec = self._execute_sudo
@@ -301,7 +302,7 @@ class HostModel(EikoBaseModel):
             ctx.debug(
                 "Potential Windows machine detected, retrying with updated settings."
             )
-            self._windows_host = True
+            self.is_windows_host = True
             await self.execute("Set-ExecutionPolicy RemoteSigned", ctx)
             return await self._execute_windows(cmd, ctx)
 

@@ -4,6 +4,8 @@
 
 - Much better support for windows hosts!
 - Added `HostModel.scp_to` and `HostModel.scp_from` to copy files with SCP
+- Fixed a bug where `.` wasn't parsed properly in the inheritance declaration
+- Fixed a bug where promises were not properly inherited
 
 ## 0.5.1 HOTFIX
 
