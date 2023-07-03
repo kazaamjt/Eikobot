@@ -24,6 +24,7 @@ class HandlerContext:
         self.failed = False
         self.promises = self.raw_resource.promises
         self.name = self.raw_resource.index()
+        self.extras: dict[str, Any] = {}
 
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value
