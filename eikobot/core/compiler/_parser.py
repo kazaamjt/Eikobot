@@ -2012,7 +2012,7 @@ class Parser:
 
         if self._current.type != TokenType.COLON:
             raise EikoParserError(
-                f"Unexpected token {self._current.content}.",
+                f"Unexpected token {self._current.content}. Expected a ':'.",
                 token=self._current,
             )
         self._advance()
@@ -2031,6 +2031,12 @@ class Parser:
                 "expected indented code block.",
                 token=self._current,
             )
+
+        if self._next.type == TokenType.TRIPLE_DOT:
+            self._advance()
+            self._advance()
+            return rd_ast
+
         indent = self._current.content
         constructor: Optional[ConstructorExprAST] = None
         while True:
@@ -2051,11 +2057,11 @@ class Parser:
                 pass
             else:
                 raise EikoSyntaxError(
-                    f"Unexpected token in resource definition '{rd_ast.name}'",
-                    index=rd_ast.token.index,
+                    f"Unexpected token '{self._current.content}' in resource definition '{rd_ast.name}'",
+                    index=self._current.index,
                 )
 
-        if not rd_ast.properties:
+        if not rd_ast.properties and rd_ast.super_expr is None:
             raise EikoSyntaxError(
                 "A resource must have atleast 1 property. (Besides promises.)",
                 index=rd_ast.token.index,

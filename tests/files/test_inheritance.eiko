@@ -27,3 +27,9 @@ e = Test(a)
 f = Test(b)
 g = Test(c)
 h = Test(d)
+
+
+resource TripleDotInherit(BaseRes):
+    ...
+
+i = TripleDotInherit("a", 1)

@@ -268,6 +268,14 @@ def test_inheritance(eiko_inheritance_file: Path) -> None:
         "prop_1": var_d.to_py(),
     }
 
+    var_i = compiler.context.get("i")
+    assert isinstance(var_i, EikoResource)
+    assert var_i.type.name == "TripleDotInherit"
+    assert var_i.to_py() == {
+        "prop_1": "a",
+        "prop_2": 1,
+    }
+
 
 def test_enum(eiko_enum_file: Path) -> None:
     compiler = Compiler()

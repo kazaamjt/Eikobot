@@ -38,6 +38,8 @@ class TokenType(Enum):
     COLON = auto()
     COMMA = auto()
     DOT = auto()
+    DOUBLE_DOT = auto()
+    TRIPLE_DOT = auto()
     AT_SIGN = auto()
 
     DOUBLE_COLON = auto()

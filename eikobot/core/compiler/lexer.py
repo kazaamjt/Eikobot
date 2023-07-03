@@ -36,7 +36,6 @@ SPECIAL_CHARS = {
     "{": TokenType.LEFT_BRACE,
     "}": TokenType.RIGHT_BRACE,
     ",": TokenType.COMMA,
-    ".": TokenType.DOT,
     "@": TokenType.AT_SIGN,
 }
 
@@ -231,6 +230,16 @@ class Lexer:
             special_char = self._current
             self._next()
             return Token(SPECIAL_CHARS[special_char], special_char, index)
+
+        if self._current == ".":
+            self._next()
+            if self._current == ".":
+                self._next()
+                if self._current == ".":
+                    self._next()
+                    return Token(TokenType.TRIPLE_DOT, "...", index)
+                return Token(TokenType.DOUBLE_DOT, "..", index)
+            return Token(TokenType.DOT, ".", index)
 
         if self._current == "=":
             self._next()

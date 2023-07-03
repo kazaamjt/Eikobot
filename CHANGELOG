@@ -6,6 +6,8 @@
 - Added `HostModel.scp_to` and `HostModel.scp_from` to copy files with SCP
 - Fixed a bug where `.` wasn't parsed properly in the inheritance declaration
 - Fixed a bug where promises were not properly inherited
+- Implemented `...`, a statement that allows for inhertiting without new properties being added
+- Allow inheritance to only overwrite the constructor, with no aditional properties
 
 ## 0.5.1 HOTFIX
 
