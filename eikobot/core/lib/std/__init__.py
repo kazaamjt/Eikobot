@@ -345,7 +345,7 @@ class HostModel(EikoBaseModel):
         ctx.debug("Execute: " + original_command)
 
         if not cmd.startswith("powershell"):
-            cmd_str = f"powershell {cmd}"
+            cmd_str = f'powershell "{cmd}"'
         else:
             cmd_str = cmd
 
@@ -379,6 +379,11 @@ class HostModel(EikoBaseModel):
         with open("returncode", encoding="utf-8") as f:
             returncode = int(f.read())
         os.remove("returncode")
+
+        await self._connection.run(
+            "del returncode",
+            term_type="xterm-color",
+        )
 
         await asyncssh.scp(
             f"{self.host}:output",
