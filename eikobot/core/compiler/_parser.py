@@ -461,11 +461,21 @@ class VariableExprAST(ExprAST):
     def assign(
         self,
         value: StorableTypes,
-        assign_context: Union[CompilerContext, EikoResource],
+        assign_context: CompilerContext | EikoResource,
         compile_context: CompilerContext,
         token: Token,
     ) -> StorableTypes:
         """Assigns the variable a value."""
+        type_expr: EikoType | None = None
+        prev_def: EikoBaseType | EikoUnset | None = None
+        if isinstance(assign_context, EikoResource):
+            prev_def = assign_context.properties.get(self.identifier)
+
+        elif isinstance(assign_context, CompilerContext):
+            _prev_def = assign_context.shallow_get(self.identifier)
+            if isinstance(_prev_def, (EikoBaseType, EikoUnset)):
+                prev_def = _prev_def
+
         if self.type_expr is not None:
             type_expr = self.type_expr.compile(compile_context)
             if type_expr.inverse_type_check(value.type):
@@ -478,18 +488,45 @@ class VariableExprAST(ExprAST):
                             "Something went wrong trying to coerce a type to it's typedef.",
                             token=token,
                         )
-            if not type_expr.type_check(value.type):
+
+            if prev_def is not None and not prev_def.type.type_check(type_expr):
+                raise EikoCompilationError(
+                    "Reassinging types is not allowed.",
+                    token=self.token,
+                )
+
+        elif prev_def is not None:
+            type_expr = prev_def.type
+
+        if type_expr is not None:
+            if (
+                isinstance(value, EikoList)
+                and value.type.element_type.name == ""
+                and isinstance(type_expr, EikoListType)
+            ):
+                value.update_typing(type_expr)
+
+            elif (
+                isinstance(value, EikoDict)
+                and value.type.key_type.name == ""
+                and value.type.value_type.name == ""
+                and isinstance(type_expr, EikoDictType)
+            ):
+                value.update_typing(type_expr)
+
+            elif not type_expr.type_check(value.type):
                 raise EikoCompilationError(
                     "Variable assigned incompatible type:"
                     f" given value of type '{value.type}' but expected type '{type_expr}'",
                     token=token,
                 )
 
-            if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):
-                value.update_typing(type_expr)
+            else:
+                if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):
+                    value.update_typing(type_expr)
 
-            if isinstance(value, EikoDict) and isinstance(type_expr, EikoDictType):
-                value.update_typing(type_expr)
+                if isinstance(value, EikoDict) and isinstance(type_expr, EikoDictType):
+                    value.update_typing(type_expr)
 
         elif isinstance(value, EikoList) and len(value.elements) == 0:
             raise EikoCompilationError(
