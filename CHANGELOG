@@ -8,6 +8,7 @@
 - Fixed a bug where promises were not properly inherited
 - Implemented `...`, a statement that allows for inhertiting without new properties being added
 - Allow inheritance to only overwrite the constructor, with no aditional properties
+- Fixed a bug where lists and dicts as default arguments caused a compilation issue
 
 ## 0.5.1 HOTFIX
 

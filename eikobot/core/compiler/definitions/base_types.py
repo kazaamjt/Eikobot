@@ -122,6 +122,9 @@ EikoObjectType = EikoType("Object")
 
 def type_list_to_type(types: list[EikoType]) -> EikoType:
     """Turns a list of Eiko types in to a single usable type."""
+    if len(types) == 0:
+        return EikoType("")
+
     if len(types) == 1:
         _type = types[0]
     else:

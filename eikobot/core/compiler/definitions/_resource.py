@@ -9,7 +9,7 @@ from ...handlers import Handler
 from .base_types import EikoBaseType, EikoPromise, EikoResource, EikoType
 
 if TYPE_CHECKING:
-    from .._parser import ResourceDefinitionAST
+    from .._parser import ResourceDefinitionAST, TypeExprAST
     from .._token import Token
     from .base_model import EikoBaseModel
     from .function import ConstructorDefinition
@@ -25,6 +25,7 @@ class ResourceProperty:
     name: str
     type: EikoType
     default_value: Optional[EikoBaseType] = None
+    type_expr: "TypeExprAST | None" = None
 
 
 @dataclass

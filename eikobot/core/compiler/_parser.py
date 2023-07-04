@@ -959,6 +959,27 @@ class ResourcePropertyAST:
                 token=self.expr.rhs.token,
             )
 
+        lhs_type_expr: TypeExprAST | None = None
+        if isinstance(default_value, EikoList):
+            if default_value.type.name == "list[]":
+                if isinstance(_type, EikoListType):
+                    lhs_type_expr = self.expr.lhs.type_expr
+                    default_value.type = _type
+                else:
+                    raise EikoInternalError(
+                        "Something went wrong initializing a list as default argument."
+                    )
+
+        elif isinstance(default_value, EikoDict):
+            if default_value.type.name == "dict[]":
+                if isinstance(_type, EikoDictType):
+                    lhs_type_expr = self.expr.lhs.type_expr
+                    default_value.type = _type
+                else:
+                    raise EikoInternalError(
+                        "Something went wrong initializing a list as default argument."
+                    )
+
         if not _type.type_check(default_value.type):
             if _type.inverse_type_check(default_value.type):
                 if _type.typedef is None:
@@ -973,9 +994,10 @@ class ResourcePropertyAST:
             else:
                 raise EikoCompilationError(
                     f"The default value of {res_name}.{self.name} does not fit type described in its type expression.",
+                    token=self.expr.rhs.token,
                 )
 
-        return ResourceProperty(self.name, _type, default_value)
+        return ResourceProperty(self.name, _type, default_value, lhs_type_expr)
 
 
 @dataclass
@@ -1032,7 +1054,7 @@ class ResourceDefinitionAST(ExprAST):
 
     name: str
     decorators: list[DecoratorExprAST]
-    super_expr: Optional[VariableExprAST]
+    super_expr: DotExprAST | VariableExprAST | None
 
     def __post_init__(self) -> None:
         self.constructor: Optional["ConstructorExprAST"] = None
@@ -1050,13 +1072,14 @@ class ResourceDefinitionAST(ExprAST):
     def compile(self, context: CompilerContext) -> EikoResourceDefinition:
         super_res: Optional[EikoResourceDefinition] = None
         if self.super_expr is not None:
-            super_res = self.super_expr.compile(context)
-            if not isinstance(super_res, EikoResourceDefinition):
+            _super_res = self.super_expr.compile(context)
+            if not isinstance(_super_res, EikoResourceDefinition):
                 raise EikoCompilationError(
                     "Expected a resource definition to inherit from.",
                     token=self.super_expr.token,
                 )
 
+            super_res = _super_res
             self.type.super = super_res.instance_type
             new_prop_dict: dict[str, ResourcePropertyAST] = {}
             for super_property_ast in super_res.expr.properties.values():
@@ -1080,7 +1103,7 @@ class ResourceDefinitionAST(ExprAST):
                         raise EikoCompilationError(
                             f"Promise '{super_promise.var.identifier}' already defined "
                             f"in super type '{super_res.name}'.",
-                            token=super_promise.token,
+                            token=promise.token,
                         )
                 self.promises.append(super_promise)
 
@@ -1113,7 +1136,7 @@ class ResourceDefinitionAST(ExprAST):
                             VariableExprAST(
                                 Token(TokenType.IDENTIFIER, "self", token.index)
                             ),
-                            VariableExprAST(token),
+                            VariableExprAST(token, prop.type_expr),
                         ),
                         VariableExprAST(token),
                     ),
@@ -1630,6 +1653,7 @@ class Parser:
             ".": 100,
             "(": 100,
             "[": 100,
+            ":": 100,
         }
 
     def parse(self) -> Iterator[ExprAST]:
@@ -1825,6 +1849,13 @@ class Parser:
             ]:
                 self._advance()
             rhs = self._parse_primary()
+            if (
+                isinstance(rhs, VariableExprAST)
+                and self._current.type == TokenType.COLON
+                and self._next.type == TokenType.IDENTIFIER
+            ):
+                self._advance()
+                rhs = VariableExprAST(rhs.token, self._parse_type())
 
             # if current op binds less tightly with rhs than the operator after rhs,
             # let the pending operator take rhs as it's lhs
@@ -2300,7 +2331,8 @@ class Parser:
                 self._advance()
             if self._current.type != TokenType.INDENT:
                 raise EikoInternalError(
-                    "Unexpected issue, please report this on github."
+                    "Unexpected issue, please report this on github.",
+                    token=self._current,
                 )
             if self._current.content != self._current_indent:
                 break
