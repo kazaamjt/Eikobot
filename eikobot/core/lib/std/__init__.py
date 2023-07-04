@@ -344,6 +344,7 @@ class HostModel(EikoBaseModel):
             original_command = cmd
         ctx.debug("Execute: " + original_command)
 
+        cmd = cmd.replace('"', '\\"')
         if not cmd.startswith("powershell"):
             cmd_str = f'powershell "{cmd}"'
         else:

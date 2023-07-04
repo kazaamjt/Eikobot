@@ -2181,6 +2181,12 @@ class Parser:
                     "Expected a ',' or a ')'.", index=self._current.index
                 )
             self._advance(skip_indentation=True)
+            if (
+                self._current.type == TokenType.RIGHT_PAREN
+                and self._next.type == TokenType.COLON
+            ):
+                self._advance()
+                break
             args.append(self._parse_consructor_arg())
             if self._current.type == TokenType.INDENT:
                 self._advance(skip_indentation=True)
