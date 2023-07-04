@@ -277,6 +277,9 @@ def _str_compare(a: EikoStr, b: EikoStr, op: ComparisonOP) -> EikoBool:
 def _eq_compare(
     a: EikoBaseType, b: EikoBaseType, op: ComparisonOP, b_token: Token
 ) -> EikoBool:
+    if a is b:
+        return EikoBool(True)
+
     if isinstance(a, (EikoInt, EikoFloat)) and isinstance(b, (EikoInt, EikoFloat)):
         return EikoBool(a.value == b.value)
 
