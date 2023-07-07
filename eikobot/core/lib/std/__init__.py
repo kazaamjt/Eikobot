@@ -216,8 +216,8 @@ class HostModel(EikoBaseModel):
     ) -> CmdResult:
         """Runs a script on the remote host."""
         if self.is_windows_host:
-            file_name = "script.ps1"
-            with open(file_name, "w", encoding="utf-8") as f:
+            script_file_name = f"script-{ctx.task_id}.ps1"
+            with open(script_file_name, "w", encoding="utf-8") as f:
                 f.write(script)
 
             extra_args: dict[str, str] = {}
@@ -229,16 +229,20 @@ class HostModel(EikoBaseModel):
                     extra_args["password"] = self.password
 
             await asyncssh.scp(
-                "script.ps1",
-                f"{self.host}:script.ps1",
+                script_file_name,
+                f"{self.host}:{script_file_name}",
                 **extra_args,  # type: ignore
             )
-            result = await self._execute_windows(f"-file {file_name}", ctx, script)
+            result = await self._execute_windows(
+                f".\\{script_file_name}",
+                ctx,
+                script,
+            )
             await self._connection.run(
-                "del script.ps1",
+                f"del {script_file_name}",
                 term_type="xterm-color",
             )
-            os.remove(file_name)
+            os.remove(script_file_name)
 
             return result
         if "sudo " in script:
@@ -346,11 +350,14 @@ class HostModel(EikoBaseModel):
 
         cmd = cmd.replace('"', '\\"')
         if not cmd.startswith("powershell"):
-            cmd_str = f'powershell "{cmd}"'
+            cmd_str = f'powershell -NoLogo -NoProfile "{cmd}"'
         else:
             cmd_str = cmd
 
-        cmd_str = f"chcp 65001 & {cmd_str} > output & echo %ERRORLEVEL% > returncode"
+        rcode_file = f"returncode-{ctx.task_id}"
+        output_file = f"output-{ctx.task_id}"
+        cmd_str = f"chcp 65001 & {cmd_str} > {output_file} & "
+        cmd_str += f"echo %ERRORLEVEL% > {rcode_file}"
 
         try:
             await self.connect(ctx)
@@ -373,30 +380,30 @@ class HostModel(EikoBaseModel):
                 extra_args["password"] = self.password
 
         await asyncssh.scp(
-            f"{self.host}:returncode",
-            "returncode",
+            f"{self.host}:{rcode_file}",
+            ctx.task_cache / rcode_file,
             **extra_args,  # type: ignore
         )
-        with open("returncode", encoding="utf-8") as f:
+        with open(ctx.task_cache / rcode_file, encoding="utf-8") as f:
             returncode = int(f.read())
-        os.remove("returncode")
+        os.remove(ctx.task_cache / rcode_file)
 
         await self._connection.run(
-            "del returncode",
+            f"del {rcode_file}",
             term_type="xterm-color",
         )
 
         await asyncssh.scp(
-            f"{self.host}:output",
-            "output",
+            f"{self.host}:{output_file}",
+            ctx.task_cache / output_file,
             **extra_args,  # type: ignore
         )
-        with open("output", encoding="utf-8") as f:
+        with open(ctx.task_cache / output_file, encoding="utf-8") as f:
             stdout = self._clean_log(f.read())
-        os.remove("output")
+        os.remove(ctx.task_cache / output_file)
 
         await self._connection.run(
-            "del output",
+            f"del {output_file}",
             term_type="xterm-color",
         )
 
