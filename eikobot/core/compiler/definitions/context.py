@@ -200,7 +200,10 @@ class CompilerContext:
         """Set a value. Throws an error if it's already set."""
         prev_value = self.shallow_get(name)
         if isinstance(prev_value, EikoUnset):
-            if prev_value.type.inverse_type_check(value.type):
+            if (
+                prev_value.type.inverse_type_check(value.type)
+                and prev_value.type.name != value.type.name
+            ):
                 constr = self.get(prev_value.type.name)
                 if isinstance(constr, EikoTypeDef):
                     if isinstance(value, EikoBaseType):

@@ -173,9 +173,9 @@ class ConstructorDefinition(EikoBaseType):
         keyword_args: dict[str, PassedArg],
     ) -> None:
         for passed_arg, arg in zip(positional_args, list(self.args.values())[1:]):
-            if not passed_arg.value.type_check(arg.type):
+            if not passed_arg.value.type.type_check(arg.type):
                 # Try to coerce the type
-                if arg.type.inverse_type_check(passed_arg.value.type):
+                if passed_arg.value.type.inverse_type_check(arg.type):
                     if arg.type.typedef is None:
                         raise EikoInternalError(
                             "Failed to coerce type.",
@@ -207,7 +207,7 @@ class ConstructorDefinition(EikoBaseType):
                     token=passed_arg.token,
                 )
 
-            if not passed_arg.value.type_check(kw_arg.type):
+            if not passed_arg.value.type.type_check(kw_arg.type):
                 if kw_arg.type.inverse_type_check(passed_arg.value.type):
                     if kw_arg.type.typedef is not None:
                         passed_arg.value = kw_arg.type.typedef.execute(

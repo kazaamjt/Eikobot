@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tarfile
 import tomllib
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -21,6 +20,7 @@ from pydantic import BaseModel, ValidationError
 from ... import VERSION
 from .. import logger
 from ..compiler.importlib import INTERNAL_LIB_PATH
+from ..errors import EikoError
 
 CACHE_PATH = Path(__file__).parent / "cache"
 CACHE_PATH.mkdir(exist_ok=True)
@@ -30,7 +30,7 @@ LIB_PATH.mkdir(exist_ok=True)
 PKG_INDEX: dict[str, "PackageData"] = {}
 
 
-class EikoPackageError(Exception):
+class EikoPackageError(EikoError):
     """An error that occured during the eiko compilation process."""
 
     def __init__(self, reason: str, *args: object) -> None:
@@ -290,8 +290,10 @@ def _install_pkg_from_cache(archive_name: str) -> None:
         install_pkg(req)
 
     try:
-        os.symlink(
-            pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
+        shutil.copytree(
+            pkg_lib_path / pkg_data.source_dir,
+            INTERNAL_LIB_PATH / pkg_data.source_dir,
+            dirs_exist_ok=False,
         )
     except FileExistsError:
         # This is a bug in the package index
@@ -327,6 +329,10 @@ def uninstall_pkg(name: str) -> None:
 
 def _uninstall_pkg(pkg_data: PackageData) -> None:
     logger.debug(f"Uninstalling '{pkg_data.pkg_name_version()}'")
-    os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
+    try:
+        shutil.rmtree(INTERNAL_LIB_PATH / pkg_data.source_dir)
+    except FileNotFoundError:
+        pass
+
     shutil.rmtree(LIB_PATH / pkg_data.pkg_name_version())
     logger.info(f"Uninstalled '{pkg_data.pkg_name_version()}'")

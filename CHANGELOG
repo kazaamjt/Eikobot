@@ -13,6 +13,7 @@
 - Fixed a bug where a hanging comma in a constructor arg list would cause a syntax error
 - Made TaskID accessible through `HandlerContext`
 - Added Task cache (This is a directory unique to the current Task/Handler and can be used to save files)
+- Fixed several bugs in the type system
 
 ## 0.5.1 HOTFIX
 

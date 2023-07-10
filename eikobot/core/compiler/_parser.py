@@ -514,12 +514,26 @@ class VariableExprAST(ExprAST):
             ):
                 value.update_typing(type_expr)
 
-            elif not type_expr.type_check(value.type):
-                raise EikoCompilationError(
-                    "Variable assigned incompatible type:"
-                    f" given value of type '{value.type}' but expected type '{type_expr}'",
-                    token=token,
-                )
+            elif not value.type.type_check(type_expr):
+                if value.type.inverse_type_check(type_expr):
+                    if type_expr.typedef is None:
+                        raise EikoCompilationError(
+                            "A coercion failed. Type is not a TypeDef.",
+                            token=token,
+                        )
+                    if isinstance(value, EikoBaseType):
+                        value = type_expr.typedef.execute(value, token)
+                    else:
+                        raise EikoInternalError(
+                            "A coercion failed due to a bug. Please report this on Github.",
+                            token=token,
+                        )
+                else:
+                    raise EikoCompilationError(
+                        "Variable assigned incompatible type:"
+                        f" given value of type '{value.type}' but expected type '{type_expr}'",
+                        token=token,
+                    )
 
             else:
                 if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):

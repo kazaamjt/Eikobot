@@ -67,8 +67,16 @@ class EikoType:
         if self.name == expected_type.name:
             return True
 
-        if expected_type.super is not None:
-            return self.type_check(expected_type.super)
+        if self.super is not None:
+            return self.super.type_check(expected_type)
+
+        if isinstance(expected_type, EikoUnion):
+            for expected_sub_type in expected_type.types:
+                if self.type_check(expected_sub_type):
+                    return True
+
+        if isinstance(expected_type, EikoOptional):
+            return self.type_check(expected_type.optional_type)
 
         return False
 
@@ -77,8 +85,8 @@ class EikoType:
         if self.name == expected_type.name:
             return True
 
-        if self.super is not None:
-            return self.super.inverse_type_check(expected_type)
+        if expected_type.super is not None:
+            return self.inverse_type_check(expected_type.super)
 
         return False
 
@@ -93,7 +101,7 @@ class EikoType:
         return self.name
 
     def __str__(self) -> str:
-        return self.name
+        return self.__repr__()
 
 
 @dataclass
@@ -151,8 +159,8 @@ class EikoUnion(EikoType):
         """Recursivly type checks."""
 
         if isinstance(expected_type, EikoUnion):
-            for _type in expected_type.types:
-                if not self.type_check(_type):
+            for _type in self.types:
+                if not expected_type.type_check(_type):
                     return False
             return True
 
@@ -195,9 +203,6 @@ class EikoBaseType:
 
     def truthiness(self) -> bool:
         raise NotImplementedError
-
-    def type_check(self, expected_type: EikoType) -> bool:
-        return expected_type.type_check(self.type)
 
     def index(self) -> str:
         raise NotImplementedError
@@ -495,7 +500,7 @@ class EikoPromise(EikoBaseType, Generic[T]):
         or if the promis was already assigned a different value.
         """
         _value = to_eiko(value)
-        if not _value.type_check(self.type):
+        if not _value.type.type_check(self.type):
             raise ValueError
 
         if self.value is not None and _value.get_value() != self.value.get_value():
@@ -517,7 +522,7 @@ class EikoPromise(EikoBaseType, Generic[T]):
                 token=token,
             )
 
-        if not value.type_check(self.type):
+        if not value.type.type_check(self.type):
             raise EikoCompilationError(
                 f"Tried to assign promise a value of type '{self.type.name}' "
                 f"but got a value of type '{value.type.name}'.",
@@ -540,9 +545,6 @@ class EikoPromise(EikoBaseType, Generic[T]):
             )
 
         return self.value.truthiness()
-
-    def type_check(self, expected_type: EikoType) -> bool:
-        return expected_type.type_check(self.type)
 
     def index(self) -> str:
         return f"promise-{self.parent.index()}.{self.name}"
@@ -718,7 +720,7 @@ class EikoResource(EikoBaseType):
 
         prop = self.properties.get(name)
         if isinstance(prop, EikoUnset):
-            if not value.type_check(prop.type):
+            if not value.type.type_check(prop.type):
                 if prop.type.inverse_type_check(value.type):
                     if prop.type.typedef is not None:
                         value = prop.type.typedef.execute(value, token)
@@ -893,7 +895,7 @@ class EikoListType(EikoType):
 
     def type_check(self, expected_type: "EikoType") -> bool:
         if isinstance(expected_type, EikoListType):
-            return self.element_type.type_check(expected_type.element_type)
+            return expected_type.element_type.type_check(self.element_type)
 
         return False
 
