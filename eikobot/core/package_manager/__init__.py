@@ -272,6 +272,9 @@ def _install_pkg_from_cache(archive_name: str) -> None:
     if prev_pkg is not None:
         _uninstall_pkg(prev_pkg)
 
+    with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
+        archive.extractall(LIB_PATH)
+
     if pkg_data.version is None:
         logger.debug(f"Installing '{pkg_data.name}'.")
     else:

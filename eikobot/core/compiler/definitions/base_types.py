@@ -895,9 +895,9 @@ class EikoListType(EikoType):
 
     def type_check(self, expected_type: "EikoType") -> bool:
         if isinstance(expected_type, EikoListType):
-            return expected_type.element_type.type_check(self.element_type)
+            return self.element_type.type_check(expected_type.element_type)
 
-        return False
+        return super().type_check(expected_type)
 
 
 class EikoList(EikoBaseType):
@@ -1002,7 +1002,7 @@ class EikoDictType(EikoType):
             ) and self.value_type.type_check(expected_type.value_type):
                 return True
 
-        return False
+        return super().type_check(expected_type)
 
 
 EikoIndexTypes = Union[

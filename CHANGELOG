@@ -15,6 +15,7 @@
 - Added Task cache (This is a directory unique to the current Task/Handler and can be used to save files)
 - Fixed several bugs in the type system
 - Add a 🤖 to some logs
+- Fixed a bug in the package manager that occurred when installing an already installed package
 
 ## 0.5.1 HOTFIX
 
