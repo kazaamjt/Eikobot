@@ -14,6 +14,7 @@
 - Made TaskID accessible through `HandlerContext`
 - Added Task cache (This is a directory unique to the current Task/Handler and can be used to save files)
 - Fixed several bugs in the type system
+- Add a 🤖 to some logs
 
 ## 0.5.1 HOTFIX
 

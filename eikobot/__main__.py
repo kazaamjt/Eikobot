@@ -109,7 +109,7 @@ def _compile(
     pc_time_taken_formatted = str(datetime.timedelta(seconds=pc_time_taken))
     time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
     logger.info(
-        f"Compiled in {time_taken_formatted} "
+        f"🤖 Compiled in {time_taken_formatted} "
         f"(Process time: {pc_time_taken_formatted})"
     )
 
@@ -162,7 +162,7 @@ def deploy(
         else:
             time_taken = time.time() - start
             time_taken_formatted = str(datetime.timedelta(seconds=time_taken))
-            logger.info(f"Deployed in {time_taken_formatted}")
+            logger.info(f"🤖 Deployed in {time_taken_formatted}")
 
 
 @cli.group()
