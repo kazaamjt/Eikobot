@@ -195,9 +195,13 @@ class Lexer:
                 )
 
         self._next()
-        escaped_string = bytes(_string, encoding="utf-8").decode(
-            encoding="unicode_escape"
-        )
+        try:
+            escaped_string = bytes(_string, encoding="utf-8").decode(
+                encoding="unicode_escape"
+            )
+        except UnicodeDecodeError as e:
+            raise EikoSyntaxError(str(e), index=index) from e
+
         return Token(TokenType.STRING, escaped_string, index)
 
     def _scan_raw_string(self, index: Index) -> Token:
@@ -213,10 +217,7 @@ class Lexer:
                 )
 
         self._next()
-        raw_string = bytes(_string, encoding="utf-8").decode(
-            encoding="raw_unicode_escape"
-        )
-        return Token(TokenType.STRING, raw_string, index)
+        return Token(TokenType.STRING, _string, index)
 
     def _scan_f_string(self, index: Index) -> Token:
         string_token = self._scan_string()

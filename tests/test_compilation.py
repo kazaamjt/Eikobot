@@ -10,6 +10,7 @@ from eikobot.core.compiler import Compiler
 from eikobot.core.compiler._parser import Parser
 from eikobot.core.compiler.definitions._resource import EikoResourceDefinition
 from eikobot.core.compiler.definitions.base_types import (
+    EikoBool,
     EikoEnumValue,
     EikoInt,
     EikoNone,
@@ -298,3 +299,25 @@ def test_enum(eiko_enum_file: Path) -> None:
     var_enum_to_str = compiler.context.get("enum_to_str")
     assert isinstance(var_enum_to_str, EikoStr)
     assert var_enum_to_str.value == "option_3"
+
+
+@pytest.mark.parametrize(
+    "input_str,outcome",
+    [
+        ('a = 1\nb = type(a) == "int"', True),
+        ('a = 1\nb = type(a) == "str"', False),
+        ('a = "1"\nb = type(a) == "str"', True),
+        ('a = True\nb = type(a) == "bool"', True),
+        ('a = [True]\nb = type(a) == "list[bool]"', True),
+    ],
+)
+def test_type_plugin(tmp_eiko_file: Path, input_str: str, outcome: bool) -> None:
+    compiler = Compiler()
+
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write(input_str)
+
+    compiler.compile(tmp_eiko_file)
+    b = compiler.context.get("b")
+    assert isinstance(b, EikoBool)
+    assert b.value == outcome

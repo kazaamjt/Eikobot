@@ -30,9 +30,19 @@ class HandlerContext:
         self.promises = self.raw_resource.promises
         self.name = self.raw_resource.index()
         self.extras: dict[str, Any] = {}
-        self.task_cache = CACHE_DIR / self.task_id
+        self.task_cache = CACHE_DIR / self.normalized_task_id()
 
         self.task_cache.mkdir(exist_ok=True)
+
+    def normalized_task_id(self) -> str:
+        """
+        Removes backslashes, forward slashes and : from the task_id
+        so it can be used for paths on both unix and windows.
+        """
+        _normalized = self.task_id.replace("\\", "-")
+        _normalized = _normalized.replace("/", "-")
+        _normalized = _normalized.replace(" ", "")
+        return _normalized.replace(":", ".")
 
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value

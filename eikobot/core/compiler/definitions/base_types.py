@@ -1173,7 +1173,7 @@ class EikoDict(EikoBaseType):
 
 
 # Move to another file
-def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
+def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType] | Type[EikoType]:
     """
     Takes a python type and returns it's eikobot compatible type.
     If said type exists.
@@ -1181,7 +1181,7 @@ def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     if cls is None:
         return EikoNone
 
-    if issubclass(cls, EikoBaseType):
+    if issubclass(cls, EikoBaseType) or issubclass(cls, EikoType):
         return cls
 
     if cls == bool:
@@ -1254,7 +1254,7 @@ def to_eiko(value: Any) -> EikoBaseType:
     if isinstance(value, EikoBaseType):
         return value
 
-    if isinstance(value, BaseModel):
+    if isinstance(value, BaseModel) and hasattr(value, "raw_resource"):
         return value.raw_resource  # type: ignore
 
     if value is None:

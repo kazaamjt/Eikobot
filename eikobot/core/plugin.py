@@ -26,3 +26,13 @@ class EikoPluginException(Exception):
     """
     If something goes wrong inside a plugin, this error should be thrown.
     """
+
+
+@eiko_plugin("type")
+def eiko_type(
+    obj: EikoBaseType,
+) -> str:
+    """
+    Returns the type of a an eiko object as a string.
+    """
+    return obj.type.name

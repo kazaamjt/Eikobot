@@ -173,7 +173,12 @@ class HostModel(EikoBaseModel):
         await asyncio.gather(*self._forwarded_ports_stop_tasks)
         await asyncio.gather(*self._disconnect_tasks)
 
-    async def scp_to(self, file_name: str, ctx: HandlerContext) -> None:
+    async def scp_to(
+        self,
+        file_name: str,
+        ctx: HandlerContext,
+        destination: str | None = None,
+    ) -> None:
         """
         Copies a file from the local host to the remote host
         """
@@ -185,14 +190,22 @@ class HostModel(EikoBaseModel):
             if self.password is not None:
                 extra_args["password"] = self.password
 
+        if destination is None:
+            destination = file_name
+
         ctx.debug(f"Copying file '{file_name}' to host.")
         await asyncssh.scp(
             file_name,
-            f"{self.host}:{file_name}",
+            f"{self.host}:{destination}",
             **extra_args,  # type: ignore
         )
 
-    async def scp_from(self, file_name: str, ctx: HandlerContext) -> None:
+    async def scp_from(
+        self,
+        file_name: str,
+        ctx: HandlerContext,
+        destination: str | None = None,
+    ) -> None:
         """
         Copies a file to the local host from the remote host
         """
@@ -204,10 +217,13 @@ class HostModel(EikoBaseModel):
             if self.password is not None:
                 extra_args["password"] = self.password
 
+        if destination is None:
+            destination = file_name
+
         ctx.debug(f"Copying file '{file_name}' from host.")
         await asyncssh.scp(
             f"{self.host}:{file_name}",
-            file_name,
+            destination,
             **extra_args,  # type: ignore
         )
 
@@ -354,8 +370,8 @@ class HostModel(EikoBaseModel):
         else:
             cmd_str = cmd
 
-        rcode_file = f"returncode-{ctx.task_id}"
-        output_file = f"output-{ctx.task_id}"
+        rcode_file = f"returncode-{ctx.normalized_task_id()}"
+        output_file = f"output-{ctx.normalized_task_id()}"
         cmd_str = f"chcp 65001 & {cmd_str} > {output_file} & "
         cmd_str += f"echo %ERRORLEVEL% > {rcode_file}"
 

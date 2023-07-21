@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, Optional, Type, Union
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
 from ...handlers import Handler
+from ...plugin import eiko_type
 from .._token import Token
 from ..decorator import index_decorator
-from ..importlib import import_python_code
+from ..importlib import _load_plugin, import_python_code
 from ._resource import EikoResourceDefinition
 from .base_model import EikoBaseModel
 from .base_types import (
@@ -50,6 +51,7 @@ _builtins: dict[str, _StorableTypes] = {
     "list": EikoListType,
     "dict": EikoDictType,
     "index": index_decorator,
+    "type": _load_plugin("", "type", eiko_type),
 }
 
 
