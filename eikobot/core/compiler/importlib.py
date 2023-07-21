@@ -6,8 +6,8 @@ import importlib.util
 from dataclasses import dataclass
 from inspect import getfullargspec, getmembers, isclass, isfunction
 from pathlib import Path
-from types import FunctionType, ModuleType
-from typing import TYPE_CHECKING, Optional
+from types import ModuleType
+from typing import TYPE_CHECKING, Callable, Optional
 
 from .. import logger
 from ..errors import EikoCompilationError
@@ -209,7 +209,7 @@ def load_python_code(module_name: str, file_path: Path) -> ModuleType:
     raise EikoCompilationError(f"Failed to import python module {module_name} ")
 
 
-def _load_plugin(module: str, name: str, function: FunctionType) -> PluginDefinition:
+def _load_plugin(module: str, name: str, function: Callable) -> PluginDefinition:
     fullargspec = getfullargspec(function)
     annotations = fullargspec.annotations
     return_type = annotations.get("return", "")

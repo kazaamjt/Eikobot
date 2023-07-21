@@ -18,7 +18,7 @@ from packaging import version
 from pydantic import BaseModel, ValidationError
 
 from ... import VERSION
-from .. import logger
+from .. import human_readable, logger
 from ..compiler.importlib import INTERNAL_LIB_PATH
 from ..errors import EikoError
 
@@ -207,15 +207,6 @@ def _download_pkg(url: str) -> None:
         )
 
 
-def _human_readable(number: int) -> str:
-    number = number // 8
-    for unit in ["", "K", "M", "G", "T"]:
-        if number < 10240:
-            return f"{number}{unit}B"
-        number = number // 1024
-    return f"{number}PB"
-
-
 async def _download_to_cache(url: str) -> None:
     pkg_path = CACHE_PATH / Path(urlparse(url).path).name
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10)) as session:
@@ -234,12 +225,12 @@ async def _download_to_cache(url: str) -> None:
                     if percent == 20:
                         print(
                             f"    [{pg_bar}]",
-                            f"{_human_readable(total_dl_size)}/{_human_readable(total_dl_size)}",
+                            f"{human_readable(total_dl_size)}/{human_readable(total_dl_size)}",
                         )
                     else:
                         print(
                             f"    [{pg_bar}>{(20 - percent - 1) * ' '}]",
-                            f"{_human_readable(downloaded)}/{_human_readable(total_dl_size)}",
+                            f"{human_readable(downloaded)}/{human_readable(total_dl_size)}",
                             end="\r",
                         )
 

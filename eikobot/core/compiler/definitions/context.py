@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional, Type, Union
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
 from ...handlers import Handler
-from ...plugin import eiko_type
+from ...plugin import eiko_type, human_readable, machine_readable
 from .._token import Token
 from ..decorator import index_decorator
 from ..importlib import _load_plugin, import_python_code
@@ -52,6 +52,8 @@ _builtins: dict[str, _StorableTypes] = {
     "dict": EikoDictType,
     "index": index_decorator,
     "type": _load_plugin("", "type", eiko_type),
+    "human_readable": _load_plugin("", "human_readable", human_readable),
+    "machine_readable": _load_plugin("", "machine_readable", machine_readable),
 }
 
 
