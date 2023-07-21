@@ -232,8 +232,8 @@ class HostModel(EikoBaseModel):
     ) -> CmdResult:
         """Runs a script on the remote host."""
         if self.is_windows_host:
-            script_file_name = f"script-{ctx.task_id}.ps1"
-            with open(script_file_name, "w", encoding="utf-8") as f:
+            script_file_name = f"script-{ctx.normalized_task_id()}.ps1"
+            with open(ctx.task_cache / script_file_name, "w", encoding="utf-8") as f:
                 f.write(script)
 
             extra_args: dict[str, str] = {}
@@ -245,7 +245,7 @@ class HostModel(EikoBaseModel):
                     extra_args["password"] = self.password
 
             await asyncssh.scp(
-                script_file_name,
+                ctx.task_cache / script_file_name,
                 f"{self.host}:{script_file_name}",
                 **extra_args,  # type: ignore
             )
@@ -258,9 +258,8 @@ class HostModel(EikoBaseModel):
                 f"del {script_file_name}",
                 term_type="xterm-color",
             )
-            os.remove(script_file_name)
-
             return result
+
         if "sudo " in script:
             ssh_exec = self._execute_sudo
         else:
