@@ -151,7 +151,21 @@ class HostModel(EikoBaseModel):
             if self.password is not None:
                 extra_args["password"] = self.password
 
-        return await asyncssh.connect(self.host, **extra_args)
+        try:
+            return await asyncssh.connect(self.host, **extra_args)
+        except asyncssh.HostKeyNotVerifiable as e:
+            key_scan = await asyncio.subprocess.create_subprocess_shell(
+                f"ssh {self.host} echo",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            _, stderr = await key_scan.communicate()
+            if key_scan.returncode != 0:
+                raise EikoDeployError(
+                    f"Host verification failed \n{stderr.decode()}"
+                )
+            return await asyncssh.connect(self.host, **extra_args)
 
     def disconnect(self, ctx: HandlerContext) -> None:
         """Disconnects if nothing else is using the same connection."""

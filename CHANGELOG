@@ -17,7 +17,8 @@
 - Add a 🤖 to some of the logs
 - Fixed a bug in the package manager that occurred when installing an already installed package
 - Add a plugin `type` that returns the typing of an object as a string
-- Made all the tests cross platform (windows) compatible
+- Made all the tests windows compatible
+- If host verification fails due to missing keys, we allow the user to add those key
 
 ## 0.5.1 HOTFIX
 
