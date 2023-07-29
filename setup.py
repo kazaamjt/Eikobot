@@ -12,7 +12,7 @@ with open(this_directory / "README.md", encoding="utf-8") as f:
 
 VERSION = "0.6.0"
 REQUIRES = [
-    "aiohttp==3.8.4",
+    "aiohttp==3.8.5",
     "asyncssh==2.13.1",
     "click==8.1.3",
     "colorama==0.4.6",
