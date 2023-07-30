@@ -1671,6 +1671,29 @@ class EnumExprAst(ExprAST):
         return definition
 
 
+@dataclass
+class ForExprAst(ExprAST):
+    """Represents a for loop that loops over an iterable."""
+
+    loop_var_expr: VariableExprAST
+    iterable_expr: ExprAST
+    body: list[ExprAST]
+
+    def compile(self, context: CompilerContext) -> None:
+        compiled_iterable = self.iterable_expr.compile(context)
+        if not isinstance(compiled_iterable, EikoBaseType):
+            raise EikoCompilationError(
+                "Expression is not iterable, but FOR requires an iterable.",
+                token=self.iterable_expr.token,
+            )
+
+        for obj in compiled_iterable.iterate(self.iterable_expr.token):
+            sub_context = context.get_subcontext(f"{context.name}-for")
+            self.loop_var_expr.assign(obj, sub_context, context, self.loop_var_expr.token)
+            for line in self.body:
+                line.compile(sub_context)
+
+
 class Parser:
     """
     Parses tokens 1 by 1, and turns them in to Expressions.
@@ -1847,6 +1870,9 @@ class Parser:
 
         if self._current.type == TokenType.ENUM:
             return self._parse_enum()
+
+        if self._current.type == TokenType.FOR:
+            return self._parse_for()
 
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
@@ -2541,3 +2567,35 @@ class Parser:
             self._advance()
 
         return EnumExprAst(identifier_token, values)
+
+    def _parse_for(self) -> ForExprAst:
+        token = self._current
+        self._advance()
+
+        if self._current.type != TokenType.IDENTIFIER:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, "
+                "expected an identifier.",
+                token=self._next,
+            )
+
+        loop_var_expr = self._parse_identifier()
+        if self._current.type != TokenType.IN:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, "
+                "expected an 'in' token.",
+                token=self._next,
+            )
+        self._advance()
+        iterable_expr = self._parse_expression()
+
+        if self._current.type != TokenType.COLON:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, "
+                "expected a ':'.",
+                token=self._next,
+            )
+        self._advance()
+
+        body = self._parse_body()
+        return ForExprAst(token, loop_var_expr, iterable_expr, body)

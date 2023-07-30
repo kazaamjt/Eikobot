@@ -26,6 +26,8 @@ KEYWORDS = {
     "def": TokenType.DEF,
     "promise": TokenType.PROMISE,
     "enum": TokenType.ENUM,
+    "for": TokenType.FOR,
+    "in": TokenType.IN,
 }
 
 SPECIAL_CHARS = {

@@ -19,6 +19,7 @@
 - Add a plugin `type` that returns the typing of an object as a string
 - Made all the tests windows compatible
 - If host verification fails due to missing keys, we allow the user to add those key
+- Add `for` loops that loop over iterables (currently just lists and dicts)
 
 ## 0.5.1 HOTFIX
 

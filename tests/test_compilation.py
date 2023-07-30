@@ -13,6 +13,7 @@ from eikobot.core.compiler.definitions.base_types import (
     EikoBool,
     EikoEnumValue,
     EikoInt,
+    EikoList,
     EikoNone,
     EikoResource,
     EikoStr,
@@ -321,3 +322,26 @@ def test_type_plugin(tmp_eiko_file: Path, input_str: str, outcome: bool) -> None
     b = compiler.context.get("b")
     assert isinstance(b, EikoBool)
     assert b.value == outcome
+
+
+def test_for(eiko_for_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_for_file)
+
+    results_list = compiler.context.get("test_list")
+    assert isinstance(results_list, EikoList)
+
+    assert isinstance(results_list.elements[0], EikoStr)
+    assert results_list.elements[0].value == "hello"
+
+    assert isinstance(results_list.elements[1], EikoStr)
+    assert results_list.elements[1].value == "haha"
+
+    assert isinstance(results_list.elements[2], EikoInt)
+    assert results_list.elements[2].value == 12
+
+    assert isinstance(results_list.elements[3], EikoStr)
+    assert results_list.elements[3].value == "key_1"
+
+    assert isinstance(results_list.elements[4], EikoInt)
+    assert results_list.elements[4].value == 1

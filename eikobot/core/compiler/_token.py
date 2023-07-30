@@ -26,6 +26,8 @@ class TokenType(Enum):
     DEF = auto()
     PROMISE = auto()
     ENUM = auto()
+    FOR = auto()
+    IN = auto()
 
     IDENTIFIER = auto()
 

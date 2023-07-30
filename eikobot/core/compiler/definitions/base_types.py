@@ -210,6 +210,12 @@ class EikoBaseType:
     def to_py(self) -> Union[PyTypes, "EikoPromise"]:
         raise NotImplementedError
 
+    def iterate(self, token: Token) -> Iterator["EikoBaseType"]:
+        raise EikoCompilationError(
+            f"Object of type '{self.type}' is not iterable.",
+            token=token,
+        )
+
 
 EikoNoneType = EikoType("None")
 
@@ -986,6 +992,10 @@ class EikoList(EikoBaseType):
     def to_py(self) -> list[Union[PyTypes, "EikoPromise"]]:
         return [element.to_py() for element in self.elements]
 
+    def iterate(self, _: Token) -> Iterator["EikoBaseType"]:
+        for element in self.elements:
+            yield element
+
 
 class EikoDictType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
@@ -1170,6 +1180,10 @@ class EikoDict(EikoBaseType):
             f"Object of type '{key.type.name}' can not be for keys in dictionairies.",
             token=key_token,
         )
+
+    def iterate(self, _: Token) -> Iterator["EikoBaseType"]:
+        for element in self.elements:
+            yield to_eiko(element)
 
 
 # Move to another file
