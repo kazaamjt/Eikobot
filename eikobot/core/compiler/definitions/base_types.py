@@ -61,9 +61,12 @@ class EikoType:
         """
         Recursivly type checks.
 
-        NOTE: in most cases it should be value.type(expected_type)
+        NOTE: in most cases it should be value.type.type_check(expected_type)
         and not the other way around.
         """
+        if expected_type == eiko_any_type:
+            return True
+
         if self.name == expected_type.name:
             return True
 
@@ -124,6 +127,7 @@ class EikoUnset:
         return None
 
 
+eiko_any_type = EikoType("Any")
 EikoType.type = EikoType("Type")
 EikoObjectType = EikoType("Object")
 
@@ -1044,6 +1048,31 @@ class EikoDict(EikoBaseType):
         else:
             self.elements = elements
 
+        self.get_func = EikoBuiltinFunction(
+            "get",
+            [
+                BuiltinFunctionArg("key", key_type),
+                BuiltinFunctionArg("default_value", eiko_any_type),
+            ],
+            body=self._get,
+        )
+
+        self.values_func = EikoBuiltinFunction(
+            "values",
+            [],
+            body=self._values,
+        )
+
+    def _get(
+        self,
+        key: Union[EikoBaseType, bool, float, int, str],
+        default_value: EikoBaseType = eiko_none_object,
+    ) -> EikoBaseType:
+        return self.elements.get(key, default_value)
+
+    def _values(self) -> EikoList:
+        return EikoList(self.type.value_type, list(self.elements.values()))
+
     def update_typing(self, new_type: EikoDictType) -> None:
         self.type = new_type
 
@@ -1184,6 +1213,15 @@ class EikoDict(EikoBaseType):
     def iterate(self, _: Token) -> Iterator["EikoBaseType"]:
         for element in self.elements:
             yield to_eiko(element)
+
+    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+        if name == "values":
+            return self.values_func
+
+        if name == "get":
+            return self.get_func
+
+        return super().get(name, token)
 
 
 # Move to another file

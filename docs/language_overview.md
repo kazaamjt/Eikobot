@@ -1,10 +1,11 @@
 # Eiko language overview
 
 This overview assumes the user hase some knowledge of programming.  
-The language itself is designed to mimic Python and
-Python is required for writing `plugins` and `handlers`.  
+The language itself is designed to mimic Python as closely as makes sense.  
+Furthermore knowledge of Python is required for writing `plugins` and `handlers`,
+as those are written in Python.  
 
-Furthmore, knowledge of Pythons typing system is highly recommended.  
+Furthmore, knowledge of Pythons typing system is highly recommende it.  
 
 ## The compile command
 
@@ -425,6 +426,24 @@ Further testing will also show our custom resource `Service` does not accept bad
 ```Python
 s = Service(-1)
 ```
+
+## For loops
+
+Using the `for` keyword we can loop over iterables, such as lists and dicts.  
+This works much like it does in Python:
+
+```Python
+haha = "haha"
+test_list: list[Union[str, int]] = []
+
+for obj in ["hello", haha, 12]:
+    test_list.append(obj)
+
+for obj in {"key_1": "test", 1: 1}:
+    test_list.append(obj)
+```
+
+
 
 ## importing and modules
 

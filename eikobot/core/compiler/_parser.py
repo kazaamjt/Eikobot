@@ -1689,7 +1689,9 @@ class ForExprAst(ExprAST):
 
         for obj in compiled_iterable.iterate(self.iterable_expr.token):
             sub_context = context.get_subcontext(f"{context.name}-for")
-            self.loop_var_expr.assign(obj, sub_context, context, self.loop_var_expr.token)
+            self.loop_var_expr.assign(
+                obj, sub_context, context, self.loop_var_expr.token
+            )
             for line in self.body:
                 line.compile(sub_context)
 
@@ -2574,16 +2576,14 @@ class Parser:
 
         if self._current.type != TokenType.IDENTIFIER:
             raise EikoParserError(
-                f"Unexpected token {self._next.content}, "
-                "expected an identifier.",
+                f"Unexpected token {self._next.content}, " "expected an identifier.",
                 token=self._next,
             )
 
         loop_var_expr = self._parse_identifier()
         if self._current.type != TokenType.IN:
             raise EikoParserError(
-                f"Unexpected token {self._next.content}, "
-                "expected an 'in' token.",
+                f"Unexpected token {self._next.content}, " "expected an 'in' token.",
                 token=self._next,
             )
         self._advance()
@@ -2591,8 +2591,7 @@ class Parser:
 
         if self._current.type != TokenType.COLON:
             raise EikoParserError(
-                f"Unexpected token {self._next.content}, "
-                "expected a ':'.",
+                f"Unexpected token {self._next.content}, " "expected a ':'.",
                 token=self._next,
             )
         self._advance()
