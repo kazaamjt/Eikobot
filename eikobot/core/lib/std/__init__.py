@@ -164,7 +164,7 @@ class HostModel(EikoBaseModel):
             if key_scan.returncode != 0:
                 raise EikoDeployError(
                     f"Host verification failed \n{stderr.decode()}"
-                )
+                ) from e
             return await asyncssh.connect(self.host, **extra_args)
 
     def disconnect(self, ctx: HandlerContext) -> None:

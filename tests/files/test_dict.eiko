@@ -6,3 +6,7 @@ test_dict: dict[str, Union[str, int, bool]] = {
 
 a = test_dict["key_2"]
 test_dict["key_4"] = True
+
+d = {"key": "value"}
+d.get("key")
+d.get("key", default_value=None)

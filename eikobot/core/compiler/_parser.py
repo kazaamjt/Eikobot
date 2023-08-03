@@ -731,8 +731,8 @@ class CallExprAst(ExprAST):
             eiko_callable = eiko_callable.default_constructor
 
         args: list[PassedArg] = []
+        keyword_args: dict[str, PassedArg] = {}
         if isinstance(eiko_callable, ConstructorDefinition):
-            keyword_args: dict[str, PassedArg] = {}
             kw_args = False
             for arg_expr in self.args.elements:
                 if isinstance(arg_expr, AssignmentExprAST):
@@ -795,16 +795,33 @@ class CallExprAst(ExprAST):
             )
 
         if isinstance(eiko_callable, EikoBuiltinFunction):
+            parsing_kw = False
             for arg_expr in self.args.elements:
-                arg_value = arg_expr.compile(context)
-                if not isinstance(arg_value, EikoBaseType):
-                    raise EikoCompilationError(
-                        "The provided argument did not provide a valid value.",
-                        token=arg_expr.token,
-                    )
-                args.append(PassedArg(arg_expr.token, arg_value))
+                if isinstance(arg_expr, AssignmentExprAST):
+                    parsing_kw = True
+                    arg_value = arg_expr.rhs.compile(context)
+                    if not isinstance(arg_value, EikoBaseType):
+                        raise EikoCompilationError(
+                            "The provided argument is not a valid value.",
+                            token=arg_expr.token,
+                        )
+                    kw_arg = PassedArg(arg_expr.lhs.token, arg_value)
+                    keyword_args[kw_arg.token.content] = kw_arg
+                else:
+                    if parsing_kw:
+                        raise EikoCompilationError(
+                            "A positional argument cannot follow a keyword argument.",
+                            token=arg_expr.token,
+                        )
+                    arg_value = arg_expr.compile(context)
+                    if not isinstance(arg_value, EikoBaseType):
+                        raise EikoCompilationError(
+                            "The provided argument is not a valid value.",
+                            token=arg_expr.token,
+                        )
+                    args.append(PassedArg(arg_expr.token, arg_value))
 
-            return eiko_callable.execute(self.token, args)
+            return eiko_callable.execute(self.token, args, keyword_args)
 
         if isinstance(eiko_callable, EikoEnumDefinition):
             if len(self.args.elements) != 1:
@@ -1648,7 +1665,7 @@ class EnumValueExprAst(ExprAST):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.value = self.token.content.lower()
+        self.value = self.token.content
 
     def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
         raise NotImplementedError(self.token)

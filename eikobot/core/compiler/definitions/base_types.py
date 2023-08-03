@@ -64,7 +64,7 @@ class EikoType:
         NOTE: in most cases it should be value.type.type_check(expected_type)
         and not the other way around.
         """
-        if expected_type == eiko_any_type:
+        if self == eiko_any_type:
             return True
 
         if self.name == expected_type.name:
@@ -841,7 +841,10 @@ _builtin_function_type = EikoType("builtin_function", EikoObjectType)
 
 @dataclass
 class PassedArg:
-    """A passed arg is a compiled expression passed as an arg."""
+    """
+    A passed arg is a compiled expression passed as an arg.
+    This is an Arg meant to be passed to an EikoBuiltinFunction.
+    """
 
     token: Token
     value: EikoBaseType
@@ -849,8 +852,11 @@ class PassedArg:
 
 @dataclass
 class BuiltinFunctionArg:
+    """An arg passed to a builtin function."""
+
     name: str
     type: EikoType
+    default_value: EikoBaseType | None = None
 
 
 class EikoBuiltinFunction(EikoBaseType):
@@ -867,16 +873,32 @@ class EikoBuiltinFunction(EikoBaseType):
     ) -> None:
         super().__init__(_builtin_function_type)
         self.identifier = identifier
-        self.args = args
         self.body = body
 
+        self.args: list[BuiltinFunctionArg] = []
+        self.kw_args: dict[str, BuiltinFunctionArg] = {}
+        for arg in args:
+            if arg.default_value is None:
+                self.args.append(arg)
+            else:
+                self.kw_args[arg.name] = arg
+
     def execute(
-        self, callee_token: Token, args: list[PassedArg]
+        self,
+        callee_token: Token,
+        args: list[PassedArg],
+        keyword_args: dict[str, PassedArg] | None = None,
     ) -> Optional[EikoBaseType]:
         """Execute the builtin function."""
-        if len(args) != len(self.args):
+        if len(args) > len(self.args) + len(self.kw_args):
             raise EikoCompilationError(
                 "Too many arguments given to function call.",
+                token=callee_token,
+            )
+
+        if len(args) < len(self.args):
+            raise EikoCompilationError(
+                "Missing positional arguments for function call.",
                 token=callee_token,
             )
 
@@ -885,12 +907,32 @@ class EikoBuiltinFunction(EikoBaseType):
             if not expected_arg.type.type_check(passed_arg.value.type):
                 raise EikoCompilationError(
                     f"Argument '{expected_arg.name}' must be of type '{expected_arg.type}', "
-                    f"but got '{passed_arg.value.type}'",
+                    f"but got '{passed_arg.value.type}' instead.",
                     token=passed_arg.token,
                 )
             validated_args.append(passed_arg.value)
 
-        return self.body(*validated_args)
+        validated_kw_args: dict[str, EikoBaseType] = {}
+        if keyword_args is not None:
+            for arg_name, passed_arg in keyword_args.items():
+                expected_kw_arg = self.kw_args.get(arg_name)
+
+                if expected_kw_arg is None:
+                    raise EikoCompilationError(
+                        f"Callable no such argument: '{arg_name}'.",
+                        token=passed_arg.token,
+                    )
+
+                if not expected_kw_arg.type.type_check(passed_arg.value.type):
+                    raise EikoCompilationError(
+                        f"Argument '{expected_kw_arg.name}' must be of type '{expected_kw_arg.type}', "
+                        f"but got '{passed_arg.value.type}' instead.",
+                        token=passed_arg.token,
+                    )
+
+                validated_kw_args[arg_name] = passed_arg.value
+
+        return self.body(*validated_args, **validated_kw_args)
 
     def truthiness(self) -> bool:
         raise NotImplementedError
@@ -1052,7 +1094,7 @@ class EikoDict(EikoBaseType):
             "get",
             [
                 BuiltinFunctionArg("key", key_type),
-                BuiltinFunctionArg("default_value", eiko_any_type),
+                BuiltinFunctionArg("default_value", eiko_any_type, eiko_none_object),
             ],
             body=self._get,
         )

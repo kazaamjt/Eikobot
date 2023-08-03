@@ -20,6 +20,7 @@
 - Made all the tests windows compatible
 - If host verification fails due to missing keys, we allow the user to add those key
 - Add `for` loops that loop over iterables (currently just lists and dicts)
+- Impement `dict.get` function, that canr retrieve a value with a default value
 
 ## 0.5.1 HOTFIX
 
