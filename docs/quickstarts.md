@@ -14,7 +14,7 @@ Unless mentioned otherwise, setting up a new project for each quickstart is reco
 ## Create a new project
 
 Create a new directory `eikobot-quickstarts`.  
-Inside this directory, set up a python3.10+ venv, and activate it:  
+Inside this directory, set up a python3.11+ venv, and activate it:  
 
 ```sh
 python3.10 -m venv .env

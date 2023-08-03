@@ -2,6 +2,7 @@
 Handlers are a way to describe to Eikobot how something should be deployed.
 """
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Union
 
 from . import logger
@@ -9,12 +10,16 @@ from .compiler.definitions.base_model import BaseModel
 from .compiler.definitions.base_types import EikoResource
 from .errors import EikoUnresolvedPromiseError
 
+CACHE_DIR = Path(".eikobot_cache")
+CACHE_DIR.mkdir(exist_ok=True)
+
 
 @dataclass
 class HandlerContext:
     """A HandlerContext keeps track of things required for a deployment."""
 
     raw_resource: EikoResource
+    task_id: str
 
     def __post_init__(self) -> None:
         self.resource: Union[dict, BaseModel]
@@ -24,6 +29,20 @@ class HandlerContext:
         self.failed = False
         self.promises = self.raw_resource.promises
         self.name = self.raw_resource.index()
+        self.extras: dict[str, Any] = {}
+        self.task_cache = CACHE_DIR / self.normalized_task_id()
+
+        self.task_cache.mkdir(exist_ok=True)
+
+    def normalized_task_id(self) -> str:
+        """
+        Removes backslashes, forward slashes and : from the task_id
+        so it can be used for paths on both unix and windows.
+        """
+        _normalized = self.task_id.replace("\\", "-")
+        _normalized = _normalized.replace("/", "-")
+        _normalized = _normalized.replace(" ", "")
+        return _normalized.replace(":", ".")
 
     def add_change(self, key: str, value: Any) -> None:
         self.changes[key] = value

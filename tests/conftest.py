@@ -150,3 +150,8 @@ def eiko_promises_file() -> Path:
 @pytest.fixture
 def eiko_enum_file() -> Path:
     return get_file("test_enum.eiko")
+
+
+@pytest.fixture
+def eiko_for_file() -> Path:
+    return get_file("test_for.eiko")

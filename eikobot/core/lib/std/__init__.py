@@ -5,6 +5,7 @@ plugins and resources.
 import asyncio
 import getpass
 import os
+import re
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Optional, Type, Union
@@ -119,6 +120,8 @@ class HostModel(EikoBaseModel):
         extra = Extra.allow
 
     def __post_init__(self) -> None:
+        self.is_windows_host: bool = False
+
         self._connection: SSHConnection
         self._con_ref_count: int = 0
         self._connected: asyncio.Event = asyncio.Event()
@@ -148,7 +151,21 @@ class HostModel(EikoBaseModel):
             if self.password is not None:
                 extra_args["password"] = self.password
 
-        return await asyncssh.connect(self.host, **extra_args)
+        try:
+            return await asyncssh.connect(self.host, **extra_args)
+        except asyncssh.HostKeyNotVerifiable as e:
+            key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
+                f"ssh {self.host} echo",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            _, stderr = await key_scan.communicate()
+            if key_scan.returncode != 0:
+                raise EikoDeployError(
+                    f"Host verification failed \n{stderr.decode()}"
+                ) from e
+            return await asyncssh.connect(self.host, **extra_args)
 
     def disconnect(self, ctx: HandlerContext) -> None:
         """Disconnects if nothing else is using the same connection."""
@@ -170,10 +187,93 @@ class HostModel(EikoBaseModel):
         await asyncio.gather(*self._forwarded_ports_stop_tasks)
         await asyncio.gather(*self._disconnect_tasks)
 
+    async def scp_to(
+        self,
+        file_name: str,
+        ctx: HandlerContext,
+        destination: str | None = None,
+    ) -> None:
+        """
+        Copies a file from the local host to the remote host
+        """
+        extra_args: dict[str, str] = {}
+        if self.username is not None:
+            extra_args["username"] = self.username
+
+        if self.ssh_requires_pass:
+            if self.password is not None:
+                extra_args["password"] = self.password
+
+        if destination is None:
+            destination = file_name
+
+        ctx.debug(f"Copying file '{file_name}' to host.")
+        await asyncssh.scp(
+            file_name,
+            f"{self.host}:{destination}",
+            **extra_args,  # type: ignore
+        )
+
+    async def scp_from(
+        self,
+        file_name: str,
+        ctx: HandlerContext,
+        destination: str | None = None,
+    ) -> None:
+        """
+        Copies a file to the local host from the remote host
+        """
+        extra_args: dict[str, str] = {}
+        if self.username is not None:
+            extra_args["username"] = self.username
+
+        if self.ssh_requires_pass:
+            if self.password is not None:
+                extra_args["password"] = self.password
+
+        if destination is None:
+            destination = file_name
+
+        ctx.debug(f"Copying file '{file_name}' from host.")
+        await asyncssh.scp(
+            f"{self.host}:{file_name}",
+            destination,
+            **extra_args,  # type: ignore
+        )
+
     async def script(
         self, script: str, exec_shell: str, ctx: HandlerContext
     ) -> CmdResult:
         """Runs a script on the remote host."""
+        if self.is_windows_host:
+            script_file_name = f"script-{ctx.normalized_task_id()}.ps1"
+            with open(ctx.task_cache / script_file_name, "w", encoding="utf-8") as f:
+                f.write(script)
+
+            extra_args: dict[str, str] = {}
+            if self.username is not None:
+                extra_args["username"] = self.username
+
+            if self.ssh_requires_pass:
+                if self.password is not None:
+                    extra_args["password"] = self.password
+
+            await asyncssh.scp(
+                ctx.task_cache / script_file_name,
+                f"{self.host}:{script_file_name}",
+                **extra_args,  # type: ignore
+            )
+            result = await self._execute_windows(
+                f".\\{script_file_name}",
+                ctx,
+                script,
+            )
+            await self._connection.run(
+                f"del {script_file_name}",
+                term_type="xterm-color",
+            )
+            return result
+
         if "sudo " in script:
             ssh_exec = self._execute_sudo
         else:
@@ -184,7 +284,9 @@ class HostModel(EikoBaseModel):
 
     async def execute(self, cmd: str, ctx: HandlerContext) -> CmdResult:
         """Executes one or more commands in an ssh session."""
-        if "sudo " in cmd:
+        if self.is_windows_host:
+            ssh_exec = self._execute_windows
+        elif "sudo " in cmd:
             ssh_exec = self._execute_sudo
         else:
             ssh_exec = self._execute
@@ -204,6 +306,7 @@ class HostModel(EikoBaseModel):
         if original_command is None:
             original_command = cmd
         ctx.debug("Execute: " + original_command)
+
         cmd_str = 'HISTIGNORE="*" ' + cmd
 
         try:
@@ -216,7 +319,6 @@ class HostModel(EikoBaseModel):
         process = await self._connection.run(
             cmd_str,
             term_type="xterm-color",
-            stderr=asyncssh.STDOUT,
         )
         self.disconnect(ctx)
 
@@ -227,7 +329,20 @@ class HostModel(EikoBaseModel):
         else:
             _stdout = process.stdout
         stdout = self._clean_log(_stdout)
-        ctx.debug("stdout:\n" + stdout)
+
+        # try again as Windows
+        if "'HISTIGNORE' is not recognized" in stdout:
+            ctx.debug(
+                "Potential Windows machine detected, retrying with updated settings."
+            )
+            self.is_windows_host = True
+            await self.execute("Set-ExecutionPolicy RemoteSigned", ctx)
+            return await self._execute_windows(cmd, ctx)
+
+        if stdout:
+            ctx.debug("stdout:\n" + stdout)
+        else:
+            ctx.debug("stdout:")
 
         returncode = 1
         if process.returncode is not None:
@@ -252,16 +367,127 @@ class HostModel(EikoBaseModel):
 
         return await self.execute(cmd, ctx)
 
+    async def _execute_windows(
+        self,
+        cmd: str,
+        ctx: HandlerContext,
+        original_command: Optional[str] = None,
+    ) -> CmdResult:
+        if original_command is None:
+            original_command = cmd
+        ctx.debug("Execute: " + original_command)
+
+        cmd = cmd.replace('"', '\\"')
+        if not cmd.startswith("powershell"):
+            cmd_str = f'powershell -NoLogo -NoProfile "{cmd}"'
+        else:
+            cmd_str = cmd
+
+        rcode_file = f"returncode-{ctx.normalized_task_id()}"
+        output_file = f"output-{ctx.normalized_task_id()}"
+        cmd_str = f"chcp 65001 & {cmd_str} > {output_file} & "
+        cmd_str += f"echo %ERRORLEVEL% > {rcode_file}"
+
+        try:
+            await self.connect(ctx)
+        except OSError:
+            return CmdResult(
+                original_command, 1, "SSH: Failed to connect to host.", ctx
+            )
+
+        await self._connection.run(
+            cmd_str,
+            term_type="xterm-color",
+        )
+
+        extra_args: dict[str, str] = {}
+        if self.username is not None:
+            extra_args["username"] = self.username
+
+        if self.ssh_requires_pass:
+            if self.password is not None:
+                extra_args["password"] = self.password
+
+        await asyncssh.scp(
+            f"{self.host}:{rcode_file}",
+            ctx.task_cache / rcode_file,
+            **extra_args,  # type: ignore
+        )
+        with open(ctx.task_cache / rcode_file, encoding="utf-8") as f:
+            returncode = int(f.read())
+        os.remove(ctx.task_cache / rcode_file)
+
+        await self._connection.run(
+            f"del {rcode_file}",
+            term_type="xterm-color",
+        )
+
+        await asyncssh.scp(
+            f"{self.host}:{output_file}",
+            ctx.task_cache / output_file,
+            **extra_args,  # type: ignore
+        )
+        with open(ctx.task_cache / output_file, encoding="utf-8") as f:
+            stdout = self._clean_log(f.read())
+        os.remove(ctx.task_cache / output_file)
+
+        await self._connection.run(
+            f"del {output_file}",
+            term_type="xterm-color",
+        )
+
+        if stdout:
+            ctx.debug("stdout:\n" + stdout)
+        else:
+            ctx.debug("stdout:")
+
+        self.disconnect(ctx)
+
+        return CmdResult(original_command, returncode, stdout, ctx)
+
     def _clean_log(self, log: str) -> str:
         log = log.replace("\r\n", "\n")
+
+        # strip all ansi characters
+        ansi_escape = re.compile(
+            r"""
+                \x1B  # ESC
+                (?:   # 7-bit C1 Fe (except CSI)
+                    [@-Z\\-_]
+                |     # or [ for CSI, followed by a control sequence
+                    \[
+                    [0-?]*  # Parameter bytes
+                    [ -/]*  # Intermediate bytes
+                    [@-~]   # Final byte
+                )
+            """,
+            re.VERBOSE,
+        )
+        log = ansi_escape.sub("", log)
+
         sudo_log_str = "[sudo] password for "
         if self.username is not None:
             sudo_log_str += self.username
         else:
             sudo_log_str += os.getlogin()
-
         sudo_log_str += ": "
-        return log.replace(sudo_log_str, "")
+        log = log.replace(sudo_log_str, "")
+
+        # weird windows stuff
+        log = log.replace("0;Administrator: C:\\Windows\\system32\\conhost.exe", "")
+        log = log.replace("0;C:\\Windows\\system32\\conhost.exe", "")
+        log = log.replace("Active code page: 65001", "")
+
+        # strip beeps, lol
+        log = log.replace("\x07", "")
+
+        log = log.removesuffix("\n")
+
+        # Remove any extranious whitespace
+        while "\n\n\n" in log:
+            log = log.replace("\n\n\n", "\n\n")
+
+        return log
 
     async def forward_port(
         self, ctx: HandlerContext, local_port: int, remote_port: int | None = None
@@ -357,16 +583,18 @@ class HostHandler(Handler):
         os_version_promis = ctx.resource.raw_resource.promises["os_version"]
 
         os_string = result.output.replace("\n", "")
-        os_platform_promis.set(os_string, ctx)
         if os_string == "":
             os_platform_promis.set("windows", ctx)
             os_name_promise.set("windows", ctx)
             os_version_result = await ctx.resource.execute(
-                r'(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId',
+                "(Get-ComputerInfo).WindowsProductName",
                 ctx,
             )
             os_version_promis.set(os_version_result.output.replace("\n", ""), ctx)
+            await ctx.resource.execute("Set-ExecutionPolicy RemoteSigned", ctx)
+            ctx.debug(f"OS Detection: {os_version_promis.resolve(str)}")
         elif os_string == "linux-gnu":
+            os_platform_promis.set("linux-gnu", ctx)
             os_release = await ctx.resource.execute("cat /etc/os-release", ctx)
             os_info: dict[str, str] = {}
             for line in os_release.output.splitlines():
@@ -375,10 +603,20 @@ class HostHandler(Handler):
 
             os_name_promise.set(os_info["ID"], ctx)
             os_version_promis.set(os_info["VERSION_ID"], ctx)
+            ctx.debug(
+                "OS Detection: "
+                f"{os_platform_promis.resolve(str)}-{os_name_promise.resolve(str)}-{os_version_promis.resolve(str)}"
+            )
 
         else:
+            os_platform_promis.set("unknown", ctx)
             os_name_promise.set("unknown", ctx)
             os_version_promis.set("unknown", ctx)
+
+            ctx.debug(
+                "OS Detection: "
+                f"{os_platform_promis.resolve(str)}-{os_name_promise.resolve(str)}-{os_version_promis.resolve(str)}"
+            )
 
         ctx.deployed = True
 
@@ -456,7 +694,7 @@ class ScriptHandler(Handler):
             elif platform == "windows":
                 exec_shell = "powershell"
             else:
-                exec_shell = "bash"
+                exec_shell = "sh"
         else:
             exec_shell = ctx.resource.exec_shell
 

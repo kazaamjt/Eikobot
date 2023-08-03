@@ -461,11 +461,21 @@ class VariableExprAST(ExprAST):
     def assign(
         self,
         value: StorableTypes,
-        assign_context: Union[CompilerContext, EikoResource],
+        assign_context: CompilerContext | EikoResource,
         compile_context: CompilerContext,
         token: Token,
     ) -> StorableTypes:
         """Assigns the variable a value."""
+        type_expr: EikoType | None = None
+        prev_def: EikoBaseType | EikoUnset | None = None
+        if isinstance(assign_context, EikoResource):
+            prev_def = assign_context.properties.get(self.identifier)
+
+        elif isinstance(assign_context, CompilerContext):
+            _prev_def = assign_context.shallow_get(self.identifier)
+            if isinstance(_prev_def, (EikoBaseType, EikoUnset)):
+                prev_def = _prev_def
+
         if self.type_expr is not None:
             type_expr = self.type_expr.compile(compile_context)
             if type_expr.inverse_type_check(value.type):
@@ -478,18 +488,59 @@ class VariableExprAST(ExprAST):
                             "Something went wrong trying to coerce a type to it's typedef.",
                             token=token,
                         )
-            if not type_expr.type_check(value.type):
+
+            if prev_def is not None and not prev_def.type.type_check(type_expr):
                 raise EikoCompilationError(
-                    "Variable assigned incompatible type:"
-                    f" given value of type '{value.type}' but expected type '{type_expr}'",
-                    token=token,
+                    "Reassinging types is not allowed.",
+                    token=self.token,
                 )
 
-            if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):
+        elif prev_def is not None:
+            type_expr = prev_def.type
+
+        if type_expr is not None:
+            if (
+                isinstance(value, EikoList)
+                and value.type.element_type.name == ""
+                and isinstance(type_expr, EikoListType)
+            ):
                 value.update_typing(type_expr)
 
-            if isinstance(value, EikoDict) and isinstance(type_expr, EikoDictType):
+            elif (
+                isinstance(value, EikoDict)
+                and value.type.key_type.name == ""
+                and value.type.value_type.name == ""
+                and isinstance(type_expr, EikoDictType)
+            ):
                 value.update_typing(type_expr)
+
+            elif not value.type.type_check(type_expr):
+                if value.type.inverse_type_check(type_expr):
+                    if type_expr.typedef is None:
+                        raise EikoCompilationError(
+                            "A coercion failed. Type is not a TypeDef.",
+                            token=token,
+                        )
+                    if isinstance(value, EikoBaseType):
+                        value = type_expr.typedef.execute(value, token)
+                    else:
+                        raise EikoInternalError(
+                            "A coercion failed due to a bug. Please report this on Github.",
+                            token=token,
+                        )
+                else:
+                    raise EikoCompilationError(
+                        "Variable assigned incompatible type:"
+                        f" given value of type '{value.type}' but expected type '{type_expr}'",
+                        token=token,
+                    )
+
+            else:
+                if isinstance(value, EikoList) and isinstance(type_expr, EikoListType):
+                    value.update_typing(type_expr)
+
+                if isinstance(value, EikoDict) and isinstance(type_expr, EikoDictType):
+                    value.update_typing(type_expr)
 
         elif isinstance(value, EikoList) and len(value.elements) == 0:
             raise EikoCompilationError(
@@ -680,8 +731,8 @@ class CallExprAst(ExprAST):
             eiko_callable = eiko_callable.default_constructor
 
         args: list[PassedArg] = []
+        keyword_args: dict[str, PassedArg] = {}
         if isinstance(eiko_callable, ConstructorDefinition):
-            keyword_args: dict[str, PassedArg] = {}
             kw_args = False
             for arg_expr in self.args.elements:
                 if isinstance(arg_expr, AssignmentExprAST):
@@ -744,16 +795,33 @@ class CallExprAst(ExprAST):
             )
 
         if isinstance(eiko_callable, EikoBuiltinFunction):
+            parsing_kw = False
             for arg_expr in self.args.elements:
-                arg_value = arg_expr.compile(context)
-                if not isinstance(arg_value, EikoBaseType):
-                    raise EikoCompilationError(
-                        "The provided argument did not provide a valid value.",
-                        token=arg_expr.token,
-                    )
-                args.append(PassedArg(arg_expr.token, arg_value))
+                if isinstance(arg_expr, AssignmentExprAST):
+                    parsing_kw = True
+                    arg_value = arg_expr.rhs.compile(context)
+                    if not isinstance(arg_value, EikoBaseType):
+                        raise EikoCompilationError(
+                            "The provided argument is not a valid value.",
+                            token=arg_expr.token,
+                        )
+                    kw_arg = PassedArg(arg_expr.lhs.token, arg_value)
+                    keyword_args[kw_arg.token.content] = kw_arg
+                else:
+                    if parsing_kw:
+                        raise EikoCompilationError(
+                            "A positional argument cannot follow a keyword argument.",
+                            token=arg_expr.token,
+                        )
+                    arg_value = arg_expr.compile(context)
+                    if not isinstance(arg_value, EikoBaseType):
+                        raise EikoCompilationError(
+                            "The provided argument is not a valid value.",
+                            token=arg_expr.token,
+                        )
+                    args.append(PassedArg(arg_expr.token, arg_value))
 
-            return eiko_callable.execute(self.token, args)
+            return eiko_callable.execute(self.token, args, keyword_args)
 
         if isinstance(eiko_callable, EikoEnumDefinition):
             if len(self.args.elements) != 1:
@@ -959,6 +1027,27 @@ class ResourcePropertyAST:
                 token=self.expr.rhs.token,
             )
 
+        lhs_type_expr: TypeExprAST | None = None
+        if isinstance(default_value, EikoList):
+            if default_value.type.name == "list[]":
+                if isinstance(_type, EikoListType):
+                    lhs_type_expr = self.expr.lhs.type_expr
+                    default_value.type = _type
+                else:
+                    raise EikoInternalError(
+                        "Something went wrong initializing a list as default argument."
+                    )
+
+        elif isinstance(default_value, EikoDict):
+            if default_value.type.name == "dict[]":
+                if isinstance(_type, EikoDictType):
+                    lhs_type_expr = self.expr.lhs.type_expr
+                    default_value.type = _type
+                else:
+                    raise EikoInternalError(
+                        "Something went wrong initializing a list as default argument."
+                    )
+
         if not _type.type_check(default_value.type):
             if _type.inverse_type_check(default_value.type):
                 if _type.typedef is None:
@@ -973,9 +1062,10 @@ class ResourcePropertyAST:
             else:
                 raise EikoCompilationError(
                     f"The default value of {res_name}.{self.name} does not fit type described in its type expression.",
+                    token=self.expr.rhs.token,
                 )
 
-        return ResourceProperty(self.name, _type, default_value)
+        return ResourceProperty(self.name, _type, default_value, lhs_type_expr)
 
 
 @dataclass
@@ -1032,7 +1122,7 @@ class ResourceDefinitionAST(ExprAST):
 
     name: str
     decorators: list[DecoratorExprAST]
-    super_expr: Optional[VariableExprAST]
+    super_expr: DotExprAST | VariableExprAST | None
 
     def __post_init__(self) -> None:
         self.constructor: Optional["ConstructorExprAST"] = None
@@ -1050,14 +1140,14 @@ class ResourceDefinitionAST(ExprAST):
     def compile(self, context: CompilerContext) -> EikoResourceDefinition:
         super_res: Optional[EikoResourceDefinition] = None
         if self.super_expr is not None:
-            compiled_super_expr = self.super_expr.compile(context)
-            if not isinstance(compiled_super_expr, EikoResourceDefinition):
+            _super_res = self.super_expr.compile(context)
+            if not isinstance(_super_res, EikoResourceDefinition):
                 raise EikoCompilationError(
                     "Expected a resource definition to inherit from.",
                     token=self.super_expr.token,
                 )
 
-            super_res = compiled_super_expr
+            super_res = _super_res
             self.type.super = super_res.instance_type
             new_prop_dict: dict[str, ResourcePropertyAST] = {}
             for super_property_ast in super_res.expr.properties.values():
@@ -1074,6 +1164,16 @@ class ResourceDefinitionAST(ExprAST):
                 new_prop_dict[super_property_ast.name] = super_property_ast
             new_prop_dict.update(self.properties)
             self.properties = new_prop_dict
+
+            for super_promise in super_res.expr.promises:
+                for promise in self.promises:
+                    if super_promise.var.identifier == promise.var.identifier:
+                        raise EikoCompilationError(
+                            f"Promise '{super_promise.var.identifier}' already defined "
+                            f"in super type '{super_res.name}'.",
+                            token=promise.token,
+                        )
+                self.promises.append(super_promise)
 
         arg_properties: dict[str, ResourceProperty] = {}
         for property_ast in self.properties.values():
@@ -1104,7 +1204,7 @@ class ResourceDefinitionAST(ExprAST):
                             VariableExprAST(
                                 Token(TokenType.IDENTIFIER, "self", token.index)
                             ),
-                            VariableExprAST(token),
+                            VariableExprAST(token, prop.type_expr),
                         ),
                         VariableExprAST(token),
                     ),
@@ -1565,7 +1665,7 @@ class EnumValueExprAst(ExprAST):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.value = self.token.content.lower()
+        self.value = self.token.content
 
     def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
         raise NotImplementedError(self.token)
@@ -1586,6 +1686,31 @@ class EnumExprAst(ExprAST):
         definition = EikoEnumDefinition(self.token.content, value_type, values)
         context.set(definition.name, definition)
         return definition
+
+
+@dataclass
+class ForExprAst(ExprAST):
+    """Represents a for loop that loops over an iterable."""
+
+    loop_var_expr: VariableExprAST
+    iterable_expr: ExprAST
+    body: list[ExprAST]
+
+    def compile(self, context: CompilerContext) -> None:
+        compiled_iterable = self.iterable_expr.compile(context)
+        if not isinstance(compiled_iterable, EikoBaseType):
+            raise EikoCompilationError(
+                "Expression is not iterable, but FOR requires an iterable.",
+                token=self.iterable_expr.token,
+            )
+
+        for obj in compiled_iterable.iterate(self.iterable_expr.token):
+            sub_context = context.get_subcontext(f"{context.name}-for")
+            self.loop_var_expr.assign(
+                obj, sub_context, context, self.loop_var_expr.token
+            )
+            for line in self.body:
+                line.compile(sub_context)
 
 
 class Parser:
@@ -1621,6 +1746,7 @@ class Parser:
             ".": 100,
             "(": 100,
             "[": 100,
+            ":": 100,
         }
 
     def parse(self) -> Iterator[ExprAST]:
@@ -1764,6 +1890,9 @@ class Parser:
         if self._current.type == TokenType.ENUM:
             return self._parse_enum()
 
+        if self._current.type == TokenType.FOR:
+            return self._parse_for()
+
         raise EikoSyntaxError(
             f"Unexpected token {self._current.type.name}.", index=self._current.index
         )
@@ -1816,6 +1945,13 @@ class Parser:
             ]:
                 self._advance()
             rhs = self._parse_primary()
+            if (
+                isinstance(rhs, VariableExprAST)
+                and self._current.type == TokenType.COLON
+                and self._next.type == TokenType.IDENTIFIER
+            ):
+                self._advance()
+                rhs = VariableExprAST(rhs.token, self._parse_type())
 
             # if current op binds less tightly with rhs than the operator after rhs,
             # let the pending operator take rhs as it's lhs
@@ -1977,10 +2113,19 @@ class Parser:
         self._advance()
 
         # Inheritance
-        super_expr: Optional[VariableExprAST] = None
+        super_expr: VariableExprAST | DotExprAST | None = None
         if self._current.type == TokenType.LEFT_PAREN:
             self._advance()
             super_expr = self._parse_identifier()
+            while True:
+                if self._current.type != TokenType.DOT:
+                    break
+
+                self._advance()
+                super_expr = DotExprAST(
+                    self._previous, super_expr, self._parse_identifier()
+                )
+
             if self._current.type != TokenType.RIGHT_PAREN:
                 raise EikoParserError(
                     f"Unexpected token {self._current.content}. Expected ')'.",
@@ -1994,7 +2139,7 @@ class Parser:
 
         if self._current.type != TokenType.COLON:
             raise EikoParserError(
-                f"Unexpected token {self._current.content}.",
+                f"Unexpected token {self._current.content}. Expected a ':'.",
                 token=self._current,
             )
         self._advance()
@@ -2013,6 +2158,12 @@ class Parser:
                 "expected indented code block.",
                 token=self._current,
             )
+
+        if self._next.type == TokenType.TRIPLE_DOT:
+            self._advance()
+            self._advance()
+            return rd_ast
+
         indent = self._current.content
         constructor: Optional[ConstructorExprAST] = None
         while True:
@@ -2033,11 +2184,11 @@ class Parser:
                 pass
             else:
                 raise EikoSyntaxError(
-                    f"Unexpected token in resource definition '{rd_ast.name}'",
-                    index=rd_ast.token.index,
+                    f"Unexpected token '{self._current.content}' in resource definition '{rd_ast.name}'",
+                    index=self._current.index,
                 )
 
-        if not rd_ast.properties:
+        if not rd_ast.properties and rd_ast.super_expr is None:
             raise EikoSyntaxError(
                 "A resource must have atleast 1 property. (Besides promises.)",
                 index=rd_ast.token.index,
@@ -2089,6 +2240,12 @@ class Parser:
                     "Expected a ',' or a ')'.", index=self._current.index
                 )
             self._advance(skip_indentation=True)
+            if (
+                self._current.type == TokenType.RIGHT_PAREN
+                and self._next.type == TokenType.COLON
+            ):
+                self._advance()
+                break
             args.append(self._parse_consructor_arg())
             if self._current.type == TokenType.INDENT:
                 self._advance(skip_indentation=True)
@@ -2276,7 +2433,8 @@ class Parser:
                 self._advance()
             if self._current.type != TokenType.INDENT:
                 raise EikoInternalError(
-                    "Unexpected issue, please report this on github."
+                    "Unexpected issue, please report this on github.",
+                    token=self._current,
                 )
             if self._current.content != self._current_indent:
                 break
@@ -2428,3 +2586,32 @@ class Parser:
             self._advance()
 
         return EnumExprAst(identifier_token, values)
+
+    def _parse_for(self) -> ForExprAst:
+        token = self._current
+        self._advance()
+
+        if self._current.type != TokenType.IDENTIFIER:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, " "expected an identifier.",
+                token=self._next,
+            )
+
+        loop_var_expr = self._parse_identifier()
+        if self._current.type != TokenType.IN:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, " "expected an 'in' token.",
+                token=self._next,
+            )
+        self._advance()
+        iterable_expr = self._parse_expression()
+
+        if self._current.type != TokenType.COLON:
+            raise EikoParserError(
+                f"Unexpected token {self._next.content}, " "expected a ':'.",
+                token=self._next,
+            )
+        self._advance()
+
+        body = self._parse_body()
+        return ForExprAst(token, loop_var_expr, iterable_expr, body)

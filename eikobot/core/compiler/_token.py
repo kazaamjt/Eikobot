@@ -26,6 +26,8 @@ class TokenType(Enum):
     DEF = auto()
     PROMISE = auto()
     ENUM = auto()
+    FOR = auto()
+    IN = auto()
 
     IDENTIFIER = auto()
 
@@ -38,6 +40,8 @@ class TokenType(Enum):
     COLON = auto()
     COMMA = auto()
     DOT = auto()
+    DOUBLE_DOT = auto()
+    TRIPLE_DOT = auto()
     AT_SIGN = auto()
 
     DOUBLE_COLON = auto()

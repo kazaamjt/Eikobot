@@ -2,8 +2,20 @@
 While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
+import inspect
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Type, Union
+from pathlib import Path
+from types import UnionType
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    List,
+    Optional,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from ...errors import EikoCompilationError, EikoInternalError, EikoPluginError
 from ...plugin import EikoPluginException, EikoPluginTyping
@@ -71,7 +83,7 @@ class ConstructorDefinition(EikoBaseType):
         if self.parent.promises and self.parent.handler is None:
             raise EikoCompilationError(
                 f"Resource Definition '{self.parent.name}' has promises, "
-                "but no handler",
+                "but no handler.",
                 token=self.parent.expr.token,
             )
 
@@ -173,9 +185,9 @@ class ConstructorDefinition(EikoBaseType):
         keyword_args: dict[str, PassedArg],
     ) -> None:
         for passed_arg, arg in zip(positional_args, list(self.args.values())[1:]):
-            if not passed_arg.value.type_check(arg.type):
+            if not passed_arg.value.type.type_check(arg.type):
                 # Try to coerce the type
-                if arg.type.inverse_type_check(passed_arg.value.type):
+                if passed_arg.value.type.inverse_type_check(arg.type):
                     if arg.type.typedef is None:
                         raise EikoInternalError(
                             "Failed to coerce type.",
@@ -207,7 +219,7 @@ class ConstructorDefinition(EikoBaseType):
                     token=passed_arg.token,
                 )
 
-            if not passed_arg.value.type_check(kw_arg.type):
+            if not passed_arg.value.type.type_check(kw_arg.type):
                 if kw_arg.type.inverse_type_check(passed_arg.value.type):
                     if kw_arg.type.typedef is not None:
                         passed_arg.value = kw_arg.type.typedef.execute(
@@ -303,7 +315,7 @@ class PluginDefinition(EikoBaseType):
 
     def _handle_arg(
         self, arg: "ExprAST", context: "CompilerContext", required_arg: PluginArg
-    ) -> Union[EikoBaseType, bool, float, int, str]:
+    ) -> "StorableTypes | PyTypes":
         compiled_arg = arg.compile(context)
         if compiled_arg is None:
             raise EikoCompilationError(
@@ -311,25 +323,72 @@ class PluginDefinition(EikoBaseType):
                 f"but expression did not result in a suitable value.",
                 token=arg.token,
             )
-        if issubclass(required_arg.py_type, EikoBaseType):
-            converted_arg: Union["StorableTypes", PyTypes] = compiled_arg
-        else:
+
+        converted_arg: "StorableTypes | PyTypes"
+        if required_arg.py_type in [None, bool, float, int, str, dict, list, Path]:
             if isinstance(compiled_arg, EikoBaseType):
-                converted_arg = compiled_arg.to_py()
+                try:
+                    converted_arg = compiled_arg.to_py()
+                except NotImplementedError:
+                    converted_arg = compiled_arg
             else:
+                converted_arg = compiled_arg
+
+            if not isinstance(converted_arg, required_arg.py_type):
                 raise EikoCompilationError(
-                    "Failed to convert to python type when passing to plugin.",
+                    f"Plugin '{self.module}.{self.identifier}' arg '{required_arg.name}' expects an argument "
+                    f"of type '{required_arg.py_type.__name__}', but instead got '{compiled_arg.type}'.",
                     token=arg.token,
                 )
 
-        if not isinstance(converted_arg, required_arg.py_type):
-            raise EikoCompilationError(
-                f"Plugin '{self.module}.{self.identifier}' arg '{required_arg.name}' expects an argument "
-                f"of type '{required_arg.py_type.__name__}', but instead got '{compiled_arg.type}'.",
-                token=arg.token,
+            return converted_arg
+
+        converted_arg = compiled_arg
+
+        if self._type_check(converted_arg, required_arg.py_type):
+            return converted_arg
+
+        raise EikoCompilationError(
+            f"Plugin '{self.module}.{self.identifier}' arg '{required_arg.name}' expects an argument "
+            f"of type '{required_arg.py_type}', but instead got '{compiled_arg.type}'.",
+            token=arg.token,
+        )
+
+    def _type_check(self, arg: "StorableTypes | PyTypes", expected: Type) -> bool:
+        try:
+            return isinstance(arg, expected)
+        except TypeError:
+            pass
+
+        origin = get_origin(expected)
+        if origin in (Union, UnionType):
+            for arg_type in get_args(expected):
+                if self._type_check(arg, arg_type):
+                    return True
+            return False
+
+        if origin is (list, List):
+            # if not isinstance(arg, list):
+            #     return False
+            #  args = get_args(expected)
+            raise EikoInternalError(
+                "Something went horribly wrong during a python runtime type check."
             )
 
-        return converted_arg  # type: ignore
+        if origin in (dict, Dict):
+            raise EikoInternalError(
+                "Something went horribly wrong during a python runtime type check."
+            )
+
+        if origin in (type, Type):
+            for arg_type in get_args(expected):
+                if inspect.isclass(arg) and issubclass(arg, arg_type):
+                    return True
+            return False
+
+        raise EikoInternalError(
+            "Something went horribly wrong during a python runtime type check."
+        )
 
     def truthiness(self) -> bool:
         raise NotImplementedError

@@ -34,7 +34,7 @@ from std.file import File
 
 File(
     host=Host("127.0.0.1"),
-    path=Path("{file_path}"),
+    path=Path(r"{file_path}"),
     content="{file_content}",
 )
 """
@@ -46,7 +46,8 @@ File(
 
     assert file_path.exists()
     assert file_path.read_text() == file_content
-    assert (oct(os.stat(file_path).st_mode & 0o777))[2:] == "664"
+    if os.name != "nt":
+        assert (oct(os.stat(file_path).st_mode & 0o777))[2:] == "664"
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write("wrong content")

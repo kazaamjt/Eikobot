@@ -26,6 +26,8 @@ KEYWORDS = {
     "def": TokenType.DEF,
     "promise": TokenType.PROMISE,
     "enum": TokenType.ENUM,
+    "for": TokenType.FOR,
+    "in": TokenType.IN,
 }
 
 SPECIAL_CHARS = {
@@ -36,7 +38,6 @@ SPECIAL_CHARS = {
     "{": TokenType.LEFT_BRACE,
     "}": TokenType.RIGHT_BRACE,
     ",": TokenType.COMMA,
-    ".": TokenType.DOT,
     "@": TokenType.AT_SIGN,
 }
 
@@ -196,9 +197,13 @@ class Lexer:
                 )
 
         self._next()
-        escaped_string = bytes(_string, encoding="utf-8").decode(
-            encoding="unicode_escape"
-        )
+        try:
+            escaped_string = bytes(_string, encoding="utf-8").decode(
+                encoding="unicode_escape"
+            )
+        except UnicodeDecodeError as e:
+            raise EikoSyntaxError(str(e), index=index) from e
+
         return Token(TokenType.STRING, escaped_string, index)
 
     def _scan_raw_string(self, index: Index) -> Token:
@@ -214,10 +219,7 @@ class Lexer:
                 )
 
         self._next()
-        raw_string = bytes(_string, encoding="utf-8").decode(
-            encoding="raw_unicode_escape"
-        )
-        return Token(TokenType.STRING, raw_string, index)
+        return Token(TokenType.STRING, _string, index)
 
     def _scan_f_string(self, index: Index) -> Token:
         string_token = self._scan_string()
@@ -231,6 +233,16 @@ class Lexer:
             special_char = self._current
             self._next()
             return Token(SPECIAL_CHARS[special_char], special_char, index)
+
+        if self._current == ".":
+            self._next()
+            if self._current == ".":
+                self._next()
+                if self._current == ".":
+                    self._next()
+                    return Token(TokenType.TRIPLE_DOT, "...", index)
+                return Token(TokenType.DOUBLE_DOT, "..", index)
+            return Token(TokenType.DOT, ".", index)
 
         if self._current == "=":
             self._next()

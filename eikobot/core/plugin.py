@@ -4,6 +4,7 @@ as callables directly to the Eikobot runtime.
 """
 from typing import Callable, Optional, Union
 
+from . import human_readable, machine_readable
 from .compiler.definitions.base_types import EikoBaseType
 
 EikoPluginTyping = Callable[..., Union[None, bool, float, int, str, EikoBaseType]]
@@ -26,3 +27,29 @@ class EikoPluginException(Exception):
     """
     If something goes wrong inside a plugin, this error should be thrown.
     """
+
+
+@eiko_plugin("type")
+def eiko_type(
+    obj: EikoBaseType,
+) -> str:
+    """
+    Returns the type of a an eiko object as a string.
+    """
+    return obj.type.name
+
+
+@eiko_plugin("human_readable")
+def eiko_human_readable(number: int) -> str:
+    """
+    plugin wrapper for core function human_readable
+    """
+    return human_readable(number)
+
+
+@eiko_plugin("machine_readable")
+def eiko_machine_readable(number: str) -> int:
+    """
+    plugin wrapper for core function machine_readable
+    """
+    return machine_readable(number)

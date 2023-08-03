@@ -61,14 +61,25 @@ class EikoType:
         """
         Recursivly type checks.
 
-        NOTE: in most cases it should be value.type(expected_type)
+        NOTE: in most cases it should be value.type.type_check(expected_type)
         and not the other way around.
         """
+        if self == eiko_any_type:
+            return True
+
         if self.name == expected_type.name:
             return True
 
-        if expected_type.super is not None:
-            return self.type_check(expected_type.super)
+        if self.super is not None:
+            return self.super.type_check(expected_type)
+
+        if isinstance(expected_type, EikoUnion):
+            for expected_sub_type in expected_type.types:
+                if self.type_check(expected_sub_type):
+                    return True
+
+        if isinstance(expected_type, EikoOptional):
+            return self.type_check(expected_type.optional_type)
 
         return False
 
@@ -77,8 +88,8 @@ class EikoType:
         if self.name == expected_type.name:
             return True
 
-        if self.super is not None:
-            return self.super.inverse_type_check(expected_type)
+        if expected_type.super is not None:
+            return self.inverse_type_check(expected_type.super)
 
         return False
 
@@ -93,7 +104,7 @@ class EikoType:
         return self.name
 
     def __str__(self) -> str:
-        return self.name
+        return self.__repr__()
 
 
 @dataclass
@@ -116,12 +127,16 @@ class EikoUnset:
         return None
 
 
+eiko_any_type = EikoType("Any")
 EikoType.type = EikoType("Type")
 EikoObjectType = EikoType("Object")
 
 
 def type_list_to_type(types: list[EikoType]) -> EikoType:
     """Turns a list of Eiko types in to a single usable type."""
+    if len(types) == 0:
+        return EikoType("")
+
     if len(types) == 1:
         _type = types[0]
     else:
@@ -148,8 +163,8 @@ class EikoUnion(EikoType):
         """Recursivly type checks."""
 
         if isinstance(expected_type, EikoUnion):
-            for _type in expected_type.types:
-                if not self.type_check(_type):
+            for _type in self.types:
+                if not expected_type.type_check(_type):
                     return False
             return True
 
@@ -193,14 +208,17 @@ class EikoBaseType:
     def truthiness(self) -> bool:
         raise NotImplementedError
 
-    def type_check(self, expected_type: EikoType) -> bool:
-        return expected_type.type_check(self.type)
-
     def index(self) -> str:
         raise NotImplementedError
 
     def to_py(self) -> Union[PyTypes, "EikoPromise"]:
         raise NotImplementedError
+
+    def iterate(self, token: Token) -> Iterator["EikoBaseType"]:
+        raise EikoCompilationError(
+            f"Object of type '{self.type}' is not iterable.",
+            token=token,
+        )
 
 
 EikoNoneType = EikoType("None")
@@ -492,7 +510,7 @@ class EikoPromise(EikoBaseType, Generic[T]):
         or if the promis was already assigned a different value.
         """
         _value = to_eiko(value)
-        if not _value.type_check(self.type):
+        if not _value.type.type_check(self.type):
             raise ValueError
 
         if self.value is not None and _value.get_value() != self.value.get_value():
@@ -514,7 +532,7 @@ class EikoPromise(EikoBaseType, Generic[T]):
                 token=token,
             )
 
-        if not value.type_check(self.type):
+        if not value.type.type_check(self.type):
             raise EikoCompilationError(
                 f"Tried to assign promise a value of type '{self.type.name}' "
                 f"but got a value of type '{value.type.name}'.",
@@ -537,9 +555,6 @@ class EikoPromise(EikoBaseType, Generic[T]):
             )
 
         return self.value.truthiness()
-
-    def type_check(self, expected_type: EikoType) -> bool:
-        return expected_type.type_check(self.type)
 
     def index(self) -> str:
         return f"promise-{self.parent.index()}.{self.name}"
@@ -715,7 +730,7 @@ class EikoResource(EikoBaseType):
 
         prop = self.properties.get(name)
         if isinstance(prop, EikoUnset):
-            if not value.type_check(prop.type):
+            if not value.type.type_check(prop.type):
                 if prop.type.inverse_type_check(value.type):
                     if prop.type.typedef is not None:
                         value = prop.type.typedef.execute(value, token)
@@ -826,7 +841,10 @@ _builtin_function_type = EikoType("builtin_function", EikoObjectType)
 
 @dataclass
 class PassedArg:
-    """A passed arg is a compiled expression passed as an arg."""
+    """
+    A passed arg is a compiled expression passed as an arg.
+    This is an Arg meant to be passed to an EikoBuiltinFunction.
+    """
 
     token: Token
     value: EikoBaseType
@@ -834,8 +852,11 @@ class PassedArg:
 
 @dataclass
 class BuiltinFunctionArg:
+    """An arg passed to a builtin function."""
+
     name: str
     type: EikoType
+    default_value: EikoBaseType | None = None
 
 
 class EikoBuiltinFunction(EikoBaseType):
@@ -852,16 +873,32 @@ class EikoBuiltinFunction(EikoBaseType):
     ) -> None:
         super().__init__(_builtin_function_type)
         self.identifier = identifier
-        self.args = args
         self.body = body
 
+        self.args: list[BuiltinFunctionArg] = []
+        self.kw_args: dict[str, BuiltinFunctionArg] = {}
+        for arg in args:
+            if arg.default_value is None:
+                self.args.append(arg)
+            else:
+                self.kw_args[arg.name] = arg
+
     def execute(
-        self, callee_token: Token, args: list[PassedArg]
+        self,
+        callee_token: Token,
+        args: list[PassedArg],
+        keyword_args: dict[str, PassedArg] | None = None,
     ) -> Optional[EikoBaseType]:
         """Execute the builtin function."""
-        if len(args) != len(self.args):
+        if len(args) > len(self.args) + len(self.kw_args):
             raise EikoCompilationError(
                 "Too many arguments given to function call.",
+                token=callee_token,
+            )
+
+        if len(args) < len(self.args):
+            raise EikoCompilationError(
+                "Missing positional arguments for function call.",
                 token=callee_token,
             )
 
@@ -870,12 +907,32 @@ class EikoBuiltinFunction(EikoBaseType):
             if not expected_arg.type.type_check(passed_arg.value.type):
                 raise EikoCompilationError(
                     f"Argument '{expected_arg.name}' must be of type '{expected_arg.type}', "
-                    f"but got '{passed_arg.value.type}'",
+                    f"but got '{passed_arg.value.type}' instead.",
                     token=passed_arg.token,
                 )
             validated_args.append(passed_arg.value)
 
-        return self.body(*validated_args)
+        validated_kw_args: dict[str, EikoBaseType] = {}
+        if keyword_args is not None:
+            for arg_name, passed_arg in keyword_args.items():
+                expected_kw_arg = self.kw_args.get(arg_name)
+
+                if expected_kw_arg is None:
+                    raise EikoCompilationError(
+                        f"Callable no such argument: '{arg_name}'.",
+                        token=passed_arg.token,
+                    )
+
+                if not expected_kw_arg.type.type_check(passed_arg.value.type):
+                    raise EikoCompilationError(
+                        f"Argument '{expected_kw_arg.name}' must be of type '{expected_kw_arg.type}', "
+                        f"but got '{passed_arg.value.type}' instead.",
+                        token=passed_arg.token,
+                    )
+
+                validated_kw_args[arg_name] = passed_arg.value
+
+        return self.body(*validated_args, **validated_kw_args)
 
     def truthiness(self) -> bool:
         raise NotImplementedError
@@ -892,7 +949,7 @@ class EikoListType(EikoType):
         if isinstance(expected_type, EikoListType):
             return self.element_type.type_check(expected_type.element_type)
 
-        return False
+        return super().type_check(expected_type)
 
 
 class EikoList(EikoBaseType):
@@ -981,6 +1038,10 @@ class EikoList(EikoBaseType):
     def to_py(self) -> list[Union[PyTypes, "EikoPromise"]]:
         return [element.to_py() for element in self.elements]
 
+    def iterate(self, _: Token) -> Iterator["EikoBaseType"]:
+        for element in self.elements:
+            yield element
+
 
 class EikoDictType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
@@ -997,7 +1058,7 @@ class EikoDictType(EikoType):
             ) and self.value_type.type_check(expected_type.value_type):
                 return True
 
-        return False
+        return super().type_check(expected_type)
 
 
 EikoIndexTypes = Union[
@@ -1028,6 +1089,31 @@ class EikoDict(EikoBaseType):
             self.elements = {}
         else:
             self.elements = elements
+
+        self.get_func = EikoBuiltinFunction(
+            "get",
+            [
+                BuiltinFunctionArg("key", key_type),
+                BuiltinFunctionArg("default_value", eiko_any_type, eiko_none_object),
+            ],
+            body=self._get,
+        )
+
+        self.values_func = EikoBuiltinFunction(
+            "values",
+            [],
+            body=self._values,
+        )
+
+    def _get(
+        self,
+        key: Union[EikoBaseType, bool, float, int, str],
+        default_value: EikoBaseType = eiko_none_object,
+    ) -> EikoBaseType:
+        return self.elements.get(key, default_value)
+
+    def _values(self) -> EikoList:
+        return EikoList(self.type.value_type, list(self.elements.values()))
 
     def update_typing(self, new_type: EikoDictType) -> None:
         self.type = new_type
@@ -1166,9 +1252,22 @@ class EikoDict(EikoBaseType):
             token=key_token,
         )
 
+    def iterate(self, _: Token) -> Iterator["EikoBaseType"]:
+        for element in self.elements:
+            yield to_eiko(element)
+
+    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+        if name == "values":
+            return self.values_func
+
+        if name == "get":
+            return self.get_func
+
+        return super().get(name, token)
+
 
 # Move to another file
-def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
+def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType] | Type[EikoType]:
     """
     Takes a python type and returns it's eikobot compatible type.
     If said type exists.
@@ -1176,7 +1275,7 @@ def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType]:
     if cls is None:
         return EikoNone
 
-    if issubclass(cls, EikoBaseType):
+    if issubclass(cls, EikoBaseType) or issubclass(cls, EikoType):
         return cls
 
     if cls == bool:
@@ -1249,7 +1348,7 @@ def to_eiko(value: Any) -> EikoBaseType:
     if isinstance(value, EikoBaseType):
         return value
 
-    if isinstance(value, BaseModel):
+    if isinstance(value, BaseModel) and hasattr(value, "raw_resource"):
         return value.raw_resource  # type: ignore
 
     if value is None:

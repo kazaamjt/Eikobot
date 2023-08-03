@@ -52,7 +52,7 @@ class EikoTypeDef(EikoBaseType):
         """
         Cast a value to a type and make sure it fits the given condition expression.
         """
-        if arg.type_check(self.type):
+        if arg.type.type_check(self.type):
             raise EikoCompilationError(
                 f"Type '{self.name}' requires '{self.type.name}' but was passed '{arg.type.name}'.",
                 token=arg_token,

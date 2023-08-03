@@ -7,7 +7,7 @@ Writing the basic tutorials and quickstarts.
 
 ### Compiler
 
-Features and bug fixes:
+Features and bug fixes:  
 
 - [x] basic lexer
 - [x] basic expression parser
@@ -35,11 +35,11 @@ Features and bug fixes:
 - [x] link handlers to resources
 - [x] custom constructors
 - [x] add relative imports
-- [ ] add `isinstance`
+- [x] add `type` plugin. Works the same as python `type`
 - [x] inheritance for `resource`
 - [x] add protected strings (strings that will not be printed)
 - [ ] add `Tuple` data type and automatic unpacking of tuples
-- [ ] add `for` keyword, to loop over lists, dicts and tuples
+- [x] add `for` keyword, to loop over lists, dicts (and tuples)
 - [ ] expand type system to take module in to account when resolving types
 - [x] add `enum`
 - [x] add `promise` (A piece of data that will be filled in during the deploy step)
@@ -48,6 +48,7 @@ Code cleanup:
 
 - [ ] Implement an `expects` function for parser, raise if token is not correct type
 - [x] Implement a `to_py` function on eiko objects, instead of using a conversion table
+- [ ] Overhaul the way comparissons are done. (Should be a function of object a, not a matrix lookup function)
 
 ### STD
 
@@ -71,12 +72,12 @@ Code cleanup:
 - [x] add deployer that takes tasks and executes them
 - [x] add linked pydantic classes
 - [x] add logging to HandlerContext
-- [ ] add dry run to `deploy`
+- [x] add dry run to `deploy`
 
-## Phase 2: Packages
+## Package Manager
 
-Phase 2 is all about allowing reuse of code and such.  
-Adding a package manager and a way to build, install and uninstall packages easily
+This is all about allowing reuse of code and such.  
+Adding a package manager and a way to build, install and uninstall packages easily  
 
 - [x] build packages
 - [x] install packages using a path to the `tar.gz` file

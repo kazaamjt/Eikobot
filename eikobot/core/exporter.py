@@ -199,9 +199,10 @@ class Exporter:
             handler = resource.class_ref.handler()
             self.total_tasks += 1
 
+        _id = resource.index()
         task = Task(
-            resource.index(),
-            HandlerContext(resource),
+            _id,
+            HandlerContext(resource, _id),
             handler,
         )
 

@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tarfile
 import tomllib
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -19,8 +18,9 @@ from packaging import version
 from pydantic import BaseModel, ValidationError
 
 from ... import VERSION
-from .. import logger
+from .. import human_readable, logger
 from ..compiler.importlib import INTERNAL_LIB_PATH
+from ..errors import EikoError
 
 CACHE_PATH = Path(__file__).parent / "cache"
 CACHE_PATH.mkdir(exist_ok=True)
@@ -30,7 +30,7 @@ LIB_PATH.mkdir(exist_ok=True)
 PKG_INDEX: dict[str, "PackageData"] = {}
 
 
-class EikoPackageError(Exception):
+class EikoPackageError(EikoError):
     """An error that occured during the eiko compilation process."""
 
     def __init__(self, reason: str, *args: object) -> None:
@@ -207,15 +207,6 @@ def _download_pkg(url: str) -> None:
         )
 
 
-def _human_readable(number: int) -> str:
-    number = number // 8
-    for unit in ["", "K", "M", "G", "T"]:
-        if number < 10240:
-            return f"{number}{unit}B"
-        number = number // 1024
-    return f"{number}PB"
-
-
 async def _download_to_cache(url: str) -> None:
     pkg_path = CACHE_PATH / Path(urlparse(url).path).name
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10)) as session:
@@ -234,12 +225,12 @@ async def _download_to_cache(url: str) -> None:
                     if percent == 20:
                         print(
                             f"    [{pg_bar}]",
-                            f"{_human_readable(total_dl_size)}/{_human_readable(total_dl_size)}",
+                            f"{human_readable(total_dl_size)}/{human_readable(total_dl_size)}",
                         )
                     else:
                         print(
                             f"    [{pg_bar}>{(20 - percent - 1) * ' '}]",
-                            f"{_human_readable(downloaded)}/{_human_readable(total_dl_size)}",
+                            f"{human_readable(downloaded)}/{human_readable(total_dl_size)}",
                             end="\r",
                         )
 
@@ -272,6 +263,9 @@ def _install_pkg_from_cache(archive_name: str) -> None:
     if prev_pkg is not None:
         _uninstall_pkg(prev_pkg)
 
+    with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
+        archive.extractall(LIB_PATH)
+
     if pkg_data.version is None:
         logger.debug(f"Installing '{pkg_data.name}'.")
     else:
@@ -290,8 +284,10 @@ def _install_pkg_from_cache(archive_name: str) -> None:
         install_pkg(req)
 
     try:
-        os.symlink(
-            pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
+        shutil.copytree(
+            pkg_lib_path / pkg_data.source_dir,
+            INTERNAL_LIB_PATH / pkg_data.source_dir,
+            dirs_exist_ok=False,
         )
     except FileExistsError:
         # This is a bug in the package index
@@ -327,6 +323,10 @@ def uninstall_pkg(name: str) -> None:
 
 def _uninstall_pkg(pkg_data: PackageData) -> None:
     logger.debug(f"Uninstalling '{pkg_data.pkg_name_version()}'")
-    os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
+    try:
+        shutil.rmtree(INTERNAL_LIB_PATH / pkg_data.source_dir)
+    except FileNotFoundError:
+        pass
+
     shutil.rmtree(LIB_PATH / pkg_data.pkg_name_version())
     logger.info(f"Uninstalled '{pkg_data.pkg_name_version()}'")

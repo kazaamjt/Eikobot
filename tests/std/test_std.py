@@ -2,6 +2,7 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
 # pylint: disable=too-many-statements
+import os
 from pathlib import Path
 
 import pytest
@@ -60,12 +61,23 @@ def test_bad_v6_addr(tmp_eiko_file: Path, param_input: str) -> None:
 @pytest.mark.asyncio
 async def test_cmd_deploy(tmp_eiko_file: Path) -> None:
     file_path = tmp_eiko_file.parent / "test_std_file_deploy"
-    model = f"""
+
+    if os.name != "nt":
+        model = f"""
 from std import Host, Cmd
 
 Cmd(
     Host("127.0.0.1"),
     "touch /{file_path}",
+)
+"""
+    else:
+        model = f"""
+from std import Host, Cmd
+
+Cmd(
+    Host("127.0.0.1"),
+    r"set-content -Path {file_path} -Value $null",
 )
 """
     with open(tmp_eiko_file, "w", encoding="utf-8") as f:

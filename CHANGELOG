@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 0.6.0
+
+- Much better support for windows hosts!
+- Added `HostModel.scp_to` and `HostModel.scp_from` to copy files with SCP
+- Fixed a bug where `.` wasn't parsed properly in the inheritance declaration
+- Fixed a bug where promises were not properly inherited
+- Implemented `...`, a statement that allows for inheriting without new properties being added
+- Allow inheritance to only overwrite the constructor, with no additional properties
+- Fixed a bug where lists and dicts as default arguments caused a compilation issue
+- Fixed a bug in the comparison operations where `None` would not equal itself
+- Fixed a bug where a hanging comma in a constructor arg list would cause a syntax error
+- Made TaskID accessible through `HandlerContext`
+- Added Task cache (This is a directory unique to the current Task/Handler and can be used to save files)
+- Fixed several bugs in the type system
+- Add a 🤖 to some of the logs
+- Fixed a bug in the package manager that occurred when installing an already installed package
+- Add a plugin `type` that returns the typing of an object as a string
+- Made all the tests windows compatible
+- If host verification fails due to missing keys, we allow the user to add those key
+- Add `for` loops that loop over iterables (currently just lists and dicts)
+- Implement `dict.get` function, that can retrieve a value with a default value
+
 ## 0.5.1 HOTFIX
 
 This patch fixes a bug in the package manager that wrongly reports a package was not installed

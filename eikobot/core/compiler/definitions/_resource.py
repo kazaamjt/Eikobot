@@ -5,11 +5,11 @@ Resource is the base building block of the eiko language model.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Union
 
-from ...handlers import Handler
 from .base_types import EikoBaseType, EikoPromise, EikoResource, EikoType
 
 if TYPE_CHECKING:
-    from .._parser import ResourceDefinitionAST
+    from ...handlers import Handler
+    from .._parser import ResourceDefinitionAST, TypeExprAST
     from .._token import Token
     from .base_model import EikoBaseModel
     from .function import ConstructorDefinition
@@ -25,6 +25,7 @@ class ResourceProperty:
     name: str
     type: EikoType
     default_value: Optional[EikoBaseType] = None
+    type_expr: "TypeExprAST | None" = None
 
 
 @dataclass
@@ -68,7 +69,7 @@ class EikoResourceDefinition(EikoBaseType):
         self.properties: PropertiesDict = properties
         self.index_def = [list(properties.keys())[0]]
         self.promises: list[EikoPromiseDefinition] = promises
-        self.handler: Optional[type[Handler]] = None
+        self.handler: Optional[type["Handler"]] = None
         self.linked_basemodel: Optional[type["EikoBaseModel"]] = None
 
     def printable(self, indent: str = "") -> str:

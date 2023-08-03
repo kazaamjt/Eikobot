@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, Optional, Type, Union
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
 from ...handlers import Handler
+from ...plugin import eiko_type, human_readable, machine_readable
 from .._token import Token
 from ..decorator import index_decorator
-from ..importlib import import_python_code
+from ..importlib import _load_plugin, import_python_code
 from ._resource import EikoResourceDefinition
 from .base_model import EikoBaseModel
 from .base_types import (
@@ -50,6 +51,9 @@ _builtins: dict[str, _StorableTypes] = {
     "list": EikoListType,
     "dict": EikoDictType,
     "index": index_decorator,
+    "type": _load_plugin("", "type", eiko_type),
+    "human_readable": _load_plugin("", "human_readable", human_readable),
+    "machine_readable": _load_plugin("", "machine_readable", machine_readable),
 }
 
 
@@ -143,8 +147,8 @@ class CompilerContext:
                 return_str += value.printable(extra_indent)
             elif isinstance(value, EikoBaseType):
                 extra_extra_indent = extra_indent + "    "
-                return_str += f"{extra_indent}var '{key}':\n"
-                return_str += extra_extra_indent + value.printable(extra_extra_indent)
+                return_str += f"{extra_indent}var '{key}': "
+                return_str += value.printable(extra_extra_indent)
                 return_str += "\n"
             else:
                 return_str += f"{extra_indent}{key}: {value}\n"
@@ -200,7 +204,10 @@ class CompilerContext:
         """Set a value. Throws an error if it's already set."""
         prev_value = self.shallow_get(name)
         if isinstance(prev_value, EikoUnset):
-            if prev_value.type.inverse_type_check(value.type):
+            if (
+                prev_value.type.inverse_type_check(value.type)
+                and prev_value.type.name != value.type.name
+            ):
                 constr = self.get(prev_value.type.name)
                 if isinstance(constr, EikoTypeDef):
                     if isinstance(value, EikoBaseType):

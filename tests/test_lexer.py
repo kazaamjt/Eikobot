@@ -4,8 +4,10 @@
 # pylint: disable=too-many-statements
 from pathlib import Path
 
+import pytest
+
 from eikobot.core.compiler._token import Token, TokenType
-from eikobot.core.compiler.lexer import Lexer
+from eikobot.core.compiler.lexer import EikoSyntaxError, Lexer
 from eikobot.core.compiler.misc import Index
 
 
@@ -455,3 +457,19 @@ def test_comment_end_of_file_lexing(tmp_eiko_file: Path) -> None:
     lexer = Lexer(tmp_eiko_file)
     assert lexer.next_token() == Token(TokenType.INDENT, "", Index(0, 0, tmp_eiko_file))
     assert lexer.next_token() == Token(TokenType.EOF, "EOF", Index(1, 0, tmp_eiko_file))
+
+
+def test_unicode_escape_error(tmp_eiko_file: Path) -> None:
+    file_path = "\\U"
+    model = f'path = Path("{file_path}")'
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write(model)
+
+    lexer = Lexer(tmp_eiko_file)
+    lexer.next_token()
+    lexer.next_token()
+    lexer.next_token()
+    lexer.next_token()
+    lexer.next_token()
+    with pytest.raises(EikoSyntaxError):
+        lexer.next_token()
