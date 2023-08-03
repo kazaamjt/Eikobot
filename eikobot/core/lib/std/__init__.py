@@ -154,7 +154,7 @@ class HostModel(EikoBaseModel):
         try:
             return await asyncssh.connect(self.host, **extra_args)
         except asyncssh.HostKeyNotVerifiable as e:
-            key_scan = await asyncio.subprocess.create_subprocess_shell(
+            key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
                 f"ssh {self.host} echo",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
