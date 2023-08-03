@@ -222,6 +222,11 @@ Note the typing, expressed as `dict[key_type, value_type]`.
 When not typed, it takes all it's initial keys and values,
 and expresses the value as a union of those types.  
 
+Retrieving values can be done, either by using the `d[key]` notation,
+or but using the `get` method.  
+The upside of the get method is that it allows for a default value,
+in case the key is not in the dictionary.  
+
 ### Resources
 
 Finaly we have the `resource`.  
