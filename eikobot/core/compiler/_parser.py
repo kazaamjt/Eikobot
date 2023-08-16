@@ -2318,8 +2318,16 @@ class Parser:
         self._advance()
 
         dots: list[Token] = []
-        while self._current.type == TokenType.DOT:
-            dots.append(self._current)
+        while self._current.type in (TokenType.DOT, TokenType.DOUBLE_DOT, TokenType.TRIPLE_DOT):
+            if self._current.type == TokenType.DOT:
+                dots.append(self._current)
+            elif self._current.type == TokenType.DOUBLE_DOT:
+                dots.append(self._current)
+                dots.append(self._current)
+            else:
+                dots.append(self._current)
+                dots.append(self._current)
+                dots.append(self._current)
             self._advance()
 
         lhs: Union[DotExprAST, VariableExprAST, None] = None
