@@ -4,6 +4,10 @@
 
 - Added `GH:{owner}:{package_name}` format to package install options
 
+## 0.6.1
+
+Fixed parsing of relative imports
+
 ## 0.6.0
 
 - Much better support for windows hosts!

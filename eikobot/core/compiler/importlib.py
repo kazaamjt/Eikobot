@@ -103,7 +103,7 @@ def resolve_from_import(
         if not import_path:
             import_path.append(anchor.name)
 
-        return _resolve_from_import(import_path.copy(), anchor.parent, context)
+        return _resolve_from_import(import_path.copy(), anchor, context)
 
     for _path in PATHS:
         module = _resolve_from_import(import_path.copy(), _path, context)
