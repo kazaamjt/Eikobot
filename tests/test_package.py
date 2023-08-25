@@ -23,7 +23,7 @@ from eikobot.core.package_manager import PackageData
 )
 def test_package_version_matching(test_input: str, expected: bool) -> None:
     pkg_data = PackageData(
-        **{
+        **{  # type: ignore
             "name": "test-pkg",
             "source_dir": ".",
             "eikobot_requires": test_input,

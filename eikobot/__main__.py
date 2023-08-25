@@ -185,8 +185,12 @@ def install_pkg(target: str) -> None:
     """
     Install a package from different sources.
     """
+    asyncio.run(_install_pkg(target))
+
+
+async def _install_pkg(target: str) -> None:
     try:
-        package_manager.install_pkg(target)
+        await package_manager.install_pkg(target)
     except EikoError as e:
         logger.error(str(e))
 
