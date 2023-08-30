@@ -11,7 +11,7 @@ from pathlib import Path
 
 import click
 
-from . import VERSION
+from . import PROJECT_SETTINGS, VERSION
 from .core import logger, package_manager
 from .core.compiler import Compiler
 from .core.compiler.lexer import Token
@@ -128,10 +128,16 @@ def _compile(
     is_flag=True,
     help="Does a dry run of all the tasks in a given model.",
 )
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrites ignores any dry-run parameters",
+)
 def deploy(
     file: str,
     enable_plugin_stacktrace: bool = False,
     dry_run: bool = False,
+    force: bool = False,
 ) -> None:
     """
     Compile, export and deploy a model from a given file.
@@ -144,7 +150,7 @@ def deploy(
         exporter.export_from_context(compiler.context)
         logger.info("Deploying model.")
         deployer = Deployer()
-        if dry_run:
+        if (dry_run or PROJECT_SETTINGS.dry_run) and not force:
             asyncio.run(deployer.dry_run(exporter))
         else:
             asyncio.run(deployer.deploy(exporter, log_progress=True))

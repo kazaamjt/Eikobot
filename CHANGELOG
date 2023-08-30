@@ -3,6 +3,9 @@
 ## 0.7.0
 
 - Added `GH:{owner}:{package_name}` format to package install options
+- Added `[eiko.project]` options to the `eiko.toml` (this has per project settings, picked up at runtime)
+- Added an `dry_run` option to the `eiko.toml`
+- Added a `requires` option to `eiko.toml`, similar to how this is handled for packages
 
 ## 0.6.1
 
