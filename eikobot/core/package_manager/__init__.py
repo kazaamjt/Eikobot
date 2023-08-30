@@ -120,11 +120,14 @@ def _parse_version(_version: str) -> version.Version:
 
 def _construct_pkg_index() -> None:
     for pkg_dir in LIB_PATH.glob("*"):
-        pkg_data = _read_pkg_toml(pkg_dir / "eiko.toml")
+        pkg_data = read_pkg_toml(pkg_dir / "eiko.toml")
         PKG_INDEX[pkg_data.name] = pkg_data
 
 
-def _read_pkg_toml(path: Path) -> PackageData:
+def read_pkg_toml(path: Path) -> PackageData:
+    """
+    Reads a toml and returns it's settings as python object.
+    """
     logger.debug("Reading eiko toml file.")
     toml = tomllib.loads(path.read_text(encoding="utf-8"))
     pkg_toml = toml.get("eiko", {}).get("package")
@@ -145,7 +148,7 @@ def build_pkg() -> None:
     if not eiko_toml_path.exists():
         raise EikoPackageError("eiko.toml file missing.")
 
-    pkg_data = _read_pkg_toml(eiko_toml_path)
+    pkg_data = read_pkg_toml(eiko_toml_path)
     dist = Path("dist")
     dist.mkdir(exist_ok=True)
     if not pkg_data.source_dir.exists():
@@ -328,7 +331,7 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
         archive.extractall(LIB_PATH)
 
     pkg_lib_path = LIB_PATH / pkg_name
-    pkg_data = _read_pkg_toml(pkg_lib_path / "eiko.toml")
+    pkg_data = read_pkg_toml(pkg_lib_path / "eiko.toml")
     prev_pkg = PKG_INDEX.get(pkg_data.name)
     if prev_pkg is not None:
         _uninstall_pkg(prev_pkg)

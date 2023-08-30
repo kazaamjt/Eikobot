@@ -191,7 +191,30 @@ def install_pkg(target: str) -> None:
     """
     Install a package from different sources.
     """
-    asyncio.run(_install_pkg(target))
+    if target == ".":
+        requires: list[str] = []
+        requires.extend(PROJECT_SETTINGS.requires)
+        _pkg_data_path = Path("eiko.tml")
+        if _pkg_data_path.exists():
+            try:
+                pkg_data = package_manager.read_pkg_toml(_pkg_data_path)
+                requires.extend(pkg_data.requires)
+            except EikoError:
+                pass
+        if len(requires) > 0:
+            asyncio.run(_install_pkg_multi(requires))
+        else:
+            logger.error("No requirements found.")
+    else:
+        asyncio.run(_install_pkg(target))
+
+
+async def _install_pkg_multi(targets: list[str]) -> None:
+    tasks: list[asyncio.Task] = []
+    for target in targets:
+        tasks.append(asyncio.create_task(_install_pkg(target)))
+
+    await asyncio.gather(*tasks)
 
 
 async def _install_pkg(target: str) -> None:

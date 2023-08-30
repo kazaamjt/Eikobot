@@ -6,6 +6,7 @@
 - Added `[eiko.project]` options to the `eiko.toml` (this has per project settings, picked up at runtime)
 - Added an `dry_run` option to the `eiko.toml`
 - Added a `requires` option to `eiko.toml`, similar to how this is handled for packages
+- Added `.` as a special argument for `eikobot package install`, that installs requirements of a project or package
 
 ## 0.6.1
 
