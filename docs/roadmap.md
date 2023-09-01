@@ -84,3 +84,11 @@ Adding a package manager and a way to build, install and uninstall packages easi
 - [x] uninstall packages by name
 - [x] install packages using https
 - [ ] install packages using git
+
+
+## Modules
+
+- [ ] AWS
+- [ ] Kubernetes
+- [ ] Docker
+- [ ] Hyper-V

@@ -4,6 +4,7 @@ Schould only contain things related to the client cli.
 """
 import asyncio
 import datetime
+import subprocess
 import sys
 import time
 import traceback
@@ -11,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from . import VERSION
+from . import PROJECT_SETTINGS, VERSION
 from .core import logger, package_manager
 from .core.compiler import Compiler
 from .core.compiler.lexer import Token
@@ -128,10 +129,16 @@ def _compile(
     is_flag=True,
     help="Does a dry run of all the tasks in a given model.",
 )
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrites ignores any dry-run parameters",
+)
 def deploy(
     file: str,
     enable_plugin_stacktrace: bool = False,
     dry_run: bool = False,
+    force: bool = False,
 ) -> None:
     """
     Compile, export and deploy a model from a given file.
@@ -144,7 +151,7 @@ def deploy(
         exporter.export_from_context(compiler.context)
         logger.info("Deploying model.")
         deployer = Deployer()
-        if dry_run:
+        if (dry_run or PROJECT_SETTINGS.dry_run) and not force:
             asyncio.run(deployer.dry_run(exporter))
         else:
             asyncio.run(deployer.deploy(exporter, log_progress=True))
@@ -185,8 +192,45 @@ def install_pkg(target: str) -> None:
     """
     Install a package from different sources.
     """
+    if target == ".":
+        requires: list[str] = []
+        requires.extend(PROJECT_SETTINGS.requires)
+        _pkg_data_path = Path("eiko.tml")
+        if _pkg_data_path.exists():
+            try:
+                pkg_data = package_manager.read_pkg_toml(_pkg_data_path)
+                requires.extend(pkg_data.requires)
+            except EikoError:
+                pass
+        if len(requires) > 0:
+            asyncio.run(_install_pkg_multi(requires))
+        else:
+            logger.error("No requirements found.")
+
+        logger.debug("Installing project python dependencies.")
+        requirements_file = Path("requirements.txt")
+        if requirements_file.exists():
+            logger.debug("Installing python requirements.")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", requirements_file],
+                check=True,
+            )
+
+    else:
+        asyncio.run(_install_pkg(target))
+
+
+async def _install_pkg_multi(targets: list[str]) -> None:
+    tasks: list[asyncio.Task] = []
+    for target in targets:
+        tasks.append(asyncio.create_task(_install_pkg(target)))
+
+    await asyncio.gather(*tasks)
+
+
+async def _install_pkg(target: str) -> None:
     try:
-        package_manager.install_pkg(target)
+        await package_manager.install_pkg(target)
     except EikoError as e:
         logger.error(str(e))
 

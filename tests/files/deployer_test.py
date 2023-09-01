@@ -73,7 +73,7 @@ class TopHandler(CRUDHandler):
 
     async def update(self, ctx: HandlerContext) -> None:
         if ctx.changes.get("updated") is None:
-            raise Exception("Well this test failed...")
+            raise ValueError("Well this test failed...")
 
         ctx.deployed = True
         self.updated = True

@@ -9,8 +9,8 @@ import subprocess
 import sys
 import tarfile
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
@@ -28,6 +28,7 @@ LIB_PATH = Path(__file__).parent / "lib"
 LIB_PATH.mkdir(exist_ok=True)
 
 PKG_INDEX: dict[str, "PackageData"] = {}
+_GH_HEADERS = {"Accept": "application/vnd.github+json"}
 
 
 class EikoPackageError(EikoError):
@@ -45,14 +46,14 @@ class PackageData(BaseModel):
 
     name: str
     source_dir: Path
-    version: Optional[str] = None
-    description: Optional[str] = None
-    long_description: Optional[str] = None
-    long_description_content_type: Optional[str] = None
-    author: Optional[str] = None
-    author_email: Optional[str] = None
-    license: Optional[str] = None
-    eikobot_requires: Optional[str] = None
+    version: str | None = None
+    description: str | None = None
+    long_description: str | None = None
+    long_description_content_type: str | None = None
+    author: str | None = None
+    author_email: str | None = None
+    license: str | None = None
+    eikobot_requires: str | None = None
     requires: list[str] = []
 
     def pkg_name_version(self) -> str:
@@ -113,17 +114,20 @@ def _parse_version(_version: str) -> version.Version:
         return version.parse(_version)
     except version.InvalidVersion as e:
         raise EikoPackageError(
-            f"failed to parse `eikobot_requires` version `{_version}`"
+            f"failed to parse `eikobot_requires` version `{_version}`."
         ) from e
 
 
 def _construct_pkg_index() -> None:
     for pkg_dir in LIB_PATH.glob("*"):
-        pkg_data = _read_pkg_toml(pkg_dir / "eiko.toml")
+        pkg_data = read_pkg_toml(pkg_dir / "eiko.toml")
         PKG_INDEX[pkg_data.name] = pkg_data
 
 
-def _read_pkg_toml(path: Path) -> PackageData:
+def read_pkg_toml(path: Path) -> PackageData:
+    """
+    Reads a toml and returns it's settings as python object.
+    """
     logger.debug("Reading eiko toml file.")
     toml = tomllib.loads(path.read_text(encoding="utf-8"))
     pkg_toml = toml.get("eiko", {}).get("package")
@@ -144,7 +148,7 @@ def build_pkg() -> None:
     if not eiko_toml_path.exists():
         raise EikoPackageError("eiko.toml file missing.")
 
-    pkg_data = _read_pkg_toml(eiko_toml_path)
+    pkg_data = read_pkg_toml(eiko_toml_path)
     dist = Path("dist")
     dist.mkdir(exist_ok=True)
     if not pkg_data.source_dir.exists():
@@ -165,6 +169,8 @@ def build_pkg() -> None:
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     shutil.copy(eiko_toml_path, build_dir)
+    if Path("requirements.txt").exists():
+        shutil.copy("requirements.txt", build_dir)
 
     logger.debug("Creating tar archive.")
     dist_name = pkg_data.pkg_name_version()
@@ -180,26 +186,30 @@ def build_pkg() -> None:
     logger.info(f"Build package '{dist_name}'")
 
 
-def install_pkg(pkg_def: str) -> None:
+async def install_pkg(pkg_def: str) -> None:
     """
     This functions gets a string prompt and will try to figure out
     if the package is http(s), git or a path.
     """
     _construct_pkg_index()
-    if pkg_def.startswith("http://") or pkg_def.startswith("https://"):
-        _download_pkg(pkg_def)
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10)) as session:
+        if pkg_def.startswith("http://") or pkg_def.startswith("https://"):
+            await _download_pkg(pkg_def, session)
 
-    elif pkg_def.endswith(".eiko.tar.gz"):
-        _install_pkg_from_path(Path(pkg_def))
+        elif pkg_def.startswith("GH:"):
+            await _download_pkg_gh(pkg_def, session)
 
-    else:
-        raise EikoPackageError("Failed to properly parse package url or path.")
+        elif pkg_def.endswith(".eiko.tar.gz"):
+            await _install_pkg_from_path(Path(pkg_def))
+
+        else:
+            raise EikoPackageError("Failed to properly parse package url or path.")
 
 
-def _download_pkg(url: str) -> None:
+async def _download_pkg(url: str, session: aiohttp.ClientSession) -> None:
     if url.endswith(".eiko.tar.gz"):
         logger.debug("Directly downloading package.")
-        asyncio.run(_download_to_cache(url))
+        await _download_to_cache(url, session)
 
     else:
         raise EikoPackageError(
@@ -207,40 +217,105 @@ def _download_pkg(url: str) -> None:
         )
 
 
-async def _download_to_cache(url: str) -> None:
+@dataclass
+class GHAsset:
+    name: str
+    url: str
+
+
+async def _download_pkg_gh(pkg_def: str, session: aiohttp.ClientSession) -> None:
+    """
+    Download a package straight from github, without extra fuzz.
+    """
+    logger.debug(f"[{pkg_def}] Parsing github link.")
+    _pkg_def = pkg_def.replace("GH:", "")
+    _version: version.Version | None
+    if "==" in _pkg_def:
+        _pkg_def, _version = _parse_pkg_version("GH:", _pkg_def)
+    else:
+        _version = None
+
+    assets = await _get_gh_assets(
+        f"https://api.github.com/repos/{_pkg_def}", pkg_def, session
+    )
+
+    pkg: GHAsset | None = None
+    _, pkg_name = _pkg_def.split("/")
+    if _version is None:
+        pkg = assets[0]
+
+    else:
+        for asset in assets:
+            if pkg_name.lower() in asset.name.lower() and str(_version) in asset.name:
+                pkg = asset
+                break
+
+    if pkg is None:
+        raise EikoPackageError(f"No package that matches '{pkg_def}' was found.")
+
+    await _download_pkg(pkg.url, session)
+
+
+def _parse_pkg_version(protocol: str, pkg_def: str) -> tuple[str, version.Version]:
+    try:
+        _pkg_def, unparsed_version = pkg_def.split("==")
+        return _pkg_def, version.parse(unparsed_version)
+    except version.InvalidVersion as e:
+        raise EikoPackageError(
+            f"failed to parse package version `{unparsed_version}`."
+        ) from e
+    except ValueError as e:
+        raise EikoPackageError(f"Failed to parse '{protocol}{pkg_def}'.") from e
+
+
+async def _get_gh_assets(
+    gh_url: str, pkg_def: str, session: aiohttp.ClientSession
+) -> list[GHAsset]:
+    logger.debug(f"[{pkg_def}] Getting github releases.")
+    releases_resp = await session.get(gh_url + "/releases", headers=_GH_HEADERS)
+    if releases_resp.status != 200:
+        raise EikoPackageError(
+            f"Package not found on github: '{pkg_def}'. (HTTP {releases_resp.status})"
+        )
+
+    releases = await releases_resp.json()
+    if len(releases) == 0:
+        raise EikoPackageError(f"Github package '{pkg_def}' has no releases.")
+
+    logger.debug(f"[{pkg_def}] Getting github assets.")
+    assets: list[GHAsset] = []
+    for release in releases:
+        assets_resp = await session.get(release["assets_url"])
+        unparsed_assets = await assets_resp.json()
+        for _asset in unparsed_assets:
+            assets.append(GHAsset(_asset["name"], _asset["browser_download_url"]))
+
+    if len(assets) == 0:
+        raise EikoPackageError(f"Github package '{pkg_def}' has no assets.")
+
+    return assets
+
+
+async def _download_to_cache(url: str, session: aiohttp.ClientSession) -> None:
     pkg_path = CACHE_PATH / Path(urlparse(url).path).name
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10)) as session:
-        logger.info(f"Fetching {url}")
-        try:
-            response = await session.get(url)
-            total_dl_size = int(response.headers.get("CONTENT-LENGTH", 0))
-            downloaded = 0
+    logger.info(f"Fetching {url}")
+    try:
+        response = await session.get(url)
+        dl_size = int(response.headers.get("CONTENT-LENGTH", 0))
 
-            with open(pkg_path, "wb") as f:
-                async for data, _ in response.content.iter_chunks():
-                    f.write(data)
-                    downloaded += sys.getsizeof(data)
-                    percent = int((downloaded / total_dl_size) * 20)
-                    pg_bar = "=" * percent
-                    if percent == 20:
-                        print(
-                            f"    [{pg_bar}]",
-                            f"{human_readable(total_dl_size)}/{human_readable(total_dl_size)}",
-                        )
-                    else:
-                        print(
-                            f"    [{pg_bar}>{(20 - percent - 1) * ' '}]",
-                            f"{human_readable(downloaded)}/{human_readable(total_dl_size)}",
-                            end="\r",
-                        )
+        with open(pkg_path, "wb") as f:
+            async for data, _ in response.content.iter_chunks():
+                f.write(data)
 
-        except aiohttp.ClientError as e:
-            raise EikoPackageError(f"Failed to download {url}: {e}") from e
+        logger.debug(f"Downloaded {human_readable(dl_size)}.")
 
-    _install_pkg_from_cache(pkg_path.name)
+    except aiohttp.ClientError as e:
+        raise EikoPackageError(f"Failed to download {url}: {e}") from e
+
+    await _install_pkg_from_cache(pkg_path.name)
 
 
-def _install_pkg_from_path(pkg_path: Path) -> None:
+async def _install_pkg_from_path(pkg_path: Path) -> None:
     """
     Install a package using a path to an .eiko.tar.gz file.
     """
@@ -248,17 +323,17 @@ def _install_pkg_from_path(pkg_path: Path) -> None:
         raise EikoPackageError(f"Package path does not exist: '{pkg_path}'.")
     logger.debug("Adding archive to cache.")
     shutil.copy(pkg_path, CACHE_PATH)
-    _install_pkg_from_cache(pkg_path.name)
+    await _install_pkg_from_cache(pkg_path.name)
 
 
-def _install_pkg_from_cache(archive_name: str) -> None:
+async def _install_pkg_from_cache(archive_name: str) -> None:
     pkg_name = archive_name.removesuffix(".eiko.tar.gz")
     logger.debug("Unpacking archive.")
     with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
         archive.extractall(LIB_PATH)
 
     pkg_lib_path = LIB_PATH / pkg_name
-    pkg_data = _read_pkg_toml(pkg_lib_path / "eiko.toml")
+    pkg_data = read_pkg_toml(pkg_lib_path / "eiko.toml")
     prev_pkg = PKG_INDEX.get(pkg_data.name)
     if prev_pkg is not None:
         _uninstall_pkg(prev_pkg)
@@ -279,9 +354,12 @@ def _install_pkg_from_cache(archive_name: str) -> None:
             check=True,
         )
 
-    logger.debug("Installing requirements.")
+    logger.debug(f"Installing requirements for '{pkg_name}'.")
+    tasks: list[asyncio.Task] = []
     for req in pkg_data.requires:
-        install_pkg(req)
+        tasks.append(asyncio.create_task(install_pkg(req)))
+
+    _ = await asyncio.gather(*tasks, return_exceptions=True)
 
     try:
         shutil.copytree(
@@ -291,7 +369,7 @@ def _install_pkg_from_cache(archive_name: str) -> None:
         )
     except FileExistsError:
         # This is a bug in the package index
-        # I have no idea what causes it, but this is hack around the issue.
+        # I have no idea what causes it, but this is a hack around the issue.
         os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
         os.symlink(
             pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
