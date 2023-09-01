@@ -155,3 +155,8 @@ def eiko_enum_file() -> Path:
 @pytest.fixture
 def eiko_for_file() -> Path:
     return get_file("test_for.eiko")
+
+
+@pytest.fixture
+def eiko_membership_file() -> Path:
+    return get_file("test_membership.eiko")

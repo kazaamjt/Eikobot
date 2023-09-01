@@ -1713,6 +1713,37 @@ class ForExprAst(ExprAST):
                 line.compile(sub_context)
 
 
+@dataclass
+class InExprAst(ExprAST):
+    """Represents a for loop that loops over an iterable."""
+
+    lhs: ExprAST
+    rhs: ExprAST
+
+    def compile(self, context: CompilerContext) -> EikoBool:
+        lhs = self.lhs.compile(context)
+        rhs = self.rhs.compile(context)
+        if not isinstance(rhs, (EikoStr, EikoList, EikoDict)):
+            raise EikoCompilationError(
+                "Membership test expects a value of of type 'str', "
+                f"'dict', or 'list', not '{self.rhs.token}'"
+            )
+
+        if lhs is None:
+            raise EikoCompilationError(
+                "Membership test left hand side expression did not return a value.",
+                token=self.lhs.token,
+            )
+
+        if not isinstance(lhs, EikoBaseType):
+            raise EikoCompilationError(
+                f"Membership test left hand side value not useable. ('{lhs.type}').",
+                token=self.lhs.token,
+            )
+
+        return rhs.test_membership(lhs, self.lhs.token)
+
+
 class Parser:
     """
     Parses tokens 1 by 1, and turns them in to Expressions.
@@ -1729,6 +1760,7 @@ class Parser:
             "or": 20,
             "and": 30,
             "unot": 40,
+            "in": 50,
             "==": 50,
             "!=": 50,
             "<": 50,
@@ -2016,6 +2048,8 @@ class Parser:
                         "Expected an identifier for index expression.",
                         token=lhs.token,
                     )
+            elif bin_op_token.type == TokenType.IN:
+                lhs = InExprAst(bin_op_token, lhs, rhs)
             else:
                 lhs = BinOpExprAST(bin_op_token, lhs, rhs)
 

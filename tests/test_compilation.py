@@ -345,3 +345,29 @@ def test_for(eiko_for_file: Path) -> None:
 
     assert isinstance(results_list.elements[4], EikoInt)
     assert results_list.elements[4].value == 1
+
+
+def test_membership(eiko_membership_file: Path) -> None:
+    compiler = Compiler()
+    compiler.compile(eiko_membership_file)
+
+    a = compiler.context.get("a")
+    assert isinstance(a, EikoBool) and a.value
+
+    b = compiler.context.get("b")
+    assert isinstance(b, EikoBool) and not b.value
+
+    c = compiler.context.get("c")
+    assert isinstance(c, EikoBool) and c.value
+
+    d = compiler.context.get("d")
+    assert isinstance(d, EikoBool) and not d.value
+
+    e = compiler.context.get("e")
+    assert isinstance(e, EikoBool) and e.value
+
+    f = compiler.context.get("f")
+    assert isinstance(f, EikoBool) and not f.value
+
+    g = compiler.context.get("g")
+    assert isinstance(g, EikoBool) and g.value

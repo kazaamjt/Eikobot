@@ -1,0 +1,14 @@
+parent = ["haha"]
+a = "haha" in parent
+b = "na-ah" in parent
+
+parent_2 = [1, 2, 3]
+c = 1 in parent_2
+d = "haha" in parent_2
+
+parent_3 = {"haha": "hehe"}
+e = "haha" in parent_3
+f = "hehe" in parent_3
+
+parent_4 = "hahahaha"
+g = "ha" in parent_4

@@ -410,6 +410,19 @@ class EikoStr(EikoBaseType):
     def to_py(self) -> str:
         return self.value
 
+    def test_membership(self, lhs: EikoBaseType, lhs_token: Token) -> EikoBool:
+        """
+        Tests if a given value is a substring.
+        """
+
+        if not isinstance(lhs, EikoStr):
+            raise EikoCompilationError(
+                f"Membership test for a 'str' expects a 'str', not '{lhs.type}'.",
+                token=lhs_token,
+            )
+
+        return EikoBool(lhs.value in self.value)
+
 
 class EikoProtectedStr(EikoStr):
     """
@@ -1042,6 +1055,23 @@ class EikoList(EikoBaseType):
         for element in self.elements:
             yield element
 
+    def test_membership(self, lhs: EikoBaseType, _: Token) -> EikoBool:
+        """
+        Tests if a given value is in this list.
+        """
+        if isinstance(lhs, (EikoStr, EikoInt, EikoBool, EikoNone, EikoFloat)):
+            for element in self.elements:
+                if (
+                    isinstance(
+                        element, (EikoStr, EikoInt, EikoBool, EikoNone, EikoFloat)
+                    )
+                    and lhs.value == element.value
+                ):
+                    return EikoBool(True)
+            return EikoBool(False)
+
+        return EikoBool(lhs in self.elements)
+
 
 class EikoDictType(EikoType):
     """Represents an Eiko Union type, which combines 2 or more types."""
@@ -1264,6 +1294,25 @@ class EikoDict(EikoBaseType):
             return self.get_func
 
         return super().get(name, token)
+
+    def test_membership(self, lhs: EikoBaseType, _: Token) -> EikoBool:
+        """
+        Tests if a given value is in this dict.
+        """
+        if isinstance(lhs, (EikoStr, EikoInt, EikoBool, EikoNone, EikoFloat)):
+            for element in self.elements:
+                if (
+                    isinstance(
+                        element, (EikoStr, EikoInt, EikoBool, EikoNone, EikoFloat)
+                    )
+                    and lhs.value == element.value
+                ):
+                    return EikoBool(True)
+                if lhs.value == element:
+                    return EikoBool(True)
+            return EikoBool(False)
+
+        return EikoBool(lhs in self.elements)
 
 
 # Move to another file
