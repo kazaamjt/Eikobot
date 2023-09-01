@@ -169,6 +169,8 @@ def build_pkg() -> None:
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     shutil.copy(eiko_toml_path, build_dir)
+    if Path("requirements.txt").exists():
+        shutil.copy("requirements.txt", build_dir)
 
     logger.debug("Creating tar archive.")
     dist_name = pkg_data.pkg_name_version()

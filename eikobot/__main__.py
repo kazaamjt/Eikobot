@@ -4,6 +4,7 @@ Schould only contain things related to the client cli.
 """
 import asyncio
 import datetime
+import subprocess
 import sys
 import time
 import traceback
@@ -205,6 +206,16 @@ def install_pkg(target: str) -> None:
             asyncio.run(_install_pkg_multi(requires))
         else:
             logger.error("No requirements found.")
+
+        logger.debug("Installing project python dependencies.")
+        requirements_file = Path("requirements.txt")
+        if requirements_file.exists():
+            logger.debug("Installing python requirements.")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", requirements_file],
+                check=True,
+            )
+
     else:
         asyncio.run(_install_pkg(target))
 
