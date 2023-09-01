@@ -8,6 +8,7 @@
 - Added a `requires` option to `eiko.toml`, similar to how this is handled for packages
 - Added `.` as a special argument for `eikobot package install`, that installs requirements of a project or package
 - Added membership testing, using the `in` keyword
+- Fixed yet another bug in relative imports
 
 ## 0.6.1
 

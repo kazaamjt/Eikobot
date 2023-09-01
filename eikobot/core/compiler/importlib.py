@@ -101,7 +101,7 @@ def resolve_from_import(
             test_path_is_module(anchor, token)
 
         if not import_path:
-            import_path.append(anchor.name)
+            import_path.append("__init__")
 
         return _resolve_from_import(import_path.copy(), anchor, context)
 
@@ -142,7 +142,9 @@ def _resolve_from_import(
         file_path = parent / (current + ".eiko")
         if file_path.exists():
             new_context = context.get_or_set_context(current)
-            return Module(file_path.stem, file_path, new_context)
+            module = Module(file_path.stem, file_path, new_context)
+            _get_submodules(module)
+            return module
 
     return None
 

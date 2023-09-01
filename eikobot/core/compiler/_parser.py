@@ -1407,7 +1407,7 @@ class FromImportExprAST(ExprAST):
             module = resolve_from_import(import_module, context, self.dots)
             if module is None:
                 raise EikoCompilationError(
-                    f"Module '{'.'.join(from_import_list)}' not found.",
+                    f"Module '{'.'.join(_full_import_list)}' not found.",
                     token=self.token,
                 )
 
