@@ -2318,7 +2318,11 @@ class Parser:
         self._advance()
 
         dots: list[Token] = []
-        while self._current.type in (TokenType.DOT, TokenType.DOUBLE_DOT, TokenType.TRIPLE_DOT):
+        while self._current.type in (
+            TokenType.DOT,
+            TokenType.DOUBLE_DOT,
+            TokenType.TRIPLE_DOT,
+        ):
             if self._current.type == TokenType.DOT:
                 dots.append(self._current)
             elif self._current.type == TokenType.DOUBLE_DOT:
@@ -2586,8 +2590,9 @@ class Parser:
             while self._next.type == TokenType.INDENT:
                 self._advance()
             if self._current.type != TokenType.INDENT:
-                raise EikoInternalError(
-                    "Unexpected issue, please report this on github."
+                raise EikoParserError(
+                    f"Unexpected token '{self._current.content}'. Expected an indent while parsing enum.",
+                    token=self._current,
                 )
             if self._current.content != indent:
                 break
