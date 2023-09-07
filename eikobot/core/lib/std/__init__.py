@@ -8,6 +8,7 @@ import os
 import re
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
+from pathlib import Path
 from typing import Optional, Type, Union
 
 import asyncssh
@@ -189,13 +190,17 @@ class HostModel(EikoBaseModel):
 
     async def scp_to(
         self,
-        file_name: str,
+        file_path: Path,
         ctx: HandlerContext,
-        destination: str | None = None,
+        destination: Path | str | None = None,
     ) -> None:
         """
         Copies a file from the local host to the remote host
         """
+        if not file_path.exists():
+            ctx.error(f"Tried to SCP file that doesn't exist: '{file_path}'.")
+            raise FileNotFoundError
+
         extra_args: dict[str, str] = {}
         if self.username is not None:
             extra_args["username"] = self.username
@@ -205,20 +210,20 @@ class HostModel(EikoBaseModel):
                 extra_args["password"] = self.password
 
         if destination is None:
-            destination = file_name
+            destination = file_path.name
 
-        ctx.debug(f"Copying file '{file_name}' to host.")
+        ctx.debug(f"Copying file '{file_path}' to host.")
         await asyncssh.scp(
-            file_name,
+            file_path,
             f"{self.host}:{destination}",
             **extra_args,  # type: ignore
         )
 
     async def scp_from(
         self,
-        file_name: str,
+        file_path: Path | str,
         ctx: HandlerContext,
-        destination: str | None = None,
+        destination: Path | str,
     ) -> None:
         """
         Copies a file to the local host from the remote host
@@ -231,12 +236,9 @@ class HostModel(EikoBaseModel):
             if self.password is not None:
                 extra_args["password"] = self.password
 
-        if destination is None:
-            destination = file_name
-
-        ctx.debug(f"Copying file '{file_name}' from host.")
+        ctx.debug(f"Copying file '{file_path}' from host to '{destination}'.")
         await asyncssh.scp(
-            f"{self.host}:{file_name}",
+            f"{self.host}:{file_path}",
             destination,
             **extra_args,  # type: ignore
         )

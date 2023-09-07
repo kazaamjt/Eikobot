@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.7.2 Bug fixes
+
+- `std.HostModel.scp_to` and `std.HostModel.scp_from` now take `pathlib.Path` as an argument
+
 ## 0.7.1 Bug fixes
 
 - Fixed a bug where python relative imports in modules didn't work when eikobot is called directly
