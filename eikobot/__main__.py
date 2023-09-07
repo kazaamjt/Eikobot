@@ -29,10 +29,10 @@ def cli(debug: bool = False) -> None:
     The Eikobot CLI allows for compilation
     and exporting of eiko files.
     """
-    log_level = logger.LOG_LEVEL.INFO
+    log_level = logger.LogLevel.INFO
     if debug:
-        log_level = logger.LOG_LEVEL.DEBUG
-    logger.init(log_level=log_level)  # type: ignore
+        log_level = logger.LogLevel.DEBUG
+    logger.init(log_level=log_level)
 
 
 @cli.command(name="compile")
@@ -194,12 +194,12 @@ def install_pkg(target: str) -> None:
     """
     if target == ".":
         requires: list[str] = []
-        requires.extend(PROJECT_SETTINGS.requires)
+        requires.extend(PROJECT_SETTINGS.eikobot_requires)
         _pkg_data_path = Path("eiko.tml")
         if _pkg_data_path.exists():
             try:
                 pkg_data = package_manager.read_pkg_toml(_pkg_data_path)
-                requires.extend(pkg_data.requires)
+                requires.extend(pkg_data.eikobot_requires)
             except EikoError:
                 pass
         if len(requires) > 0:
@@ -240,7 +240,7 @@ def list_pkg() -> None:
     """
     Lists all installed packages.
     """
-    packages = package_manager.get_installed_pkg()
+    packages = package_manager.get_installed_pkgs()
     for pkg in packages.values():
         print(f"{pkg.name}=={pkg.version}")
 
@@ -257,5 +257,28 @@ def uninstall_pkg(name: str) -> None:
         logger.error(str(e))
 
 
+def main() -> None:
+    """
+    Python entrypoint function that does some housekeeping.
+    """
+    # There is a problem relative imports in python code
+    # that we import python code from eiko modules/packages at runtime
+    # This bug only happens if we are not pythons main entrypoint.
+    # In other words this is a pretty ugly hack.
+    if __name__ == "__main__":
+        cli()
+    else:
+        process = subprocess.run(
+            [
+                "python",
+                "-m",
+                "eikobot",
+                *sys.argv[1:],
+            ],
+            check=False,
+        )
+        sys.exit(process.returncode)
+
+
 if __name__ == "__main__":
-    cli()
+    main()

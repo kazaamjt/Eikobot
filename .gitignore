@@ -9,6 +9,7 @@ build/
 dist/
 
 # Eikobot internals
+eikobot/core/package_manager/index.json
 eikobot/core/package_manager/cache
 eikobot/core/package_manager/lib
 eikobot/core/lib/

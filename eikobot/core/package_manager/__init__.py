@@ -3,6 +3,7 @@ For help with creating, distributing and installing packages.
 """
 import asyncio
 import copy
+import json
 import os
 import shutil
 import subprocess
@@ -17,7 +18,6 @@ import aiohttp
 from packaging import version
 from pydantic import BaseModel, ValidationError
 
-from ... import VERSION
 from .. import human_readable, logger
 from ..compiler.importlib import INTERNAL_LIB_PATH
 from ..errors import EikoError
@@ -27,6 +27,7 @@ CACHE_PATH.mkdir(exist_ok=True)
 LIB_PATH = Path(__file__).parent / "lib"
 LIB_PATH.mkdir(exist_ok=True)
 
+PKG_INDEX_PATH = Path(__file__).parent / "index.json"
 PKG_INDEX: dict[str, "PackageData"] = {}
 _GH_HEADERS = {"Accept": "application/vnd.github+json"}
 
@@ -53,8 +54,9 @@ class PackageData(BaseModel):
     author: str | None = None
     author_email: str | None = None
     license: str | None = None
-    eikobot_requires: str | None = None
-    requires: list[str] = []
+    eikobot_version: str | None = None
+    eikobot_requires: list[str] = []
+    python_requires: list[str] = []
 
     def pkg_name_version(self) -> str:
         """
@@ -66,56 +68,6 @@ class PackageData(BaseModel):
             name += "-" + self.version
 
         return name
-
-    def eiko_version_match(self) -> bool:  # pylint: disable=too-many-branches
-        """
-        Checks to see if the library is compatible with
-        the currently installed version of eikobot.
-        """
-        if self.eikobot_requires is None:
-            return True
-
-        eiko_version = version.parse(VERSION)
-        for version_req in self.eikobot_requires.split(","):
-            if version_req.startswith(">="):
-                if eiko_version < _parse_version(version_req[2:]):
-                    return False
-
-            elif version_req.startswith("<="):
-                if eiko_version > _parse_version(version_req[2:]):
-                    return False
-
-            elif version_req.startswith("=="):
-                if eiko_version != _parse_version(version_req[2:]):
-                    return False
-
-            elif version_req.startswith("!="):
-                if eiko_version == _parse_version(version_req[2:]):
-                    return False
-
-            elif version_req.startswith(">"):
-                if eiko_version <= _parse_version(version_req[1:]):
-                    return False
-
-            elif version_req.startswith("<"):
-                if eiko_version >= _parse_version(version_req[1:]):
-                    return False
-
-            else:
-                raise EikoPackageError(
-                    f"Failed to parse eiko.toml option eikobot_requires '{self.eikobot_requires}'."
-                )
-
-        return True
-
-
-def _parse_version(_version: str) -> version.Version:
-    try:
-        return version.parse(_version)
-    except version.InvalidVersion as e:
-        raise EikoPackageError(
-            f"failed to parse `eikobot_requires` version `{_version}`."
-        ) from e
 
 
 def _construct_pkg_index() -> None:
@@ -169,8 +121,6 @@ def build_pkg() -> None:
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     shutil.copy(eiko_toml_path, build_dir)
-    if Path("requirements.txt").exists():
-        shutil.copy("requirements.txt", build_dir)
 
     logger.debug("Creating tar archive.")
     dist_name = pkg_data.pkg_name_version()
@@ -208,7 +158,6 @@ async def install_pkg(pkg_def: str) -> None:
 
 async def _download_pkg(url: str, session: aiohttp.ClientSession) -> None:
     if url.endswith(".eiko.tar.gz"):
-        logger.debug("Directly downloading package.")
         await _download_to_cache(url, session)
 
     else:
@@ -298,19 +247,22 @@ async def _get_gh_assets(
 
 async def _download_to_cache(url: str, session: aiohttp.ClientSession) -> None:
     pkg_path = CACHE_PATH / Path(urlparse(url).path).name
-    logger.info(f"Fetching {url}")
-    try:
-        response = await session.get(url)
-        dl_size = int(response.headers.get("CONTENT-LENGTH", 0))
+    if not pkg_path.exists():
+        try:
+            response = await session.get(url)
+            dl_size = int(response.headers.get("CONTENT-LENGTH", 0))
+            logger.info(f"Fetching '{url}' [{human_readable(dl_size)}]")
 
-        with open(pkg_path, "wb") as f:
-            async for data, _ in response.content.iter_chunks():
-                f.write(data)
+            with open(pkg_path, "wb") as f:
+                async for data, _ in response.content.iter_chunks():
+                    f.write(data)
 
-        logger.debug(f"Downloaded {human_readable(dl_size)}.")
+            logger.debug(f"Downloaded {human_readable(dl_size)}.")
 
-    except aiohttp.ClientError as e:
-        raise EikoPackageError(f"Failed to download {url}: {e}") from e
+        except aiohttp.ClientError as e:
+            raise EikoPackageError(f"Failed to download {url}: {e}") from e
+    else:
+        logger.debug(f"Using cached version of '{pkg_path.name}'.")
 
     await _install_pkg_from_cache(pkg_path.name)
 
@@ -328,15 +280,25 @@ async def _install_pkg_from_path(pkg_path: Path) -> None:
 
 async def _install_pkg_from_cache(archive_name: str) -> None:
     pkg_name = archive_name.removesuffix(".eiko.tar.gz")
-    logger.debug("Unpacking archive.")
-    with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
-        archive.extractall(LIB_PATH)
+    if (LIB_PATH / archive_name).exists():
+        logger.debug("Archive is already unpacked.")
+
+    else:
+        logger.debug("Unpacking archive.")
+        with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
+            archive.extractall(LIB_PATH)
 
     pkg_lib_path = LIB_PATH / pkg_name
     pkg_data = read_pkg_toml(pkg_lib_path / "eiko.toml")
     prev_pkg = PKG_INDEX.get(pkg_data.name)
     if prev_pkg is not None:
-        _uninstall_pkg(prev_pkg)
+        if pkg_data.version != prev_pkg.version or pkg_data.version is None:
+            _uninstall_pkg(prev_pkg)
+        else:
+            logger.info(
+                f"Package '{pkg_data.name}=={pkg_data.version}' already installed."
+            )
+            return
 
     with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
         archive.extractall(LIB_PATH)
@@ -346,17 +308,16 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
     else:
         logger.debug(f"Installing '{pkg_data.name}=={pkg_data.version}'.")
 
-    requirements_file = pkg_lib_path / "requirements.txt"
-    if requirements_file.exists():
+    if pkg_data.python_requires:
         logger.debug("Installing python requirements.")
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-r", requirements_file],
+            [sys.executable, "-m", "pip", "install", "-r", *pkg_data.python_requires],
             check=True,
         )
 
     logger.debug(f"Installing requirements for '{pkg_name}'.")
     tasks: list[asyncio.Task] = []
-    for req in pkg_data.requires:
+    for req in pkg_data.eikobot_requires:
         tasks.append(asyncio.create_task(install_pkg(req)))
 
     _ = await asyncio.gather(*tasks, return_exceptions=True)
@@ -381,7 +342,7 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
         logger.info(f"Installed '{pkg_data.name}=={pkg_data.version}'.")
 
 
-def get_installed_pkg() -> dict[str, PackageData]:
+def get_installed_pkgs() -> dict[str, PackageData]:
     _construct_pkg_index()
     return copy.deepcopy(PKG_INDEX)
 
@@ -393,7 +354,7 @@ def uninstall_pkg(name: str) -> None:
     _construct_pkg_index()
     pkg_data = PKG_INDEX.get(name)
     if pkg_data is None:
-        logger.error(f"Failed to install package: '{name}'")
+        logger.error(f"Package not found: '{name}'")
         return
 
     _uninstall_pkg(pkg_data)

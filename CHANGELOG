@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.7.1 Bug fixes
+
+- Fixed a bug where python relative imports in modules didn't work when eikobot is called directly
+- Fixed eikobot version not being checked for projects even though it was specified in the eiko.toml
+- Improved use of caching for installation of packages
+- No longer uninstalls and then re-installs a package when it already installed
+
 ## 0.7.0
 
 - Added `GH:{owner}:{package_name}` format to package install options

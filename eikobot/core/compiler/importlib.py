@@ -205,10 +205,15 @@ def load_python_code(module_name: str, file_path: Path) -> ModuleType:
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     if spec is not None:
         py_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(py_module)  # type: ignore
+        if spec.loader is None:
+            raise EikoCompilationError(
+                f"Failed to import python module {module_name}. (spec.loader is None)"
+            )
+
+        spec.loader.exec_module(py_module)
         return py_module
 
-    raise EikoCompilationError(f"Failed to import python module {module_name} ")
+    raise EikoCompilationError(f"Failed to import python module {module_name}.")
 
 
 def _load_plugin(module: str, name: str, function: Callable) -> PluginDefinition:

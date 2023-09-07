@@ -8,7 +8,7 @@ from .compiler.misc import Index
 
 
 class EikoError(Exception):
-    """An error that occured during the eiko compilation process."""
+    """An error that occured during the eiko process."""
 
     def __init__(
         self, reason: str, *args: object, token: Optional[Token] = None
