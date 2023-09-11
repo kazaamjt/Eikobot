@@ -26,6 +26,9 @@ please see the [language overview](https://github.com/kazaamjt/Eikobot/blob/main
 
 (*If the model/modules are designed well.)  
 
+NOTE: Eikobot is currently in BETA.  
+While most interfaces are considered stable, several might still be subject to change.  
+
 ## Installation
 
 Eikobot requires python 3.10 or up and can be installed using pip.  

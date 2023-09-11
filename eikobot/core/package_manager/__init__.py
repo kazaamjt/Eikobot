@@ -145,7 +145,7 @@ async def install_pkg(pkg_def: str) -> None:
         if pkg_def.startswith("http://") or pkg_def.startswith("https://"):
             await _download_pkg(pkg_def, session)
 
-        elif pkg_def.startswith("GH:"):
+        elif pkg_def.startswith("GH://"):
             await _download_pkg_gh(pkg_def, session)
 
         elif pkg_def.endswith(".eiko.tar.gz"):
@@ -176,10 +176,10 @@ async def _download_pkg_gh(pkg_def: str, session: aiohttp.ClientSession) -> None
     Download a package straight from github, without extra fuzz.
     """
     logger.debug(f"[{pkg_def}] Parsing github link.")
-    _pkg_def = pkg_def.replace("GH:", "")
+    _pkg_def = pkg_def.replace("GH://", "")
     _version: version.Version | None
     if "==" in _pkg_def:
-        _pkg_def, _version = _parse_pkg_version("GH:", _pkg_def)
+        _pkg_def, _version = _parse_pkg_version("GH://", _pkg_def)
     else:
         _version = None
 

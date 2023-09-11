@@ -5,6 +5,7 @@
 - `std.HostModel.scp_to` and `std.HostModel.scp_from` now take `pathlib.Path` as an argument
 - Added `eikobot project init` command that installs requirements for you.
 - Added a timeout to ssh sessions that can be changed in the project settings.
+- Changed the github format to `GH://{owner}/{package_name}` to 
 
 ## 0.7.1 Bug fixes
 
@@ -15,7 +16,7 @@
 
 ## 0.7.0
 
-- Added `GH:{owner}:{package_name}` format to package install options
+- Added `GH:{owner}/{package_name}` format to package install options
 - Added `[eiko.project]` options to the `eiko.toml` (this has per project settings, picked up at runtime)
 - Added an `dry_run` option to the `eiko.toml`
 - Added a `requires` option to `eiko.toml`, similar to how this is handled for packages
