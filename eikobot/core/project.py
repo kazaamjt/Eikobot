@@ -28,6 +28,7 @@ class ProjectSettings(BaseModel):
     eikobot_requires: list[str] = []
     python_requires: list[str] = []
     dry_run: bool = False
+    ssh_timeout: int = 3
 
 
 def read_project() -> ProjectSettings:

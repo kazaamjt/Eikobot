@@ -4,6 +4,7 @@
 
 - `std.HostModel.scp_to` and `std.HostModel.scp_from` now take `pathlib.Path` as an argument
 - Added `eikobot project init` command that installs requirements for you.
+- Added a timeout to ssh sessions that can be changed in the project settings.
 
 ## 0.7.1 Bug fixes
 

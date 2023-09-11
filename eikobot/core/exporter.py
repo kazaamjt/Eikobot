@@ -47,7 +47,6 @@ class Task:
         await self._run_handler()
 
         if self.ctx.failed or not self.ctx.deployed:
-            logger.error(f"Failed task '{self.task_id}'")
             if self._failure_cb is not None:
                 self._failure_cb()
             return

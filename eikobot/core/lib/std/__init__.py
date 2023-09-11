@@ -26,6 +26,15 @@ from eikobot.core.helpers import (
     EikoProtectedStr,
 )
 from eikobot.core.plugin import eiko_plugin
+from eikobot.core.project import PROJECT_SETTINGS
+
+
+class SSHTimeout(EikoDeployError):
+    def __init__(self, *args: object) -> None:
+        super().__init__(
+            "Failed to connect to host, SSH timed out.",
+            *args,
+        )
 
 
 @eiko_plugin()
@@ -153,7 +162,15 @@ class HostModel(EikoBaseModel):
                 extra_args["password"] = self.password
 
         try:
-            return await asyncssh.connect(self.host, **extra_args)
+            return await asyncio.wait_for(
+                asyncssh.connect(
+                    self.host,
+                    **extra_args,
+                ),
+                timeout=PROJECT_SETTINGS.ssh_timeout,
+            )
+        except asyncio.TimeoutError as e:
+            raise SSHTimeout from e
         except asyncssh.HostKeyNotVerifiable as e:
             key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
                 f"ssh {self.host} echo",

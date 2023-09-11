@@ -87,8 +87,7 @@ class EikoPluginError(EikoError):
 
 class EikoExportError(EikoError):
     """
-    Something went wrong inside the compiler,
-    most likely caused by a bug and not the user.
+    Something went wrong inside the exporter.
     """
 
     def __init__(
@@ -99,8 +98,7 @@ class EikoExportError(EikoError):
 
 class EikoDeployError(EikoError):
     """
-    Something went wrong inside the compiler,
-    most likely caused by a bug and not the user.
+    Something went wrong inside a deploy task.
     """
 
     def __init__(
