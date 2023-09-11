@@ -48,16 +48,16 @@ class HandlerContext:
         self.changes[key] = value
 
     def debug(self, msg: str) -> None:
-        logger.debug(msg, pre=f"[{self.name}] ")
+        logger.debug(f"[{self.name}] {msg}")
 
     def info(self, msg: str) -> None:
-        logger.info(msg, pre=f"[{self.name}] ")
+        logger.info(f"[{self.name}] {msg}")
 
     def warning(self, msg: str) -> None:
-        logger.warning(msg, pre=f"[{self.name}] ")
+        logger.warning(f"[{self.name}] {msg}")
 
     def error(self, msg: str) -> None:
-        logger.error(msg, pre=f"[{self.name}] ")
+        logger.error(f"[{self.name}] {msg}")
 
 
 class Handler:
@@ -81,7 +81,7 @@ class Handler:
         pass
 
     async def __dry_run__(self, ctx: HandlerContext) -> None:
-        ctx.info(f"Task '{ctx.name}' would execute.")
+        ctx.info("Task would execute.")
 
 
 class EikoCRUDHanlderMethodNotImplemented(Exception):
@@ -98,17 +98,17 @@ class CRUDHandler(Handler):
         ctx.failed = False
         ctx.deployed = False
         try:
-            logger.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
+            ctx.debug("Reading resource.")
             await self.read(ctx)
         except EikoCRUDHanlderMethodNotImplemented:
             pass
 
         if not ctx.deployed:
             try:
-                logger.debug(f"Deploying resource '{ctx.raw_resource.index()}'.")
+                ctx.debug("Deploying resource.")
                 await self.create(ctx)
             except EikoCRUDHanlderMethodNotImplemented:
-                logger.error(
+                ctx.error(
                     "Tried to deploy resource, but handler is missing a create method."
                 )
                 return
@@ -116,16 +116,14 @@ class CRUDHandler(Handler):
             if ctx.changes:
                 try:
                     ctx.deployed = False
-                    logger.debug(f"Updating resource '{ctx.raw_resource.index()}'.")
+                    ctx.debug("Updating resource.")
                     await self.update(ctx)
                 except EikoCRUDHanlderMethodNotImplemented:
-                    logger.warning(
+                    ctx.warning(
                         "Read method returned changes for handler without update method."
                     )
             else:
-                logger.debug(
-                    f"Resource '{ctx.raw_resource.index()}' is in its desired state."
-                )
+                ctx.debug("Resource is in its desired state.")
 
         if not ctx.deployed:
             ctx.failed = True
@@ -144,22 +142,20 @@ class CRUDHandler(Handler):
 
     async def __dry_run__(self, ctx: HandlerContext) -> None:
         try:
-            logger.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
+            ctx.debug(f"Reading resource '{ctx.raw_resource.index()}'.")
             await self.read(ctx)
         except EikoCRUDHanlderMethodNotImplemented:
-            logger.info(f"Resource '{ctx.name}' would be created.")
+            ctx.info("Resource would be created.")
         except EikoUnresolvedPromiseError:
-            logger.info(
-                f"Resource '{ctx.name}' relies on promises that are unresolved and thus its state is unknown."
+            ctx.info(
+                "Resource relies on promises that are unresolved and thus its state is unknown."
             )
             return
 
         if ctx.deployed:
             if not ctx.changes:
-                logger.info(f"Resource '{ctx.name}' is in its desired state.")
+                ctx.info("Resource is in its desired state.")
             else:
-                logger.info(
-                    f"Resource '{ctx.name}' would be updated. (changes: {ctx.changes})"
-                )
+                ctx.info(f"Resource would be updated. (changes: {ctx.changes})")
         else:
-            logger.info(f"Resource '{ctx.name}' would be created.")
+            ctx.info("Resource would be created.")

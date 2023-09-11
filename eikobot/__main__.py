@@ -4,6 +4,7 @@ Schould only contain things related to the client cli.
 """
 import asyncio
 import datetime
+import signal
 import subprocess
 import sys
 import time
@@ -12,13 +13,14 @@ from pathlib import Path
 
 import click
 
-from . import PROJECT_SETTINGS, VERSION
+from . import VERSION
 from .core import logger, package_manager
 from .core.compiler import Compiler
 from .core.compiler.lexer import Token
 from .core.deployer import Deployer
 from .core.errors import EikoError, EikoPluginError
 from .core.exporter import Exporter
+from .core.project import PROJECT_SETTINGS, init_project
 
 
 @click.group()
@@ -36,7 +38,7 @@ def cli(debug: bool = False) -> None:
 
 
 @cli.command(name="compile")
-@click.option("-f", "--file", prompt="File", help="Path to entrypoint file.")
+@click.option("-f", "--file", "file", help="Path to entrypoint file.")
 @click.option(
     "--output-model",
     is_flag=True,
@@ -48,7 +50,7 @@ def cli(debug: bool = False) -> None:
     help="Outputs a plugins stacktrace if it raises an exception.",
 )
 def compile_cmd(
-    file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False
+    file: str | None, output_model: bool = False, enable_plugin_stacktrace: bool = False
 ) -> None:
     """
     Compile an eikobot file.
@@ -56,14 +58,27 @@ def compile_cmd(
     _compile(file, output_model, enable_plugin_stacktrace)
 
 
+def _get_file_path(file: str | None) -> Path:
+    if file is None:
+        if PROJECT_SETTINGS.entry_point is None:
+            file = ""
+            while file == "":
+                file = input("File: ")
+        else:
+            file = PROJECT_SETTINGS.entry_point
+
+    return Path(file)
+
+
 def _compile(
-    file: str, output_model: bool = False, enable_plugin_stacktrace: bool = False
+    file: str | None, output_model: bool = False, enable_plugin_stacktrace: bool = False
 ) -> Compiler:
+    file_path = _get_file_path(file)
+
     start = time.time()
     pc_start = time.process_time()
     compiler = Compiler()
 
-    file_path = Path(file)
     if not file_path.exists():
         logger.error(f"No such file: {file_path}")
         sys.exit(1)
@@ -118,7 +133,7 @@ def _compile(
 
 
 @cli.command()
-@click.option("-f", "--file", "file", prompt="File", help="Path to entrypoint file.")
+@click.option("-f", "--file", "file", help="Path to entrypoint file.")
 @click.option(
     "--enable-plugin-stacktrace",
     is_flag=True,
@@ -135,7 +150,7 @@ def _compile(
     help="Overwrites ignores any dry-run parameters",
 )
 def deploy(
-    file: str,
+    file: str | None,
     enable_plugin_stacktrace: bool = False,
     dry_run: bool = False,
     force: bool = False,
@@ -149,11 +164,12 @@ def deploy(
     try:
         exporter = Exporter()
         exporter.export_from_context(compiler.context)
-        logger.info("Deploying model.")
         deployer = Deployer()
         if (dry_run or PROJECT_SETTINGS.dry_run) and not force:
+            logger.info("Performing dry run.")
             asyncio.run(deployer.dry_run(exporter))
         else:
+            logger.info("Deploying model.")
             asyncio.run(deployer.deploy(exporter, log_progress=True))
     except EikoError as e:
         logger.error(str(e))
@@ -195,7 +211,7 @@ def install_pkg(target: str) -> None:
     if target == ".":
         requires: list[str] = []
         requires.extend(PROJECT_SETTINGS.eikobot_requires)
-        _pkg_data_path = Path("eiko.tml")
+        _pkg_data_path = Path("eiko.toml")
         if _pkg_data_path.exists():
             try:
                 pkg_data = package_manager.read_pkg_toml(_pkg_data_path)
@@ -257,27 +273,51 @@ def uninstall_pkg(name: str) -> None:
         logger.error(str(e))
 
 
-def main() -> None:
+@cli.group()
+def project() -> None:
+    pass
+
+
+@project.command()
+def init() -> None:
     """
-    Python entrypoint function that does some housekeeping.
+    Initialize an existing project.
     """
+    if PROJECT_SETTINGS.exists:
+        asyncio.run(init_project())
+    else:
+        logger.error("CWD does not have an eiko.toml file.")
+
+
+def _run_wrapped() -> None:
     # There is a problem relative imports in python code
     # that we import python code from eiko modules/packages at runtime
     # This bug only happens if we are not pythons main entrypoint.
     # In other words this is a pretty ugly hack.
+    _process = subprocess.Popen(
+        [
+            "python",
+            "-m",
+            "eikobot",
+            *sys.argv[1:],
+        ],
+    )
+    try:
+        _process.wait()
+    except KeyboardInterrupt:
+        _process.send_signal(signal.SIGINT)
+
+    sys.exit(_process.returncode)
+
+
+def main() -> None:
+    """
+    Python entrypoint function that does some housekeeping.
+    """
     if __name__ == "__main__":
         cli()
     else:
-        process = subprocess.run(
-            [
-                "python",
-                "-m",
-                "eikobot",
-                *sys.argv[1:],
-            ],
-            check=False,
-        )
-        sys.exit(process.returncode)
+        _run_wrapped()
 
 
 if __name__ == "__main__":

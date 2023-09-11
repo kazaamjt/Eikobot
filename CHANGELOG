@@ -3,6 +3,7 @@
 ## 0.7.2 Bug fixes
 
 - `std.HostModel.scp_to` and `std.HostModel.scp_from` now take `pathlib.Path` as an argument
+- Added `eikobot project init` command that installs requirements for you.
 
 ## 0.7.1 Bug fixes
 

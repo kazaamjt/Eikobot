@@ -3,7 +3,6 @@ For help with creating, distributing and installing packages.
 """
 import asyncio
 import copy
-import json
 import os
 import shutil
 import subprocess
@@ -316,11 +315,7 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
         )
 
     logger.debug(f"Installing requirements for '{pkg_name}'.")
-    tasks: list[asyncio.Task] = []
-    for req in pkg_data.eikobot_requires:
-        tasks.append(asyncio.create_task(install_pkg(req)))
-
-    _ = await asyncio.gather(*tasks, return_exceptions=True)
+    await install_pkgs(pkg_data.eikobot_requires)
 
     try:
         shutil.copytree(
@@ -369,3 +364,8 @@ def _uninstall_pkg(pkg_data: PackageData) -> None:
 
     shutil.rmtree(LIB_PATH / pkg_data.pkg_name_version())
     logger.info(f"Uninstalled '{pkg_data.pkg_name_version()}'")
+
+
+async def install_pkgs(pkg_list: list[str]) -> None:
+    for pkg in pkg_list:
+        await install_pkg(pkg)
