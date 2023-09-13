@@ -210,7 +210,6 @@ def install_pkg(target: str) -> None:
     """
     if target == ".":
         requires: list[str] = []
-        requires.extend(PROJECT_SETTINGS.eikobot_requires)
         _pkg_data_path = Path("eiko.toml")
         if _pkg_data_path.exists():
             try:
@@ -218,30 +217,14 @@ def install_pkg(target: str) -> None:
                 requires.extend(pkg_data.eikobot_requires)
             except EikoError:
                 pass
+
         if len(requires) > 0:
-            asyncio.run(_install_pkg_multi(requires))
+            asyncio.run(package_manager.install_pkgs(requires))
         else:
             logger.error("No requirements found.")
 
-        logger.debug("Installing project python dependencies.")
-        requirements_file = Path("requirements.txt")
-        if requirements_file.exists():
-            logger.debug("Installing python requirements.")
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", requirements_file],
-                check=True,
-            )
-
     else:
         asyncio.run(_install_pkg(target))
-
-
-async def _install_pkg_multi(targets: list[str]) -> None:
-    tasks: list[asyncio.Task] = []
-    for target in targets:
-        tasks.append(asyncio.create_task(_install_pkg(target)))
-
-    await asyncio.gather(*tasks)
 
 
 async def _install_pkg(target: str) -> None:
@@ -256,9 +239,25 @@ def list_pkg() -> None:
     """
     Lists all installed packages.
     """
-    packages = package_manager.get_installed_pkgs()
+    packages = package_manager.get_pkg_index()
     for pkg in packages.values():
         print(f"{pkg.name}=={pkg.version}")
+
+
+@package.group()
+def release() -> None:
+    pass
+
+
+@release.command()
+def github() -> None:
+    """
+    Creates a release
+    """
+    try:
+        asyncio.run(package_manager.create_github_release())
+    except EikoError as e:
+        logger.error(str(e))
 
 
 @package.command(name="uninstall")

@@ -1,11 +1,13 @@
 # CHANGELOG
 
-## 0.7.2 Bug fixes
+## 0.7.2 Bug fixes and package manager optimizations
 
 - `std.HostModel.scp_to` and `std.HostModel.scp_from` now take `pathlib.Path` as an argument
 - Added `eikobot project init` command that installs requirements for you.
 - Added a timeout to ssh sessions that can be changed in the project settings.
-- Changed the github format to `GH://{owner}/{package_name}` to 
+- Changed the github format to `GH://{owner}/{package_name}`
+- Added a `eikobot package release github` command that automatically creates a release
+- Optimize the package manager so it doesn't need to redownload/reinstall packages
 
 ## 0.7.1 Bug fixes
 

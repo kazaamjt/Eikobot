@@ -3,6 +3,7 @@ For help with creating, distributing and installing packages.
 """
 import asyncio
 import copy
+import json
 import os
 import shutil
 import subprocess
@@ -27,8 +28,14 @@ LIB_PATH = Path(__file__).parent / "lib"
 LIB_PATH.mkdir(exist_ok=True)
 
 PKG_INDEX_PATH = Path(__file__).parent / "index.json"
-PKG_INDEX: dict[str, "PackageData"] = {}
-_GH_HEADERS = {"Accept": "application/vnd.github+json"}
+
+GH_HEADERS = {
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Accept": "application/vnd.github+json",
+}
+GH_TOKEN = os.environ.get("GITHUB_TOKEN", None)
+if GH_TOKEN is not None:
+    GH_HEADERS["Authorization"] = f"Bearer {GH_TOKEN}"
 
 
 class EikoPackageError(EikoError):
@@ -56,6 +63,7 @@ class PackageData(BaseModel):
     eikobot_version: str | None = None
     eikobot_requires: list[str] = []
     python_requires: list[str] = []
+    github_name: str | None = None
 
     def pkg_name_version(self) -> str:
         """
@@ -69,10 +77,16 @@ class PackageData(BaseModel):
         return name
 
 
-def _construct_pkg_index() -> None:
+def get_pkg_index() -> dict[str, "PackageData"]:
+    """
+    Constructs the package index and returns it
+    """
+    pkg_index: dict[str, "PackageData"] = {}
     for pkg_dir in LIB_PATH.glob("*"):
         pkg_data = read_pkg_toml(pkg_dir / "eiko.toml")
-        PKG_INDEX[pkg_data.name] = pkg_data
+        pkg_index[pkg_data.name] = pkg_data
+
+    return pkg_index
 
 
 def read_pkg_toml(path: Path) -> PackageData:
@@ -92,14 +106,15 @@ def read_pkg_toml(path: Path) -> PackageData:
     return pkg_data
 
 
-def build_pkg() -> None:
+def build_pkg(pkg_data: PackageData | None = None) -> Path:
     """Builds a package in the cwd"""
     logger.info("Building package.")
     eiko_toml_path = Path("eiko.toml")
-    if not eiko_toml_path.exists():
-        raise EikoPackageError("eiko.toml file missing.")
+    if pkg_data is None:
+        if not eiko_toml_path.exists():
+            raise EikoPackageError("eiko.toml file missing.")
+        pkg_data = read_pkg_toml(eiko_toml_path)
 
-    pkg_data = read_pkg_toml(eiko_toml_path)
     dist = Path("dist")
     dist.mkdir(exist_ok=True)
     if not pkg_data.source_dir.exists():
@@ -133,6 +148,7 @@ def build_pkg() -> None:
     shutil.rmtree(build_dir, ignore_errors=True)
 
     logger.info(f"Build package '{dist_name}'")
+    return dist_file
 
 
 async def install_pkg(pkg_def: str) -> None:
@@ -140,7 +156,6 @@ async def install_pkg(pkg_def: str) -> None:
     This functions gets a string prompt and will try to figure out
     if the package is http(s), git or a path.
     """
-    _construct_pkg_index()
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10)) as session:
         if pkg_def.startswith("http://") or pkg_def.startswith("https://"):
             await _download_pkg(pkg_def, session)
@@ -165,6 +180,18 @@ async def _download_pkg(url: str, session: aiohttp.ClientSession) -> None:
         )
 
 
+def _get_gh_package(github_name: str) -> PackageData | None:
+    pkg_index = get_pkg_index()
+    for package in pkg_index.values():
+        if (
+            package.github_name is not None
+            and package.github_name.lower() == github_name.lower()
+        ):
+            return package
+
+    return None
+
+
 @dataclass
 class GHAsset:
     name: str
@@ -177,15 +204,26 @@ async def _download_pkg_gh(pkg_def: str, session: aiohttp.ClientSession) -> None
     """
     logger.debug(f"[{pkg_def}] Parsing github link.")
     _pkg_def = pkg_def.replace("GH://", "")
-    _version: version.Version | None
+    _version: version.Version | None = None
     if "==" in _pkg_def:
         _pkg_def, _version = _parse_pkg_version("GH://", _pkg_def)
-    else:
-        _version = None
+
+    prev_pkg = _get_gh_package(_pkg_def)
+    if prev_pkg is not None:
+        if _version is None or (
+            prev_pkg.version is not None and version.parse(prev_pkg.version) == _version
+        ):
+            logger.info(f"Package '{_pkg_def}' already installed.")
+            return
+
+        _uninstall_pkg(prev_pkg)
 
     assets = await _get_gh_assets(
         f"https://api.github.com/repos/{_pkg_def}", pkg_def, session
     )
+
+    if len(assets) == 0:
+        raise EikoPackageError(f"Github package '{pkg_def}' has no releases or assets.")
 
     pkg: GHAsset | None = None
     _, pkg_name = _pkg_def.split("/")
@@ -217,18 +255,21 @@ def _parse_pkg_version(protocol: str, pkg_def: str) -> tuple[str, version.Versio
 
 
 async def _get_gh_assets(
-    gh_url: str, pkg_def: str, session: aiohttp.ClientSession
+    gh_url: str,
+    pkg_def: str,
+    session: aiohttp.ClientSession,
 ) -> list[GHAsset]:
     logger.debug(f"[{pkg_def}] Getting github releases.")
-    releases_resp = await session.get(gh_url + "/releases", headers=_GH_HEADERS)
-    if releases_resp.status != 200:
+    releases_resp = await session.get(gh_url + "/releases", headers=GH_HEADERS)
+    if 200 < releases_resp.status > 299:
+        await session.close()
         raise EikoPackageError(
-            f"Package not found on github: '{pkg_def}'. (HTTP {releases_resp.status})"
+            f"Repo not found on github: '{pkg_def}'. (HTTP {releases_resp.status})"
         )
 
     releases = await releases_resp.json()
     if len(releases) == 0:
-        raise EikoPackageError(f"Github package '{pkg_def}' has no releases.")
+        return []
 
     logger.debug(f"[{pkg_def}] Getting github assets.")
     assets: list[GHAsset] = []
@@ -237,9 +278,6 @@ async def _get_gh_assets(
         unparsed_assets = await assets_resp.json()
         for _asset in unparsed_assets:
             assets.append(GHAsset(_asset["name"], _asset["browser_download_url"]))
-
-    if len(assets) == 0:
-        raise EikoPackageError(f"Github package '{pkg_def}' has no assets.")
 
     return assets
 
@@ -279,6 +317,7 @@ async def _install_pkg_from_path(pkg_path: Path) -> None:
 
 async def _install_pkg_from_cache(archive_name: str) -> None:
     pkg_name = archive_name.removesuffix(".eiko.tar.gz")
+    pkg_index = get_pkg_index()
     if (LIB_PATH / archive_name).exists():
         logger.debug("Archive is already unpacked.")
 
@@ -289,7 +328,7 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
 
     pkg_lib_path = LIB_PATH / pkg_name
     pkg_data = read_pkg_toml(pkg_lib_path / "eiko.toml")
-    prev_pkg = PKG_INDEX.get(pkg_data.name)
+    prev_pkg = pkg_index.get(pkg_data.name)
     if prev_pkg is not None:
         if pkg_data.version != prev_pkg.version or pkg_data.version is None:
             _uninstall_pkg(prev_pkg)
@@ -298,9 +337,6 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
                 f"Package '{pkg_data.name}=={pkg_data.version}' already installed."
             )
             return
-
-    with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
-        archive.extractall(LIB_PATH)
 
     if pkg_data.version is None:
         logger.debug(f"Installing '{pkg_data.name}'.")
@@ -337,17 +373,11 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
         logger.info(f"Installed '{pkg_data.name}=={pkg_data.version}'.")
 
 
-def get_installed_pkgs() -> dict[str, PackageData]:
-    _construct_pkg_index()
-    return copy.deepcopy(PKG_INDEX)
-
-
 def uninstall_pkg(name: str) -> None:
     """
     Uninstalls a package.
     """
-    _construct_pkg_index()
-    pkg_data = PKG_INDEX.get(name)
+    pkg_data = get_pkg_index().get(name)
     if pkg_data is None:
         logger.error(f"Package not found: '{name}'")
         return
@@ -369,3 +399,132 @@ def _uninstall_pkg(pkg_data: PackageData) -> None:
 async def install_pkgs(pkg_list: list[str]) -> None:
     for pkg in pkg_list:
         await install_pkg(pkg)
+
+
+async def create_github_release() -> None:
+    """
+    Does the follozing in order:
+    - Checks to make sure the version doesn't exist on Github
+    - Builds the package
+    - Tags it on the git tree and pushes the tags
+    - Creates a release on Github
+    - Uploads the package as a release asset
+    """
+    if GH_TOKEN is None:
+        raise EikoPackageError("Environment variable 'GITHUB_TOKEN' must be set.")
+
+    logger.info("Releasing to github.")
+    eiko_toml_path = Path("eiko.toml")
+    if not eiko_toml_path.exists():
+        raise EikoPackageError("eiko.toml file missing.")
+    pkg_data = read_pkg_toml(eiko_toml_path)
+
+    if pkg_data.github_name is None:
+        raise EikoPackageError("'github_name' must be set in eiko.toml.")
+    owner, repo = pkg_data.github_name.split("/")
+
+    if pkg_data.version is None:
+        raise EikoPackageError("'version' must be set in eiko.toml.")
+
+    git_status = await asyncio.subprocess.create_subprocess_shell(
+        "git status --porcelain",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await git_status.communicate()
+    if stdout.decode():
+        raise EikoPackageError("Git tree is not clean!\n" + stdout.decode())
+
+    logger.debug("Checking github repo for existing packages.")
+    session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10))
+    gh_assets = await _get_gh_assets(
+        f"https://api.github.com/repos/{pkg_data.github_name}",
+        pkg_data.github_name,
+        session,
+    )
+
+    for asset in gh_assets:
+        if pkg_data.version in asset.name:
+            await session.close()
+            raise EikoPackageError(
+                f"A release with version number '{pkg_data.version}' "
+                "already exists on Github."
+            )
+
+    archive = build_pkg(pkg_data)
+    logger.info("Creating git tags.")
+    await _git_tag_and_push(pkg_data)
+
+    logger.info("Creating release on github and uploading data.")
+    release_url = await _create_gh_release(owner, repo, pkg_data, session)
+    await _upload_gh_asset(archive, release_url, session)
+
+    await session.close()
+    logger.info("Successfully created release!")
+
+
+async def _git_tag_and_push(pkg_data: PackageData) -> None:
+    await asyncio.subprocess.create_subprocess_shell(
+        f"git tag {pkg_data.version}",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    await asyncio.subprocess.create_subprocess_shell(
+        f"git tag v{pkg_data.version}",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    await asyncio.subprocess.create_subprocess_shell(
+        "git push --tags",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+
+async def _create_gh_release(
+    owner: str,
+    repo: str,
+    pkg_data: PackageData,
+    session: aiohttp.ClientSession,
+) -> str:
+    url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+    data = {
+        "owner": owner,
+        "repo": repo,
+        "tag_name": pkg_data.version,
+        "name": f"v{pkg_data.version}",
+        "draft": False,
+        "prerelease": False,
+        "generate_release_notes": False,
+    }
+    headers = {
+        **GH_HEADERS,
+        "content-type": "application/json",
+    }
+    response = await session.post(
+        url,
+        data=json.dumps(data),
+        headers=headers,
+    )
+    if 200 < response.status > 299:
+        await session.close()
+        raise EikoPackageError(
+            "Failed to create a release on Github. "
+            f"(HTTP {response.status}: {await response.text()})"
+        )
+
+    return (await response.json())["url"]  # type: ignore
+
+
+async def _upload_gh_asset(
+    asset: Path, release_url: str, session: aiohttp.ClientSession
+) -> None:
+    url = release_url.replace("api.github.com", "uploads.github.com")
+    url += f"/assets?name={asset.name}"
+    response = await session.post(url, data=asset.read_bytes(), headers=GH_HEADERS)
+    if 200 < response.status > 299:
+        await session.close()
+        raise EikoPackageError(
+            "Failed to upload asset to Github release. "
+            f"(HTTP {response.status}: {await response.text()})"
+        )
