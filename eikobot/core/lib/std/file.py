@@ -31,17 +31,17 @@ def render_template(template: str, data: dict) -> str:
     """
     jinja_template = Template(template)
 
-    _data: dict[str, Union[str, int, bool, float]] = {}
+    _data: dict[str, Union[str, int, bool, float, dict, list]] = {}
     for key, value in data.items():
         if not isinstance(key, str):
             raise EikoPluginException(
                 "render_template requires keys in its data dict to be strings."
             )
 
-        if not isinstance(value, (str, int, bool, float)):
+        if not isinstance(value, (str, int, bool, float, dict, list)):
             raise EikoPluginException(
                 "render_template requires values to be strings, "
-                "bools, floats or integers."
+                "bools, floats, integers or dicts and lists."
             )
 
         _data[key] = value
@@ -172,7 +172,7 @@ class FileHandler(CRUDHandler):
             f.write(resource.content)
 
         await resource.host.scp_to(
-            str(ctx.task_cache / resource.path.name),
+            Path(ctx.task_cache / resource.path.name),
             ctx,
             str(resource.path),
         )

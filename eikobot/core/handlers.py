@@ -157,5 +157,7 @@ class CRUDHandler(Handler):
                 ctx.info("Resource is in its desired state.")
             else:
                 ctx.info(f"Resource would be updated. (changes: {ctx.changes})")
+        elif ctx.failed:
+            ctx.error("Resource is in a failed state!")
         else:
             ctx.info("Resource would be created.")

@@ -3,7 +3,6 @@ A project differs from a module in that
 a project is meant to be deployed.
 It containes modules and a model.
 """
-import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -13,7 +12,7 @@ from pydantic import BaseModel, ValidationError
 
 from .. import VERSION
 from ..core import logger
-from .package_manager import install_pkgs
+from .package_manager import install_pkgs, install_py_deps
 
 
 class ProjectSettings(BaseModel):
@@ -125,19 +124,7 @@ async def init_project() -> None:
     logger.info("Initializing eikobot project.")
     if PROJECT_SETTINGS.exists:
         logger.info("Installing Project Python requirements.")
-        for requirement in PROJECT_SETTINGS.python_requires:
-            logger.debug(f"RUN 'pip install {requirement}'")
-            _pip = subprocess.run(
-                ["pip", "install", requirement],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
-            )
-            logger.debug("pip output:\n" + _pip.stdout.decode())
-            if _pip.returncode != 0:
-                logger.error(f"'pip install {requirement}' failed.")
-                print(_pip.stderr.decode())
-                sys.exit(1)
+        install_py_deps(PROJECT_SETTINGS.python_requires)
 
         logger.info("Installing Project Eikobot requirements.")
         await install_pkgs(PROJECT_SETTINGS.eikobot_requires)

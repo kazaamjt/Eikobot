@@ -4,8 +4,9 @@
 # pylint: disable=too-many-statements
 import pytest
 
-from eikobot import VERSION, eiko_version_match
+from eikobot import VERSION
 from eikobot.core.package_manager import PackageData
+from eikobot.core.project import eiko_version_match
 
 
 @pytest.mark.parametrize(

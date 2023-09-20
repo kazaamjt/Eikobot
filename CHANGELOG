@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.7.3 More bug fixes
+
+- Fixed a bug where `eikobot package isntall .` did not properly install requirments.
+
 ## 0.7.2 Bug fixes and package manager optimizations
 
 - `std.HostModel.scp_to` and `std.HostModel.scp_from` now take `pathlib.Path` as an argument

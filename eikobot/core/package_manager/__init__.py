@@ -343,12 +343,7 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
     else:
         logger.debug(f"Installing '{pkg_data.name}=={pkg_data.version}'.")
 
-    if pkg_data.python_requires:
-        logger.debug("Installing python requirements.")
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-r", *pkg_data.python_requires],
-            check=True,
-        )
+    install_py_deps(pkg_data.python_requires)
 
     logger.debug(f"Installing requirements for '{pkg_name}'.")
     await install_pkgs(pkg_data.eikobot_requires)
@@ -371,6 +366,32 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
         logger.info(f"Installed '{pkg_data.name}'.")
     else:
         logger.info(f"Installed '{pkg_data.name}=={pkg_data.version}'.")
+
+
+def install_py_deps(deps: list[str]) -> None:
+    """
+    Install Python dependencies using pip running in a subprocess.
+    """
+    logger.debug("Installing python requirements.")
+    if logger.LOG_LEVEL == logger.LogLevel.DEBUG:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pip", "install", *deps],
+            check=False,
+        )
+    else:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pip", "install", *deps],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    if proc.returncode != 0:
+        logger.error(f"'pip install {' '.join(deps)}' failed.")
+        if logger.LOG_LEVEL != logger.LogLevel.DEBUG:
+            print(proc.stderr.decode())
+
+        sys.exit(1)
 
 
 def uninstall_pkg(name: str) -> None:

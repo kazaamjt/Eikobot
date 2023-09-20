@@ -215,12 +215,14 @@ def install_pkg(target: str) -> None:
             try:
                 pkg_data = package_manager.read_pkg_toml(_pkg_data_path)
                 requires.extend(pkg_data.eikobot_requires)
+                if pkg_data.python_requires:
+                    package_manager.install_py_deps(pkg_data.python_requires)
             except EikoError:
                 pass
 
         if len(requires) > 0:
             asyncio.run(package_manager.install_pkgs(requires))
-        else:
+        elif not pkg_data.python_requires:
             logger.error("No requirements found.")
 
     else:
@@ -289,24 +291,25 @@ def init() -> None:
 
 
 def _run_wrapped() -> None:
-    # There is a problem relative imports in python code
-    # that we import python code from eiko modules/packages at runtime
+    # There is a problem with relative imports in python code
+    # when we import python code from eiko modules/packages at runtime.
     # This bug only happens if we are not pythons main entrypoint.
-    # In other words this is a pretty ugly hack.
-    _process = subprocess.Popen(
+    # In other words this is a pretty ugly hack, and I do not know
+    # any otehr fixes at this point.
+    with subprocess.Popen(
         [
             "python",
             "-m",
             "eikobot",
             *sys.argv[1:],
         ],
-    )
-    try:
-        _process.wait()
-    except KeyboardInterrupt:
-        _process.send_signal(signal.SIGINT)
+    ) as _process:
+        try:
+            _process.wait()
+        except KeyboardInterrupt:
+            _process.send_signal(signal.SIGINT)
 
-    sys.exit(_process.returncode)
+        sys.exit(_process.returncode)
 
 
 def main() -> None:
