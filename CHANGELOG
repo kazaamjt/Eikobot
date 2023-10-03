@@ -1,8 +1,13 @@
 # CHANGELOG
 
+## 0.7.4 Yet more bug fixes
+
+- Made packages installable in "editable" mode, using the "-e" flag, similar to pythong packages using pip
+- Fixed a bug in the import system. Python relative imports inside packages didn't work
+
 ## 0.7.3 More bug fixes
 
-- Fixed a bug where `eikobot package isntall .` did not properly install requirments.
+- Fixed a bug where `eikobot package install .` did not properly install requirments.
 
 ## 0.7.2 Bug fixes and package manager optimizations
 

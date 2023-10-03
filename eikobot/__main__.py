@@ -204,11 +204,14 @@ def build_pkg() -> None:
 
 @package.command(name="install")
 @click.argument("target")
-def install_pkg(target: str) -> None:
+@click.option("-e", "--editable", is_flag=True)
+def install_pkg(target: str, editable: bool) -> None:
     """
     Install a package from different sources.
     """
-    if target == ".":
+    if editable:
+        asyncio.run(package_manager.install_editable_pkg(target))
+    elif target == ".":
         requires: list[str] = []
         _pkg_data_path = Path("eiko.toml")
         if _pkg_data_path.exists():

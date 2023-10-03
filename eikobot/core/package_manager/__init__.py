@@ -2,7 +2,6 @@
 For help with creating, distributing and installing packages.
 """
 import asyncio
-import copy
 import json
 import os
 import shutil
@@ -26,8 +25,6 @@ CACHE_PATH = Path(__file__).parent / "cache"
 CACHE_PATH.mkdir(exist_ok=True)
 LIB_PATH = Path(__file__).parent / "lib"
 LIB_PATH.mkdir(exist_ok=True)
-
-PKG_INDEX_PATH = Path(__file__).parent / "index.json"
 
 GH_HEADERS = {
     "X-GitHub-Api-Version": "2022-11-28",
@@ -93,7 +90,7 @@ def read_pkg_toml(path: Path) -> PackageData:
     """
     Reads a toml and returns it's settings as python object.
     """
-    logger.debug("Reading eiko toml file.")
+    logger.debug(f"Reading eiko toml file '{path}'.")
     toml = tomllib.loads(path.read_text(encoding="utf-8"))
     pkg_toml = toml.get("eiko", {}).get("package")
     if pkg_toml is None:
@@ -127,8 +124,7 @@ def build_pkg(pkg_data: PackageData | None = None) -> Path:
     build_dir = dist / "build"
     shutil.rmtree(build_dir, ignore_errors=True)
     build_dir.mkdir()
-    # Compile every file here to make sure they are valid?
-    # This would also be the place to check for dangerous sources.
+
     shutil.copytree(
         pkg_data.source_dir,
         build_dir / pkg_data.source_dir,
@@ -301,7 +297,7 @@ async def _download_to_cache(url: str, session: aiohttp.ClientSession) -> None:
     else:
         logger.debug(f"Using cached version of '{pkg_path.name}'.")
 
-    await _install_pkg_from_cache(pkg_path.name)
+    await _unpack_and_install(pkg_path.name)
 
 
 async def _install_pkg_from_path(pkg_path: Path) -> None:
@@ -312,22 +308,36 @@ async def _install_pkg_from_path(pkg_path: Path) -> None:
         raise EikoPackageError(f"Package path does not exist: '{pkg_path}'.")
     logger.debug("Adding archive to cache.")
     shutil.copy(pkg_path, CACHE_PATH)
-    await _install_pkg_from_cache(pkg_path.name)
+    await _unpack_and_install(pkg_path.name)
 
 
-async def _install_pkg_from_cache(archive_name: str) -> None:
-    pkg_name = archive_name.removesuffix(".eiko.tar.gz")
-    pkg_index = get_pkg_index()
-    if (LIB_PATH / archive_name).exists():
+async def _unpack_and_install(archive_name: str) -> None:
+    _unpack_archive(archive_name)
+    await _install_pkg_from_cache(archive_name)
+
+
+def _unpack_archive(archive_name: str) -> None:
+    if (LIB_PATH / archive_name.removesuffix(".eiko.tar.gz")).exists():
         logger.debug("Archive is already unpacked.")
 
     else:
-        logger.debug("Unpacking archive.")
+        logger.debug(f"Unpacking archive '{archive_name}'.")
         with tarfile.open(CACHE_PATH / archive_name, "r:gz") as archive:
             archive.extractall(LIB_PATH)
 
+
+async def _install_pkg_from_cache(
+    archive_name: str,
+    pkg_data: PackageData | None = None,
+) -> None:
+    pkg_name = archive_name.removesuffix(".eiko.tar.gz")
+    pkg_index = get_pkg_index()
+
     pkg_lib_path = LIB_PATH / pkg_name
-    pkg_data = read_pkg_toml(pkg_lib_path / "eiko.toml")
+
+    if pkg_data is None:
+        pkg_data = read_pkg_toml(pkg_lib_path / "eiko.toml")
+
     prev_pkg = pkg_index.get(pkg_data.name)
     if prev_pkg is not None:
         if pkg_data.version != prev_pkg.version or pkg_data.version is None:
@@ -348,19 +358,9 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
     logger.debug(f"Installing requirements for '{pkg_name}'.")
     await install_pkgs(pkg_data.eikobot_requires)
 
-    try:
-        shutil.copytree(
-            pkg_lib_path / pkg_data.source_dir,
-            INTERNAL_LIB_PATH / pkg_data.source_dir,
-            dirs_exist_ok=False,
-        )
-    except FileExistsError:
-        # This is a bug in the package index
-        # I have no idea what causes it, but this is a hack around the issue.
-        os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
-        os.symlink(
-            pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
-        )
+    os.symlink(
+        pkg_lib_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir
+    )
 
     if pkg_data.version is None:
         logger.info(f"Installed '{pkg_data.name}'.")
@@ -368,30 +368,56 @@ async def _install_pkg_from_cache(archive_name: str) -> None:
         logger.info(f"Installed '{pkg_data.name}=={pkg_data.version}'.")
 
 
+async def install_editable_pkg(target: str) -> None:
+    """
+    Installs a dev version of package, symlinking to its location
+    instead of to the package lib.
+    """
+    pkg_path = Path(target).absolute()
+    eiko_toml_path = pkg_path / "eiko.toml"
+    if not eiko_toml_path.exists():
+        raise EikoPackageError("eiko.toml file missing.")
+    pkg_data = read_pkg_toml(eiko_toml_path)
+
+    pkg_index = get_pkg_index()
+    prev_pkg = pkg_index.get(pkg_data.name)
+    if prev_pkg is not None:
+        _uninstall_pkg(prev_pkg)
+
+    pkg_name = pkg_data.pkg_name_version()
+    pkg_lib_path = LIB_PATH / pkg_name
+    os.mkdir(pkg_lib_path)
+    logger.debug("Adding eiko.tml to package cache and symlinking source dir.")
+    shutil.copy(eiko_toml_path, pkg_lib_path / "eiko.toml")
+    os.symlink(pkg_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir)
+    logger.info(f"Installed '{pkg_data.pkg_name_version()}' in editable mode.")
+
+
 def install_py_deps(deps: list[str]) -> None:
     """
     Install Python dependencies using pip running in a subprocess.
     """
-    logger.debug("Installing python requirements.")
-    if logger.LOG_LEVEL == logger.LogLevel.DEBUG:
-        proc = subprocess.run(
-            [sys.executable, "-m", "pip", "install", *deps],
-            check=False,
-        )
-    else:
-        proc = subprocess.run(
-            [sys.executable, "-m", "pip", "install", *deps],
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+    if deps:
+        logger.debug("Installing python requirements.")
+        if logger.LOG_LEVEL == logger.LogLevel.DEBUG:
+            proc = subprocess.run(
+                [sys.executable, "-m", "pip", "install", *deps],
+                check=False,
+            )
+        else:
+            proc = subprocess.run(
+                [sys.executable, "-m", "pip", "install", *deps],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
-    if proc.returncode != 0:
-        logger.error(f"'pip install {' '.join(deps)}' failed.")
-        if logger.LOG_LEVEL != logger.LogLevel.DEBUG:
-            print(proc.stderr.decode())
+        if proc.returncode != 0:
+            logger.error(f"'pip install {' '.join(deps)}' failed.")
+            if logger.LOG_LEVEL != logger.LogLevel.DEBUG:
+                print(proc.stderr.decode())
 
-        sys.exit(1)
+            sys.exit(1)
 
 
 def uninstall_pkg(name: str) -> None:
@@ -408,10 +434,13 @@ def uninstall_pkg(name: str) -> None:
 
 def _uninstall_pkg(pkg_data: PackageData) -> None:
     logger.debug(f"Uninstalling '{pkg_data.pkg_name_version()}'")
-    try:
-        shutil.rmtree(INTERNAL_LIB_PATH / pkg_data.source_dir)
-    except FileNotFoundError:
-        pass
+    if os.path.islink(INTERNAL_LIB_PATH / pkg_data.source_dir):
+        os.remove(INTERNAL_LIB_PATH / pkg_data.source_dir)
+    else:
+        try:
+            shutil.rmtree(INTERNAL_LIB_PATH / pkg_data.source_dir)
+        except FileNotFoundError:
+            pass
 
     shutil.rmtree(LIB_PATH / pkg_data.pkg_name_version())
     logger.info(f"Uninstalled '{pkg_data.pkg_name_version()}'")

@@ -202,7 +202,9 @@ def load_python_code(module_name: str, file_path: Path) -> ModuleType:
     """
     Loads Python code from a given path.
     """
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    spec = importlib.util.spec_from_file_location(
+        f"eikobot.core.lib.{module_name}", file_path
+    )
     if spec is not None:
         py_module = importlib.util.module_from_spec(spec)
         if spec.loader is None:
