@@ -4,8 +4,6 @@ Schould only contain things related to the client cli.
 """
 import asyncio
 import datetime
-import signal
-import subprocess
 import sys
 import time
 import traceback
@@ -209,27 +207,30 @@ def install_pkg(target: str, editable: bool) -> None:
     """
     Install a package from different sources.
     """
-    if editable:
-        asyncio.run(package_manager.install_editable_pkg(target))
-    elif target == ".":
-        requires: list[str] = []
-        _pkg_data_path = Path("eiko.toml")
-        if _pkg_data_path.exists():
-            try:
-                pkg_data = package_manager.read_pkg_toml(_pkg_data_path)
-                requires.extend(pkg_data.eikobot_requires)
-                if pkg_data.python_requires:
-                    package_manager.install_py_deps(pkg_data.python_requires)
-            except EikoError:
-                pass
+    try:
+        if editable:
+            asyncio.run(package_manager.install_editable_pkg(target))
+        elif target == ".":
+            requires: list[str] = []
+            _pkg_data_path = Path("eiko.toml")
+            if _pkg_data_path.exists():
+                try:
+                    pkg_data = package_manager.read_pkg_toml(_pkg_data_path)
+                    requires.extend(pkg_data.eikobot_requires)
+                    if pkg_data.python_requires:
+                        package_manager.install_py_deps(pkg_data.python_requires)
+                except EikoError:
+                    pass
 
-        if len(requires) > 0:
-            asyncio.run(package_manager.install_pkgs(requires))
-        elif not pkg_data.python_requires:
-            logger.error("No requirements found.")
+            if len(requires) > 0:
+                asyncio.run(package_manager.install_pkgs(requires))
+            elif not pkg_data.python_requires:
+                logger.error("No requirements found.")
 
-    else:
-        asyncio.run(_install_pkg(target))
+        else:
+            asyncio.run(_install_pkg(target))
+    except EikoError as e:
+        logger.error(str(e))
 
 
 async def _install_pkg(target: str) -> None:
@@ -293,36 +294,11 @@ def init() -> None:
         logger.error("CWD does not have an eiko.toml file.")
 
 
-def _run_wrapped() -> None:
-    # There is a problem with relative imports in python code
-    # when we import python code from eiko modules/packages at runtime.
-    # This bug only happens if we are not pythons main entrypoint.
-    # In other words this is a pretty ugly hack, and I do not know
-    # any otehr fixes at this point.
-    with subprocess.Popen(
-        [
-            "python",
-            "-m",
-            "eikobot",
-            *sys.argv[1:],
-        ],
-    ) as _process:
-        try:
-            _process.wait()
-        except KeyboardInterrupt:
-            _process.send_signal(signal.SIGINT)
-
-        sys.exit(_process.returncode)
-
-
 def main() -> None:
     """
     Python entrypoint function that does some housekeeping.
     """
-    if __name__ == "__main__":
-        cli()
-    else:
-        _run_wrapped()
+    cli()
 
 
 if __name__ == "__main__":

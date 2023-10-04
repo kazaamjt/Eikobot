@@ -4,6 +4,8 @@
 
 - Made packages installable in "editable" mode, using the "-e" flag, similar to pythong packages using pip
 - Fixed a bug in the import system. Python relative imports inside packages didn't work
+- Fixed the issues caused by us not being `__main__` when invoked as `eikobot`
+- Removed the `run_wrapped` function that was used as a work around for not being `__main__`
 
 ## 0.7.3 More bug fixes
 

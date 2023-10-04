@@ -312,8 +312,9 @@ async def _install_pkg_from_path(pkg_path: Path) -> None:
 
 
 async def _unpack_and_install(archive_name: str) -> None:
+    pkg_index = get_pkg_index()
     _unpack_archive(archive_name)
-    await _install_pkg_from_cache(archive_name)
+    await _install_pkg_from_cache(archive_name, pkg_index=pkg_index)
 
 
 def _unpack_archive(archive_name: str) -> None:
@@ -329,14 +330,17 @@ def _unpack_archive(archive_name: str) -> None:
 async def _install_pkg_from_cache(
     archive_name: str,
     pkg_data: PackageData | None = None,
+    pkg_index: dict[str, PackageData] | None = None,
 ) -> None:
     pkg_name = archive_name.removesuffix(".eiko.tar.gz")
-    pkg_index = get_pkg_index()
 
     pkg_lib_path = LIB_PATH / pkg_name
 
     if pkg_data is None:
         pkg_data = read_pkg_toml(pkg_lib_path / "eiko.toml")
+
+    if pkg_index is None:
+        pkg_index = get_pkg_index()
 
     prev_pkg = pkg_index.get(pkg_data.name)
     if prev_pkg is not None:
