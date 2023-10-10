@@ -1,12 +1,15 @@
 # CHANGELOG
 
+## 0.7.5
+
+- Made `HandlerContext` a subscriptable
+
 ## 0.7.4 Yet more bug fixes
 
 - Made packages installable in "editable" mode, using the "-e" flag, similar to python packages using pip
 - Fixed a bug in the import system. Python relative imports inside packages now work properly.
 - Fixed the issues caused by us not being `__main__` when invoked as `eikobot`
 - Removed the `run_wrapped` function that was used as a work around for not being `__main__`
-- Made `HandlerContext` a subscriptable
 
 ## 0.7.3 More bug fixes
 
