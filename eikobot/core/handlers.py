@@ -3,26 +3,28 @@ Handlers are a way to describe to Eikobot how something should be deployed.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Generic, TypeVar
 
 from . import logger
-from .compiler.definitions.base_model import BaseModel
-from .compiler.definitions.base_types import EikoResource
+from .compiler.definitions.base_types import EikoBaseModel, EikoResource
 from .errors import EikoUnresolvedPromiseError
 
 CACHE_DIR = Path(".eikobot_cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
 
+V = TypeVar("V", bound=EikoBaseModel)
+
+
 @dataclass
-class HandlerContext:
+class HandlerContext(Generic[V]):
     """A HandlerContext keeps track of things required for a deployment."""
 
     raw_resource: EikoResource
     task_id: str
 
     def __post_init__(self) -> None:
-        self.resource: Union[dict, BaseModel]
+        self.resource: V
         self.changes: dict[str, Any] = {}
         self.deployed = False
         self.updated = False
