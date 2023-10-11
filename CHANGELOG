@@ -1,5 +1,11 @@
 # CHANGELOG
 
+
+## 0.7.6 Hotfix
+
+A bad import broke the whole compiler.  
+This import has been updated and now functions properly again.  
+
 ## 0.7.5
 
 - Made `HandlerContext` a subscriptable
