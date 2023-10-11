@@ -198,10 +198,14 @@ class Exporter:
             handler = resource.class_ref.handler()
             self.total_tasks += 1
 
+        # I have no idea how to fix the ignored type error below
+        # For reference:
+        # "Task" has incompatible type "HandlerContext[<nothing>]";
+        # expected "Union[HandlerContext[EikoBaseModel], HandlerContext[Dict[Any, Any]]]"
         _id = resource.index()
         task = Task(
             _id,
-            HandlerContext(resource, _id),
+            HandlerContext(resource, _id),  # type: ignore
             handler,
         )
 

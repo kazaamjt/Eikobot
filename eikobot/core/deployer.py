@@ -5,6 +5,7 @@ and goes through the tasks of deploying.
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 
 from . import logger
 from .exporter import Exporter, Task
@@ -29,16 +30,40 @@ class Deployer:
 
     def __init__(self) -> None:
         self.asyncio_tasks: list[asyncio.Task] = []
-        self.log_progress = False
         self.progress = DeployProgress(0)
         self.failed = False
+        self._in_progress = False
+        self._spinner_task: asyncio.Task
+
+    def start_async_spinner(self) -> None:
+        self._in_progress = True
+        self._spinner_task = asyncio.create_task(self._start_async_spinner())
+
+    async def _start_async_spinner(self) -> None:
+        for char in self._spinner_iter():
+            if not self._in_progress:
+                break
+            print("deploying", char, end="\r")
+            await asyncio.sleep(0.1)
+            print("", end="\x1b[1K\r")
+
+    def _spinner_iter(self) -> Iterator[str]:
+        while True:
+            for char in "|/-\\":
+                yield char
+
+    async def stop_async_spinner(self) -> None:
+        self._in_progress = False
+        await self._spinner_task
 
     async def deploy(self, exporter: Exporter, log_progress: bool = False) -> None:
         """
         Given a set of Tasks, walks through them and makes sure they're all done.
         """
+        if log_progress:
+            self.start_async_spinner()
+
         self.failed = False
-        self.log_progress = log_progress
         self.progress = DeployProgress(exporter.total_tasks, log_progress)
         for task in exporter.base_tasks:
             task.init(self._done_cb, self._failure_cb)
@@ -51,6 +76,9 @@ class Deployer:
         for task in exporter.task_index.values():
             if task.handler is not None:
                 await task.handler.cleanup(task.ctx)
+
+        if log_progress:
+            await self.stop_async_spinner()
 
     async def dry_run(self, exporter: Exporter) -> None:
         """Executes a dry run of all tasks."""

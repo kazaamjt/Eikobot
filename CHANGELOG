@@ -1,6 +1,11 @@
 # CHANGELOG
 
 
+## 0.7.7
+
+- Added a spinner, so the user knows eikobot is still doing things during long running tasks.
+- Made subscriptable `HandlerContext` better and fixed its typing in a couple of places.
+
 ## 0.7.6 Hotfix
 
 A bad import broke the whole compiler.  

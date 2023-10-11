@@ -796,7 +796,7 @@ class EikoResource(EikoBaseType):
     def index(self) -> str:
         return self._index
 
-    def to_py(self) -> "EikoBaseModel" | dict:
+    def to_py(self) -> "EikoBaseModel | dict":
         if self._py_object is not None:
             return self._py_object
 
@@ -814,8 +814,7 @@ class EikoResource(EikoBaseType):
             # Pydantic calls __dict__ when validating nested models
             # thereby returning new instances of objects that should not be recreated.
             # This can cause bugs as we rely on the objects staying the same.
-            # So we keep track of all of the nested and attributes and
-            # monkey patch them back in
+            # So we keep track of all of the nested attributes and patch them back in.
             if isinstance(new_value, BaseModel) and isinstance(value, EikoResource):
                 pydantic_nested[name] = new_value
             new_dict[name] = new_value

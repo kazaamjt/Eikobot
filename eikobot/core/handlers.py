@@ -3,7 +3,7 @@ Handlers are a way to describe to Eikobot how something should be deployed.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Union
 
 from . import logger
 from .compiler.definitions.base_model import EikoBaseModel
@@ -14,7 +14,7 @@ CACHE_DIR = Path(".eikobot_cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
 
-V = TypeVar("V", EikoBaseModel, dict)
+V = TypeVar("V", bound=Union[EikoBaseModel, dict])
 
 
 @dataclass
