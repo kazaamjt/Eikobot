@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 from . import logger
-from .compiler.definitions.base_types import EikoBaseModel, EikoResource
+from .compiler.definitions.base_model import EikoBaseModel
+from .compiler.definitions.base_types import EikoResource
 from .errors import EikoUnresolvedPromiseError
 
 CACHE_DIR = Path(".eikobot_cache")
