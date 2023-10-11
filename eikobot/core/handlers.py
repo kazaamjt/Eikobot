@@ -14,7 +14,7 @@ CACHE_DIR = Path(".eikobot_cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
 
-V = TypeVar("V", bound=EikoBaseModel)
+V = TypeVar("V", EikoBaseModel, dict)
 
 
 @dataclass

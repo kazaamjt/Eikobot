@@ -700,12 +700,12 @@ class EikoResource(EikoBaseType):
             "__depends_on__": EikoList(EikoObjectType)
         }
         self.promises: dict[str, EikoPromise] = {}
-        self._py_object: Optional["EikoBaseModel"] = None
+        self._py_object: "EikoBaseModel" | None = None
 
     def set_index(self, index: str) -> None:
         self._index = index
 
-    def get(self, name: str, token: Optional[Token] = None) -> EikoBaseType:
+    def get(self, name: str, token: Token | None = None) -> EikoBaseType:
         value = self.properties.get(name)
         if value is None or isinstance(value, EikoUnset):
             raise EikoCompilationError(
@@ -796,7 +796,7 @@ class EikoResource(EikoBaseType):
     def index(self) -> str:
         return self._index
 
-    def to_py(self) -> Union[BaseModel, dict]:
+    def to_py(self) -> "EikoBaseModel" | dict:
         if self._py_object is not None:
             return self._py_object
 

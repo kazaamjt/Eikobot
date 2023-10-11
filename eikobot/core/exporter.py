@@ -10,7 +10,7 @@ from . import logger
 from .compiler import Compiler, CompilerContext
 from .errors import EikoDeployError, EikoExportError, EikoInternalError
 from .handlers import Handler, HandlerContext
-from .helpers import EikoDict, EikoList, EikoResource
+from .helpers import EikoDict, EikoList, EikoResource, EikoBaseModel
 
 
 @dataclass
@@ -18,7 +18,7 @@ class Task:
     """A task is a piece of work the backend needs to do."""
 
     task_id: str
-    ctx: HandlerContext
+    ctx: HandlerContext[EikoBaseModel] | HandlerContext[dict]
     handler: Optional[Handler]
 
     def __post_init__(self) -> None:
