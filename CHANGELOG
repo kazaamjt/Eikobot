@@ -5,6 +5,7 @@
 
 - Added a spinner, so the user knows eikobot is still doing things during long running tasks.
 - Made subscriptable `HandlerContext` better and fixed its typing in a couple of places.
+- Fixed a bug where python dependencies were not install when installing a package in editable mode.
 
 ## 0.7.6 Hotfix
 

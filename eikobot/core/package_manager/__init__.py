@@ -382,6 +382,7 @@ async def install_editable_pkg(target: str) -> None:
     if not eiko_toml_path.exists():
         raise EikoPackageError("eiko.toml file missing.")
     pkg_data = read_pkg_toml(eiko_toml_path)
+    install_py_deps(pkg_data.python_requires)
 
     pkg_index = get_pkg_index()
     prev_pkg = pkg_index.get(pkg_data.name)
@@ -391,7 +392,7 @@ async def install_editable_pkg(target: str) -> None:
     pkg_name = pkg_data.pkg_name_version()
     pkg_lib_path = LIB_PATH / pkg_name
     os.mkdir(pkg_lib_path)
-    logger.debug("Adding eiko.tml to package cache and symlinking source dir.")
+    logger.debug("Adding eiko.toml to package cache and symlinking source dir.")
     shutil.copy(eiko_toml_path, pkg_lib_path / "eiko.toml")
     os.symlink(pkg_path / pkg_data.source_dir, INTERNAL_LIB_PATH / pkg_data.source_dir)
     logger.info(f"Installed '{pkg_data.pkg_name_version()}' in editable mode.")
