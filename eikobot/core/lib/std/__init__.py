@@ -639,9 +639,9 @@ class HostHandler(Handler):
 
         ctx.deployed = True
 
-    async def cleanup(self, ctx: HandlerContext) -> None:
-        ctx.debug("Cleaning up ssh connection.")
-        if isinstance(ctx.resource, HostModel):
+    async def cleanup(self, ctx: HandlerContext[HostModel]) -> None:
+        if hasattr(ctx, "resource"):
+            ctx.debug("Cleaning up ssh connection.")
             await ctx.resource.wait_until_disconnected()
 
 
