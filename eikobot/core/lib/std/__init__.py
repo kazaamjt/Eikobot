@@ -15,7 +15,6 @@ import asyncssh
 from asyncssh.connection import SSHClientConnection as SSHConnection
 from asyncssh.listener import SSHListener
 from colorama import Fore
-from pydantic import Extra
 
 from eikobot.core.handlers import Handler, HandlerContext
 from eikobot.core.helpers import (
@@ -127,7 +126,7 @@ class HostModel(EikoBaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-        extra = Extra.allow
+        extra = "allow"
 
     def __post_init__(self) -> None:
         self.is_windows_host: bool = False
@@ -144,7 +143,7 @@ class HostModel(EikoBaseModel):
         self._con_ref_count += 1
         if self._con_ref_count == 1:
             ctx.debug(f"SSH: Connecting to '{self.host}'.")
-            self._connection = await self._create_connection()
+            self._connection = await self._create_connection(ctx)
             ctx.debug(f"SSH: Connected to '{self.host}'.")
             self._connected.set()
 
@@ -152,7 +151,7 @@ class HostModel(EikoBaseModel):
             ctx.debug(f"SSH: Reusing existing connection to '{self.host}'.")
             await self._connected.wait()
 
-    async def _create_connection(self) -> SSHConnection:
+    async def _create_connection(self, ctx: HandlerContext) -> SSHConnection:
         extra_args: dict[str, str] = {}
         if self.username is not None:
             extra_args["username"] = self.username
@@ -172,6 +171,7 @@ class HostModel(EikoBaseModel):
         except asyncio.TimeoutError as e:
             raise SSHTimeout from e
         except asyncssh.HostKeyNotVerifiable as e:
+            await ctx.stop_spinner()
             key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
                 f"ssh {self.host} echo",
                 stdout=asyncio.subprocess.PIPE,
@@ -179,6 +179,7 @@ class HostModel(EikoBaseModel):
             )
 
             _, stderr = await key_scan.communicate()
+            ctx.start_spinner()
             if key_scan.returncode != 0:
                 raise EikoDeployError(
                     f"Host verification failed \n{stderr.decode()}"

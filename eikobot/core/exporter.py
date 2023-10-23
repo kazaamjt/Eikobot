@@ -4,13 +4,16 @@ and turns it in tasks the deployer understands.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 from . import logger
 from .compiler import Compiler, CompilerContext
 from .errors import EikoDeployError, EikoExportError, EikoInternalError
 from .handlers import Handler, HandlerContext
-from .helpers import EikoDict, EikoList, EikoResource, EikoBaseModel
+from .helpers import EikoBaseModel, EikoDict, EikoList, EikoResource
+
+if TYPE_CHECKING:
+    from .deployer import AsyncSpinner
 
 
 @dataclass
@@ -150,6 +153,7 @@ class Exporter:
         self.task_index: dict[str, Task] = {}
         self.base_tasks: list[Task] = []
         self.total_tasks: int = 0
+        self.spinner: "AsyncSpinner | None" = None
 
     def export_from_file(self, file: Path) -> None:
         """Compiles a file and exports the tasks."""
@@ -205,7 +209,7 @@ class Exporter:
         _id = resource.index()
         task = Task(
             _id,
-            HandlerContext(resource, _id),  # type: ignore
+            HandlerContext(resource, _id, self.spinner),  # type: ignore
             handler,
         )
 

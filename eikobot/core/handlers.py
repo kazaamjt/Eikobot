@@ -3,12 +3,15 @@ Handlers are a way to describe to Eikobot how something should be deployed.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, Union
 
 from . import logger
 from .compiler.definitions.base_model import EikoBaseModel
 from .compiler.definitions.base_types import EikoResource
 from .errors import EikoUnresolvedPromiseError
+
+if TYPE_CHECKING:
+    from .deployer import AsyncSpinner
 
 CACHE_DIR = Path(".eikobot_cache")
 CACHE_DIR.mkdir(exist_ok=True)
@@ -23,6 +26,7 @@ class HandlerContext(Generic[V]):
 
     raw_resource: EikoResource
     task_id: str
+    _spinner: "AsyncSpinner | None"
 
     def __post_init__(self) -> None:
         self.resource: V
@@ -61,6 +65,14 @@ class HandlerContext(Generic[V]):
 
     def error(self, msg: str) -> None:
         logger.error(f"[{self.name}] {msg}")
+
+    def start_spinner(self) -> None:
+        if self._spinner is not None:
+            self._spinner.start()
+
+    async def stop_spinner(self) -> None:
+        if self._spinner is not None:
+            await self._spinner.stop()
 
 
 class Handler:
