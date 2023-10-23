@@ -5,10 +5,13 @@ and goes through the tasks of deploying.
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 from . import logger
 from .exporter import Exporter, Task
+
+if TYPE_CHECKING:
+    from .compiler.definitions.context import CompilerContext
 
 
 @dataclass
@@ -66,12 +69,20 @@ class Deployer:
         self.failed = False
         self.spinner = AsyncSpinner()
 
-    async def deploy(self, exporter: Exporter, log_progress: bool = False) -> None:
+    async def deploy(
+        self, context: "CompilerContext", log_progress: bool = False
+    ) -> None:
         """
         Given a set of Tasks, walks through them and makes sure they're all done.
         """
+        exporter = Exporter()
         if log_progress:
             exporter.spinner = self.spinner
+        exporter.export_from_context(context)
+        await self._deploy(exporter, log_progress)
+
+    async def _deploy(self, exporter: Exporter, log_progress: bool = False) -> None:
+        if log_progress:
             self.spinner.start()
 
         self.failed = False
@@ -105,7 +116,7 @@ class Deployer:
         """Helper funcion meant mostly for testing."""
         exporter = Exporter()
         exporter.export_from_file(eiko_file)
-        await self.deploy(exporter)
+        await self._deploy(exporter)
 
     def _create_task(self, task: Task) -> None:
         asyncio_task = asyncio.create_task(self._execute_task(task))

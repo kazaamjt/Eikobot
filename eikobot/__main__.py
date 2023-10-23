@@ -160,15 +160,15 @@ def deploy(
     compiler = _compile(file, False, enable_plugin_stacktrace)
     logger.info("Exporting model.")
     try:
-        exporter = Exporter()
-        exporter.export_from_context(compiler.context)
         deployer = Deployer()
         if (dry_run or PROJECT_SETTINGS.dry_run) and not force:
+            exporter = Exporter()
+            exporter.export_from_context(compiler.context)
             logger.info("Performing dry run.")
             asyncio.run(deployer.dry_run(exporter))
         else:
             logger.info("Deploying model.")
-            asyncio.run(deployer.deploy(exporter, log_progress=True))
+            asyncio.run(deployer.deploy(compiler.context, log_progress=True))
     except EikoError as e:
         logger.error(str(e))
 

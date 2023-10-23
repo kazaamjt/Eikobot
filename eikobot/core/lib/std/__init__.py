@@ -170,21 +170,29 @@ class HostModel(EikoBaseModel):
             )
         except asyncio.TimeoutError as e:
             raise SSHTimeout from e
-        except asyncssh.HostKeyNotVerifiable as e:
-            await ctx.stop_spinner()
-            key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
-                f"ssh {self.host} echo",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+        except asyncssh.HostKeyNotVerifiable:
+            await self._verify_host(ctx)
+            return await self._create_connection(ctx)
 
-            _, stderr = await key_scan.communicate()
-            ctx.start_spinner()
-            if key_scan.returncode != 0:
-                raise EikoDeployError(
-                    f"Host verification failed \n{stderr.decode()}"
-                ) from e
-            return await asyncssh.connect(self.host, **extra_args)
+    async def _verify_host(self, ctx: HandlerContext) -> None:
+        url = ""
+        if self.username is not None:
+            url += self.username
+            if self.password:
+                url += ":" + self.password
+            url += "@"
+        url += self.host
+        await ctx.stop_spinner()
+        key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
+            f"ssh {url} echo",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        _, stderr = await key_scan.communicate()
+        ctx.start_spinner()
+        if key_scan.returncode != 0:
+            raise EikoDeployError(f"Host verification failed \n{stderr.decode()}")
 
     def disconnect(self, ctx: HandlerContext) -> None:
         """Disconnects if nothing else is using the same connection."""
