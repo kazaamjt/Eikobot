@@ -98,7 +98,7 @@ class EikoType:
         if self.super is None:
             return self
 
-        return self.super
+        return self.super.get_top_level_type()
 
     def __repr__(self) -> str:
         return self.name
@@ -523,7 +523,23 @@ class EikoPromise(EikoBaseType, Generic[T]):
         or if the promis was already assigned a different value.
         """
         _value = to_eiko(value)
+        top_level_type = self.type.get_top_level_type()
+        if top_level_type != self.type:
+            if not _value.type.type_check(top_level_type):
+                ctx.error(
+                    f"Promise '{self.name}' expects a value of type '{top_level_type}', but got '{type(value)}'."
+                )
+                raise ValueError
+            if self.type.typedef is None:
+                raise EikoInternalError(
+                    "Something went wrong trying to coerce a type to it's typedef inside a promise.",
+                )
+            _value = self.type.typedef.execute(_value, None)
+
         if not _value.type.type_check(self.type):
+            ctx.error(
+                f"Promise '{self.name}' expects a value of type '{self.type}', but got '{type(value)}'."
+            )
             raise ValueError
 
         if self.value is not None and _value.get_value() != self.value.get_value():
@@ -538,6 +554,7 @@ class EikoPromise(EikoBaseType, Generic[T]):
         """
         Assign is used internally to assign a promise from inside the language,
         rather then from a handler.
+        You probably want to use `set` instead.
         """
         if self.value is not None:
             raise EikoCompilationError(

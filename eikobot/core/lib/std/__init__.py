@@ -7,7 +7,14 @@ import getpass
 import os
 import re
 from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv6Address, ip_address
+from ipaddress import (
+    IPv4Address,
+    IPv4Network,
+    IPv6Address,
+    IPv6Network,
+    ip_address,
+    ip_network,
+)
 from pathlib import Path
 from typing import Optional, Type, Union
 
@@ -15,7 +22,6 @@ import asyncssh
 from asyncssh.connection import SSHClientConnection as SSHConnection
 from asyncssh.listener import SSHListener
 from colorama import Fore
-from pydantic import Extra
 
 from eikobot.core.handlers import Handler, HandlerContext
 from eikobot.core.helpers import (
@@ -62,6 +68,28 @@ def is_ipv6(addr: str) -> bool:
 def _is_ipaddr(addr: str, ip_type: Union[Type[IPv4Address], Type[IPv6Address]]) -> bool:
     try:
         cast_addr = ip_address(addr)
+        if isinstance(cast_addr, ip_type):
+            return True
+
+    except ValueError:
+        pass
+
+    return False
+
+
+@eiko_plugin()
+def is_ipv4_cidr(addr: str) -> bool:
+    return _is_cidr(addr, IPv4Network)
+
+
+@eiko_plugin()
+def is_ipv6_cidr(addr: str) -> bool:
+    return _is_cidr(addr, IPv4Network)
+
+
+def _is_cidr(addr: str, ip_type: Type[IPv4Network] | Type[IPv6Network]) -> bool:
+    try:
+        cast_addr = ip_network(addr)
         if isinstance(cast_addr, ip_type):
             return True
 
@@ -127,7 +155,7 @@ class HostModel(EikoBaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-        extra = Extra.allow
+        extra = "allow"
 
     def __post_init__(self) -> None:
         self.is_windows_host: bool = False
@@ -144,7 +172,7 @@ class HostModel(EikoBaseModel):
         self._con_ref_count += 1
         if self._con_ref_count == 1:
             ctx.debug(f"SSH: Connecting to '{self.host}'.")
-            self._connection = await self._create_connection()
+            self._connection = await self._create_connection(ctx)
             ctx.debug(f"SSH: Connected to '{self.host}'.")
             self._connected.set()
 
@@ -152,7 +180,7 @@ class HostModel(EikoBaseModel):
             ctx.debug(f"SSH: Reusing existing connection to '{self.host}'.")
             await self._connected.wait()
 
-    async def _create_connection(self) -> SSHConnection:
+    async def _create_connection(self, ctx: HandlerContext) -> SSHConnection:
         extra_args: dict[str, str] = {}
         if self.username is not None:
             extra_args["username"] = self.username
@@ -171,19 +199,29 @@ class HostModel(EikoBaseModel):
             )
         except asyncio.TimeoutError as e:
             raise SSHTimeout from e
-        except asyncssh.HostKeyNotVerifiable as e:
-            key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
-                f"ssh {self.host} echo",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+        except asyncssh.HostKeyNotVerifiable:
+            await self._verify_host(ctx)
+            return await self._create_connection(ctx)
 
-            _, stderr = await key_scan.communicate()
-            if key_scan.returncode != 0:
-                raise EikoDeployError(
-                    f"Host verification failed \n{stderr.decode()}"
-                ) from e
-            return await asyncssh.connect(self.host, **extra_args)
+    async def _verify_host(self, ctx: HandlerContext) -> None:
+        url = ""
+        if self.username is not None:
+            url += self.username
+            if self.password:
+                url += ":" + self.password
+            url += "@"
+        url += self.host
+        await ctx.stop_spinner()
+        key_scan = await asyncio.subprocess.create_subprocess_shell(  # pylint: disable=no-member
+            f"ssh {url} echo",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        _, stderr = await key_scan.communicate()
+        ctx.start_spinner()
+        if key_scan.returncode != 0:
+            raise EikoDeployError(f"Host verification failed \n{stderr.decode()}")
 
     def disconnect(self, ctx: HandlerContext) -> None:
         """Disconnects if nothing else is using the same connection."""
@@ -639,9 +677,9 @@ class HostHandler(Handler):
 
         ctx.deployed = True
 
-    async def cleanup(self, ctx: HandlerContext) -> None:
-        ctx.debug("Cleaning up ssh connection.")
-        if isinstance(ctx.resource, HostModel):
+    async def cleanup(self, ctx: HandlerContext[HostModel]) -> None:
+        if hasattr(ctx, "resource"):
+            ctx.debug("Cleaning up ssh connection.")
             await ctx.resource.wait_until_disconnected()
 
 

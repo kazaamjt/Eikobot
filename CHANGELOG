@@ -5,6 +5,12 @@
 
 - Added a spinner, so the user knows eikobot is still doing things during long running tasks.
 - Made subscriptable `HandlerContext` better and fixed its typing in a couple of places.
+- Fixed a bug where python dependencies were not install when installing a package in editable mode.
+- Updated dependencies.
+- Fixed a bug in `HostHandler.cleanup` that would cause a crash if execution of the task hadn't happened.
+- Fixed a bug in the promise system where values were not coerced to their proper types.
+- Added `IPv4Network` and `IPv6Network` types.
+- fixed a bug in `machine_readable`.
 
 ## 0.7.6 Hotfix
 

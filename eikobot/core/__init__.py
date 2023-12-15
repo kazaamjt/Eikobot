@@ -23,22 +23,22 @@ def machine_readable(number: str) -> int:
     if number.isdigit():
         return int(number)
 
-    if number.endswith("B"):
-        return int(number[:-1])
-
-    if number.endswith("KB"):
-        return int(number[:-2]) * 1024
-
-    if number.endswith("MB"):
-        return int(number[:-2]) * 1024**2
-
-    if number.endswith("GB"):
-        return int(number[:-2]) * 1024**3
+    if number.endswith("PB"):
+        return int(number[:-2]) * 1024**5
 
     if number.endswith("TB"):
         return int(number[:-2]) * 1024**4
 
-    if number.endswith("PB"):
-        return int(number[:-2]) * 1024**5
+    if number.endswith("GB"):
+        return int(number[:-2]) * 1024**3
+
+    if number.endswith("MB"):
+        return int(number[:-2]) * 1024**2
+
+    if number.endswith("KB"):
+        return int(number[:-2]) * 1024
+
+    if number.endswith("B"):
+        return int(number[:-1])
 
     raise ValueError(f"Cannot convert value of '{number}' to an integer.")
