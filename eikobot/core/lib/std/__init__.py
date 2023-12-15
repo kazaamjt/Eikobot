@@ -7,7 +7,14 @@ import getpass
 import os
 import re
 from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv6Address, ip_address
+from ipaddress import (
+    IPv4Address,
+    IPv4Network,
+    IPv6Address,
+    IPv6Network,
+    ip_address,
+    ip_network,
+)
 from pathlib import Path
 from typing import Optional, Type, Union
 
@@ -61,6 +68,28 @@ def is_ipv6(addr: str) -> bool:
 def _is_ipaddr(addr: str, ip_type: Union[Type[IPv4Address], Type[IPv6Address]]) -> bool:
     try:
         cast_addr = ip_address(addr)
+        if isinstance(cast_addr, ip_type):
+            return True
+
+    except ValueError:
+        pass
+
+    return False
+
+
+@eiko_plugin()
+def is_ipv4_cidr(addr: str) -> bool:
+    return _is_cidr(addr, IPv4Network)
+
+
+@eiko_plugin()
+def is_ipv6_cidr(addr: str) -> bool:
+    return _is_cidr(addr, IPv4Network)
+
+
+def _is_cidr(addr: str, ip_type: Type[IPv4Network] | Type[IPv6Network]) -> bool:
+    try:
+        cast_addr = ip_network(addr)
         if isinstance(cast_addr, ip_type):
             return True
 
