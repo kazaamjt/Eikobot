@@ -65,7 +65,7 @@ def error(*args: str, pre: str = "", **kwargs: Any) -> None:
 
 def print_error_trace(index: "Index") -> None:
     """Using a given index, creates a nice CLI trace."""
-    print(f'    File "{index.file.absolute()}", line {index.line + 1}')
+    print(f'    File "{index.file.absolute()}", line {index.line + 1}:')
     with open(index.file, "r", encoding="utf-8") as f:
         line = f.readlines()[index.line]
         clean_line = line.lstrip()
