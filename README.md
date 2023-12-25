@@ -31,13 +31,13 @@ While most interfaces are considered stable, several might still be subject to c
 
 ## Installation
 
-Eikobot requires python 3.10 or up and can be installed using pip.  
+Eikobot requires python 3.11 or up and can be installed using pip.  
 
 Here is an example of how to install Eikobot:  
 (This should work on most platforms, although the python command is different if you are on windows)
 
 ```bash
-python3.10 -m venv eikobot-venv
+python3.11 -m venv eikobot-venv
 eikobot-venv/bin/pip install eikobot
 ```
 
