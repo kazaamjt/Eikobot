@@ -41,7 +41,7 @@ def read_project() -> ProjectSettings:
     logger.debug("Reading eiko toml project file.")
     try:
         toml = tomllib.loads(Path("eiko.toml").read_text(encoding="utf-8"))
-        project_toml = toml.get("eiko", {}).get("project")
+        project_toml = toml.get("project")
         if project_toml is None:
             logger.debug("No project settings.")
             return ProjectSettings()

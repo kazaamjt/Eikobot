@@ -10,15 +10,16 @@ this_directory = Path(__file__).parent
 with open(this_directory / "README.md", encoding="utf-8") as f:
     long_description = f.read()
 
-VERSION = "0.7.7"
+VERSION = "0.7.8"
 REQUIRES = [
-    "aiohttp==3.8.6",
-    "asyncssh==2.14.0",
-    "click==8.1.7",
-    "colorama==0.4.6",
-    "jinja2==3.1.2",
-    "packaging==23.2",
-    "pydantic==2.4.2",
+    "aiohttp>=3.8.6",
+    "asyncssh>=2.14.0",
+    "click>=8.1.7",
+    "colorama>=0.4.6",
+    "jinja2>=3.1.2",
+    "packaging>=23.2",
+    "pydantic>=2.4.2",
+    "setuptools>=70.1.1"
 ]
 
 setuptools.setup(
