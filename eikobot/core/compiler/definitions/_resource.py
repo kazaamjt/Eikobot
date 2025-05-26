@@ -3,7 +3,7 @@ Resource and ResourceProperty class definitions.
 Resource is the base building block of the eiko language model.
 """
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 from .base_types import EikoBaseType, EikoPromise, EikoResource, EikoType
 
@@ -24,7 +24,7 @@ class ResourceProperty:
 
     name: str
     type: EikoType
-    default_value: Optional[EikoBaseType] = None
+    default_value: EikoBaseType | None = None
     type_expr: "TypeExprAST | None" = None
 
 
@@ -69,8 +69,8 @@ class EikoResourceDefinition(EikoBaseType):
         self.properties: PropertiesDict = properties
         self.index_def = [list(properties.keys())[0]]
         self.promises: list[EikoPromiseDefinition] = promises
-        self.handler: Optional[type["Handler"]] = None
-        self.linked_basemodel: Optional[type["EikoBaseModel"]] = None
+        self.handler: type["Handler"] | None = None
+        self.linked_basemodel: type["EikoBaseModel"] | None = None
 
     def printable(self, indent: str = "") -> str:
         return_str = f"{indent}Resource Definition '{self.name}'"

@@ -2,7 +2,7 @@
 Typedef definitions are executable functions of sorts.
 They can alias types and even put restrictions on them.
 """
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 from ...errors import EikoCompilationError
 from .._token import Token
@@ -29,7 +29,7 @@ class EikoTypeDef(EikoBaseType):
         self,
         name: str,
         super_type: Union[EikoType, "EikoTypeDef"],
-        condition: Optional["ExprAST"],
+        condition: "ExprAST | None",
         context: "CompilerContext",
     ) -> None:
         self.name = name
@@ -48,7 +48,7 @@ class EikoTypeDef(EikoBaseType):
     def truthiness(self) -> bool:
         raise NotImplementedError
 
-    def execute(self, arg: EikoBaseType, arg_token: Optional[Token]) -> BuiltinTypes:
+    def execute(self, arg: EikoBaseType, arg_token: Token | None) -> BuiltinTypes:
         """
         Cast a value to a type and make sure it fits the given condition expression.
         """

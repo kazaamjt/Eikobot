@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from inspect import getfullargspec, getmembers, isclass, isfunction
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable
 
 from .. import logger
 from ..errors import EikoCompilationError
@@ -36,9 +36,7 @@ class Module:
         self.context.set_path(self.path)
 
 
-def resolve_import(
-    import_path: list[str], context: "CompilerContext"
-) -> Optional[Module]:
+def resolve_import(import_path: list[str], context: "CompilerContext") -> Module | None:
     """
     Tries to import a given path.
     """
@@ -52,7 +50,7 @@ def resolve_import(
 
 def _resolve_import(
     import_path: list[str], parent: Path, context: "CompilerContext"
-) -> Optional[Module]:
+) -> Module | None:
     current = import_path[0]
     import_path.remove(current)
 
@@ -80,7 +78,7 @@ def _resolve_import(
     return None
 
 
-def test_path_is_module(path: Path, token: Optional[Token]) -> None:
+def test_path_is_module(path: Path, token: Token | None) -> None:
     if not (path / "__init__.eiko").exists():
         raise EikoCompilationError(
             "Import path not valid.",
@@ -90,7 +88,7 @@ def test_path_is_module(path: Path, token: Optional[Token]) -> None:
 
 def resolve_from_import(
     import_path: list[str], context: "CompilerContext", dots: list[Token]
-) -> Optional[Module]:
+) -> Module | None:
     """
     Tries to from import a given path list.
     """
@@ -115,7 +113,7 @@ def resolve_from_import(
 
 def _resolve_from_import(
     import_path: list[str], parent: Path, context: "CompilerContext"
-) -> Optional[Module]:
+) -> Module | None:
     current = import_path[0]
     import_path.remove(current)
 

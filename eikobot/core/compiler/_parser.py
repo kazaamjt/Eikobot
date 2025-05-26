@@ -9,7 +9,7 @@ These ExprASTs in turn can be compiled down to Eikobot data.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional, Tuple, Union
+from typing import Iterator, Tuple, Union
 
 from .. import logger
 from ..errors import (
@@ -80,9 +80,9 @@ class ExprAST:
     token: Token
 
     def __post_init__(self) -> None:
-        self.import_context: Optional[CompilerContext] = None
+        self.import_context: CompilerContext | None = None
 
-    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+    def compile(self, context: CompilerContext) -> StorableTypes | None:
         raise NotImplementedError(self.token)
 
 
@@ -448,7 +448,7 @@ class AndExprAST(ExprAST):
 class VariableExprAST(ExprAST):
     """An AST expressing a variable of some kind."""
 
-    type_expr: Optional["TypeExprAST"] = None
+    type_expr: "TypeExprAST | None" = None
 
     def __post_init__(self) -> None:
         if self.token.type != TokenType.IDENTIFIER:
@@ -559,7 +559,7 @@ class VariableExprAST(ExprAST):
 
     def compile(
         self, context: Union[CompilerContext, EikoBaseType]
-    ) -> Optional[StorableTypes]:
+    ) -> StorableTypes | None:
         value = context.get(self.identifier, self.token)
         if value is None:
             if self.type_expr is None:
@@ -629,7 +629,7 @@ class DotExprAST(ExprAST):
 
     def compile(
         self, context: Union[CompilerContext, EikoBaseType, EikoResourceDefinition]
-    ) -> Optional[StorableTypes]:
+    ) -> StorableTypes | None:
         if isinstance(context, CompilerContext):
             lhs = self.lhs.compile(context)
         elif isinstance(self.lhs, IndexExprAst):
@@ -688,7 +688,7 @@ class ListExprAST(ExprAST):
 
     elements: list[ExprAST]
 
-    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+    def compile(self, context: CompilerContext) -> StorableTypes | None:
         if len(self.elements) == 1 and self.token.type == TokenType.LEFT_PAREN:
             return self.elements[0].compile(context)
 
@@ -724,7 +724,7 @@ class CallExprAst(ExprAST):
         self.identifier = self.identifier_expr.identifier
 
     # pylint: disable=too-many-statements
-    def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
+    def compile(self, context: CompilerContext) -> EikoBaseType | None:
         eiko_callable = self.identifier_expr.compile(context)
 
         if isinstance(eiko_callable, EikoResourceDefinition):
@@ -890,7 +890,7 @@ class IndexExprAst(ExprAST):
                 token=self.index_expr.token,
             )
 
-    def compile(self, context: CompilerContext) -> Optional[EikoBaseType]:
+    def compile(self, context: CompilerContext) -> EikoBaseType | None:
         indexed_item = self.identifier_expr.compile(context)
         index = self.index_expr.elements[0].compile(context)
 
@@ -1125,7 +1125,7 @@ class ResourceDefinitionAST(ExprAST):
     super_expr: DotExprAST | VariableExprAST | None
 
     def __post_init__(self) -> None:
-        self.constructor: Optional["ConstructorExprAST"] = None
+        self.constructor: "ConstructorExprAST | None" = None
         self.type = EikoType(self.name, EikoObjectType)
         self.properties: dict[str, ResourcePropertyAST] = {}
         self.promises: list[PromiseExprAST] = []
@@ -1138,7 +1138,7 @@ class ResourceDefinitionAST(ExprAST):
 
     # pylint: disable = too-many-locals
     def compile(self, context: CompilerContext) -> EikoResourceDefinition:
-        super_res: Optional[EikoResourceDefinition] = None
+        super_res: EikoResourceDefinition | None = None
         if self.super_expr is not None:
             _super_res = self.super_expr.compile(context)
             if not isinstance(_super_res, EikoResourceDefinition):
@@ -1391,7 +1391,7 @@ class FromImportExprAST(ExprAST):
 
         # pylint: disable=unnecessary-comprehension
         _full_import_list = [x for x in from_import_list[::-1]]
-        _parent: Optional[CompilerContext] = context
+        _parent: CompilerContext | None = context
         for _ in self.dots:
             if _parent is not None:
                 _parent = _parent.super_module
@@ -1466,7 +1466,7 @@ class IfExprAST(ExprAST):
 
     if_expr: ExprAST
     body: list[ExprAST]
-    else_body: Optional[list[ExprAST]]
+    else_body: list[ExprAST] | None
 
     def compile(self, context: CompilerContext) -> None:
         if_res = self.if_expr.compile(context)
@@ -1493,7 +1493,7 @@ class TypedefExprAST(ExprAST):
 
     name: str
     super_type_expr: Union[VariableExprAST, DotExprAST]
-    condition: Optional[ExprAST]
+    condition: ExprAST | None
 
     def compile(self, context: CompilerContext) -> None:
         super_type = self.super_type_expr.compile(context)
@@ -1627,7 +1627,7 @@ class DictExprAST(ExprAST):
 
     kv_pairs: list[Tuple[ExprAST, ExprAST]]
 
-    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+    def compile(self, context: CompilerContext) -> StorableTypes | None:
         key_types: list[EikoType] = []
         value_types: list[EikoType] = []
         elements: dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType] = {}
@@ -1667,7 +1667,7 @@ class EnumValueExprAst(ExprAST):
         super().__post_init__()
         self.value = self.token.content
 
-    def compile(self, context: CompilerContext) -> Optional[StorableTypes]:
+    def compile(self, context: CompilerContext) -> StorableTypes | None:
         raise NotImplementedError(self.token)
 
 
@@ -2108,6 +2108,7 @@ class Parser:
 
         identifier = VariableExprAST(self._current)
         self._advance()
+        list_expr: list[ExprAST]
         if self._current.type == TokenType.LEFT_PAREN:
             list_expr = self._parse_list(TokenType.RIGHT_PAREN)
         else:
@@ -2199,7 +2200,7 @@ class Parser:
             return rd_ast
 
         indent = self._current.content
-        constructor: Optional[ConstructorExprAST] = None
+        constructor: ConstructorExprAST | None = None
         while True:
             while self._next.type == TokenType.INDENT:
                 self._advance()
@@ -2427,7 +2428,7 @@ class Parser:
             if_body = self._parse_body()
         else:
             if_body = [self._parse_expression()]
-        else_body: Optional[list[ExprAST]] = None
+        else_body: list[ExprAST] | None = None
 
         if (
             self._current.type == TokenType.INDENT

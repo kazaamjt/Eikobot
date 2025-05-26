@@ -18,7 +18,7 @@ REQUIRES = [
     "colorama==0.4.6",
     "jinja2==3.1.2",
     "packaging==23.2",
-    "pydantic==2.5.3",
+    "pydantic>=2.4.2",
 ]
 
 setuptools.setup(

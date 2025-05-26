@@ -4,7 +4,7 @@ Used both by files/modules and fucntions.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Type, Union
+from typing import TYPE_CHECKING, Type, Union
 
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
@@ -92,8 +92,8 @@ class CompilerContext:
         self,
         name: str,
         context_cache: dict[str, "CompilerContext"],
-        super_scope: Optional["CompilerContext"] = None,
-        super_module: Optional["CompilerContext"] = None,
+        super_scope: "CompilerContext | None" = None,
+        super_module: "CompilerContext | None" = None,
         is_root: bool = False,
     ) -> None:
         self.name = name
@@ -157,7 +157,7 @@ class CompilerContext:
         return return_str
 
     def get(
-        self, name: str, token: Optional[Token] = None
+        self, name: str, token: Token | None = None
     ) -> Union[_StorableTypes, "CompilerContext", None]:
         """Get a value from this context or a super context."""
         value = self.storage.get(name)
@@ -199,7 +199,7 @@ class CompilerContext:
         self,
         name: str,
         value: Union[_StorableTypes, "CompilerContext", EikoUnset],
-        token: Optional[Token] = None,
+        token: Token | None = None,
     ) -> None:
         """Set a value. Throws an error if it's already set."""
         prev_value = self.shallow_get(name)
@@ -236,7 +236,7 @@ class CompilerContext:
         self._connect_model(name)
 
     def get_or_set_context(
-        self, name: str, token: Optional[Token] = None
+        self, name: str, token: Token | None = None
     ) -> "CompilerContext":
         """
         Either retrieve a context or create it if it doesn't exist.
@@ -353,7 +353,7 @@ class CompilerContext:
 
         return self
 
-    def get_cached_context(self, import_path: list[str]) -> Optional["CompilerContext"]:
+    def get_cached_context(self, import_path: list[str]) -> "CompilerContext | None":
         """Checks to see if a given context already exists."""
         context = self._context_cache.get(import_path[0])
         if context is None:

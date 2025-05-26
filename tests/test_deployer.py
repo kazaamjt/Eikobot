@@ -15,7 +15,7 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     exporter = Exporter()
     exporter.export_from_file(eiko_deploy_file)
     deployer = Deployer()
-    await deployer.deploy(exporter)
+    await deployer._deploy(exporter)
 
     base_handler_1 = exporter.base_tasks[0].handler
     base_handler_2 = exporter.base_tasks[1].handler
@@ -57,7 +57,7 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert top_handler_1.update_called == 0  # type: ignore
     assert top_handler_2.update_called == 0  # type: ignore
 
-    await deployer.deploy(exporter)
+    await deployer._deploy(exporter)
 
     assert base_handler_1.created  # type: ignore
     assert base_handler_2.created  # type: ignore
@@ -93,7 +93,7 @@ async def test_deploy(eiko_deploy_file: Path) -> None:
     assert top_handler_1.update_called == 1  # type: ignore
     assert top_handler_2.update_called == 1  # type: ignore
 
-    await deployer.deploy(exporter)
+    await deployer._deploy(exporter)
 
     assert base_handler_1.created  # type: ignore
     assert base_handler_2.created  # type: ignore

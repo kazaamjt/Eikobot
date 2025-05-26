@@ -11,7 +11,6 @@ from typing import (
     Callable,
     Generic,
     Iterator,
-    Optional,
     Type,
     TypeVar,
     Union,
@@ -46,8 +45,8 @@ class EikoType:
     def __init__(
         self,
         name: str,
-        super_type: Optional["EikoType"] = None,
-        typedef: Optional["EikoTypeDef"] = None,
+        super_type: "EikoType | None" = None,
+        typedef: "EikoTypeDef | None" = None,
     ) -> None:
         self.name = name
         self.super = super_type
@@ -189,7 +188,7 @@ class EikoBaseType:
     def __init__(self, eiko_type: EikoType) -> None:
         self.type = eiko_type
 
-    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+    def get(self, name: str, token: Token | None = None) -> "EikoBaseType":
         raise EikoCompilationError(
             f"Object of type '{self.type}' has no property '{name}'.",
             token=token,
@@ -452,7 +451,7 @@ class EikoPath(EikoBaseType):
     def get_value(self) -> Path:
         return self.value
 
-    def get(self, name: str, token: Optional[Token] = None) -> "EikoPath":
+    def get(self, name: str, token: Token | None = None) -> "EikoPath":
         if name == "parent":
             return EikoPath(self.value.parent)
 
@@ -505,10 +504,10 @@ class EikoPromise(EikoBaseType, Generic[T]):
         super().__init__(value_type)
         self.name = name
         self.token = caller_token
-        self.value: Optional[EikoBaseType] = None
+        self.value: EikoBaseType | None = None
         self.parent = parent
 
-    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+    def get(self, name: str, token: Token | None = None) -> "EikoBaseType":
         raise EikoCompilationError(
             f"Object of type 'Promise' has no property '{name}'.",
             token=token,
@@ -550,7 +549,7 @@ class EikoPromise(EikoBaseType, Generic[T]):
 
         self.value = _value
 
-    def assign(self, value: EikoBaseType, token: Optional[Token] = None) -> None:
+    def assign(self, value: EikoBaseType, token: Token | None = None) -> None:
         """
         Assign is used internally to assign a promise from inside the language,
         rather then from a handler.
@@ -653,7 +652,7 @@ class EikoEnumDefinition(EikoBaseType):
         self.value_type = value_type
         self.values = values
 
-    def get(self, name: str, token: Optional[Token] = None) -> EikoEnumValue:
+    def get(self, name: str, token: Token | None = None) -> EikoEnumValue:
         value = self.values.get(name)
         if value is None:
             raise EikoCompilationError(
@@ -898,7 +897,7 @@ class EikoBuiltinFunction(EikoBaseType):
         self,
         identifier: str,
         args: list[BuiltinFunctionArg],
-        body: Callable[..., Optional[EikoBaseType]],
+        body: Callable[..., EikoBaseType | None],
     ) -> None:
         super().__init__(_builtin_function_type)
         self.identifier = identifier
@@ -917,7 +916,7 @@ class EikoBuiltinFunction(EikoBaseType):
         callee_token: Token,
         args: list[PassedArg],
         keyword_args: dict[str, PassedArg] | None = None,
-    ) -> Optional[EikoBaseType]:
+    ) -> EikoBaseType | None:
         """Execute the builtin function."""
         if len(args) > len(self.args) + len(self.kw_args):
             raise EikoCompilationError(
@@ -989,7 +988,7 @@ class EikoList(EikoBaseType):
     def __init__(
         self,
         element_type: EikoType,
-        elements: Optional[list[EikoBaseType]] = None,
+        elements: list[EikoBaseType] | None = None,
     ) -> None:
         super().__init__(EikoListType(element_type))
         if elements is None:
@@ -1028,7 +1027,7 @@ class EikoList(EikoBaseType):
             body=self.append,
         )
 
-    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+    def get(self, name: str, token: Token | None = None) -> "EikoBaseType":
         if name == "append":
             return self.append_func
 
@@ -1037,7 +1036,7 @@ class EikoList(EikoBaseType):
 
         return super().get(name, token)
 
-    def get_index(self, index: int) -> Optional[EikoBaseType]:
+    def get_index(self, index: int) -> EikoBaseType | None:
         """Gets an element by its index, if it exists."""
         try:
             return self.elements[index]
@@ -1125,9 +1124,8 @@ class EikoDict(EikoBaseType):
         self,
         key_type: EikoType,
         value_type: EikoType,
-        elements: Optional[
-            dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType]
-        ] = None,
+        elements: dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType]
+        | None = None,
     ) -> None:
         super().__init__(EikoDictType(key_type, value_type))
         self.elements: dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType]
@@ -1168,8 +1166,8 @@ class EikoDict(EikoBaseType):
         self,
         key: EikoBaseType,
         value: EikoBaseType,
-        key_token: Optional[Token] = None,
-        value_token: Optional[Token] = None,
+        key_token: Token | None = None,
+        value_token: Token | None = None,
     ) -> bool:
         """Insert an element in to the dictionary"""
         if not self.type.key_type.type_check(key.type):
@@ -1222,7 +1220,7 @@ class EikoDict(EikoBaseType):
     def get_index(
         self,
         key: EikoBaseType,
-        key_token: Optional[Token] = None,
+        key_token: Token | None = None,
     ) -> EikoBaseType:
         """Get a value based on it's index."""
         if not self.type.key_type.type_check(key.type):
@@ -1284,7 +1282,7 @@ class EikoDict(EikoBaseType):
 
     @staticmethod
     def convert_key(
-        key: EikoBaseType, key_token: Optional[Token] = None
+        key: EikoBaseType, key_token: Token | None = None
     ) -> Union[EikoBaseType, bool, float, int, str]:
         """Converts a given value to one that can be used as a key."""
         if isinstance(key, (EikoBool, EikoFloat, EikoInt, EikoStr)):
@@ -1302,7 +1300,7 @@ class EikoDict(EikoBaseType):
         for element in self.elements:
             yield to_eiko(element)
 
-    def get(self, name: str, token: Optional[Token] = None) -> "EikoBaseType":
+    def get(self, name: str, token: Token | None = None) -> "EikoBaseType":
         if name == "values":
             return self.values_func
 
@@ -1332,7 +1330,7 @@ class EikoDict(EikoBaseType):
 
 
 # Move to another file
-def to_eiko_type(cls: Optional[Type]) -> Type[EikoBaseType] | Type[EikoType]:
+def to_eiko_type(cls: Type | None) -> Type[EikoBaseType] | Type[EikoType]:
     """
     Takes a python type and returns it's eikobot compatible type.
     If said type exists.

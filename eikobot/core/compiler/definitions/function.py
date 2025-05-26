@@ -10,7 +10,6 @@ from typing import (
     TYPE_CHECKING,
     Dict,
     List,
-    Optional,
     Type,
     Union,
     get_args,
@@ -47,7 +46,7 @@ class ConstructorArg:
 
     name: str
     type: EikoType
-    default_value: Optional[EikoBaseType] = None
+    default_value: EikoBaseType | None = None
 
 
 class ConstructorDefinition(EikoBaseType):
@@ -292,8 +291,8 @@ class PluginDefinition(EikoBaseType):
         self.args.append(arg)
 
     def execute(
-        self, args: list["ExprAST"], context: "CompilerContext", token: Optional[Token]
-    ) -> Optional[EikoBaseType]:
+        self, args: list["ExprAST"], context: "CompilerContext", token: Token | None
+    ) -> EikoBaseType | None:
         """Execute the stored function and coerces types."""
 
         stable_args = []

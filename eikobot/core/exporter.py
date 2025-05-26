@@ -4,7 +4,7 @@ and turns it in tasks the deployer understands.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 from . import logger
 from .compiler import Compiler, CompilerContext
@@ -22,19 +22,19 @@ class Task:
 
     task_id: str
     ctx: HandlerContext[EikoBaseModel] | HandlerContext[dict]
-    handler: Optional[Handler]
+    handler: Handler | None
 
     def __post_init__(self) -> None:
         self.dependants: list["Task"] = []
         self.depends_on: list["Task"] = []
         self.depends_on_copy: list["Task"] = []
-        self._done_cb: Optional[Callable[[], None]] = None
-        self._failure_cb: Optional[Callable[[], None]] = None
+        self._done_cb: Callable[[], None] | None = None
+        self._failure_cb: Callable[[], None] | None = None
 
     def init(
         self,
-        done_cb: Optional[Callable[[], None]] = None,
-        failure_cb: Optional[Callable[[], None]] = None,
+        done_cb: Callable[[], None] | None = None,
+        failure_cb: Callable[[], None] | None = None,
     ) -> None:
         """Resets a task and it's sub tasks so they can run again."""
         self._done_cb = done_cb
@@ -164,7 +164,7 @@ class Exporter:
 
     def export_from_context(self, context: CompilerContext) -> None:
         """
-        Walks through a compiler context and exports it as a set fo tasks.
+        Walks through a compiler context and exports it as a set of tasks.
         """
         values = list(context.storage.values())
         values.extend(context.orphans)
