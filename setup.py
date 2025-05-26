@@ -12,13 +12,14 @@ with open(this_directory / "README.md", encoding="utf-8") as f:
 
 VERSION = "0.7.8"
 REQUIRES = [
-    "aiohttp==3.9.1",
-    "asyncssh==2.14.2",
-    "click==8.1.7",
-    "colorama==0.4.6",
-    "jinja2==3.1.2",
-    "packaging==23.2",
-    "pydantic>=2.4.2",
+    "aiohttp>=3.12.1",
+    "asyncssh>=2.21.0",
+    "click>=8.2.1",
+    "colorama>=0.4.6",
+    "jinja2>=3.1.6",
+    "packaging>=25.0",
+    "pydantic>=2.11.5",
+    "setuptools>=80.8.0",
 ]
 
 setuptools.setup(
