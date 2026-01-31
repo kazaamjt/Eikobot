@@ -38,6 +38,7 @@ SPECIAL_CHARS = {
     "}": TokenType.RIGHT_BRACE,
     ",": TokenType.COMMA,
     "@": TokenType.AT_SIGN,
+    "|": TokenType.PIPE,
 }
 
 

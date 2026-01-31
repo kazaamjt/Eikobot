@@ -2,7 +2,8 @@
 
 ## 0.7.8
 
-- Update dependencies
+- Update dependencies.
+- Add `|` as a union operator.
 
 ## 0.7.7
 
