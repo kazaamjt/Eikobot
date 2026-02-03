@@ -2,6 +2,7 @@
 Lexer Tokens describe source content.
 They are used to construct the AST by the parser.
 """
+
 from dataclasses import dataclass
 from enum import Enum, auto
 

@@ -3,6 +3,7 @@ The lexer reads strings/files and turns the characters
 in to tokens useable that can be used by the parser
 to construct an Abstract Syntax Tree.
 """
+
 from pathlib import Path
 
 from ..errors import EikoSyntaxError

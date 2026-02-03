@@ -3,6 +3,7 @@ A project differs from a module in that
 a project is meant to be deployed.
 It containes modules and a model.
 """
+
 import sys
 import tomllib
 from pathlib import Path

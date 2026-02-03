@@ -1,7 +1,8 @@
 """
 Decorators enhance an eiko resource definition in some way.
 """
-from typing import Callable, Type, Union
+
+from typing import Callable, Type
 
 from ..errors import EikoCompilationError
 from ._token import Token
@@ -50,10 +51,10 @@ class EikoDecorator(EikoBaseType):
 
         self.func(res_def, args, call_token)
 
-    def get_value(self) -> Union[None, bool, float, int, str]:
+    def get_value(self) -> None | bool | float | int | str:
         raise NotImplementedError
 
-    def printable(self, _: str = "") -> str:
+    def printable(self, indent: str = "") -> str:
         raise NotImplementedError
 
     def truthiness(self) -> bool:

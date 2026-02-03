@@ -9,7 +9,7 @@ These ExprASTs in turn can be compiled down to Eikobot data.
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Tuple, Union
+from typing import Iterator, Tuple
 
 from .. import logger
 from ..errors import (
@@ -90,7 +90,7 @@ class ExprAST:
 class EOFExprAST(ExprAST):
     """This ExprAST marks end of parsing."""
 
-    def compile(self, _: CompilerContext) -> None:
+    def compile(self, context: CompilerContext) -> None:
         raise NotImplementedError
 
 
@@ -101,7 +101,7 @@ class IntExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.value = int(self.token.content)
 
-    def compile(self, _: CompilerContext) -> EikoInt:
+    def compile(self, context: CompilerContext) -> EikoInt:
         return EikoInt(self.value)
 
 
@@ -112,7 +112,7 @@ class FloatExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.value = float(self.token.content)
 
-    def compile(self, _: CompilerContext) -> EikoFloat:
+    def compile(self, context: CompilerContext) -> EikoFloat:
         return EikoFloat(self.value)
 
 
@@ -131,7 +131,7 @@ class BoolExprAST(ExprAST):
                 "This is deffinetly a bug, please report it on github."
             )
 
-    def compile(self, _: CompilerContext) -> EikoBool:
+    def compile(self, context: CompilerContext) -> EikoBool:
         return EikoBool(self.value)
 
 
@@ -142,7 +142,7 @@ class StringExprAST(ExprAST):
     def __post_init__(self) -> None:
         self.value = self.token.content
 
-    def compile(self, _: CompilerContext) -> EikoStr:
+    def compile(self, context: CompilerContext) -> EikoStr:
         return EikoStr(self.value)
 
 
@@ -283,7 +283,7 @@ class UnaryNegExprAST(ExprAST):
 
     rhs: ExprAST
 
-    def compile(self, context: CompilerContext) -> Union[EikoInt, EikoFloat]:
+    def compile(self, context: CompilerContext) -> EikoInt | EikoFloat:
         rhs = self.rhs.compile(context)
         if isinstance(rhs, EikoInt):
             return EikoInt(-rhs.value)
@@ -557,9 +557,7 @@ class VariableExprAST(ExprAST):
         assign_context.set(self.identifier, value, self.token)
         return value
 
-    def compile(
-        self, context: Union[CompilerContext, EikoBaseType]
-    ) -> StorableTypes | None:
+    def compile(self, context: CompilerContext | EikoBaseType) -> StorableTypes | None:
         value = context.get(self.identifier, self.token)
         if value is None:
             if self.type_expr is None:
@@ -621,14 +619,14 @@ class DotExprAST(ExprAST):
     An AST expressing a dot expression. eg: 'thing.property'
     """
 
-    lhs: Union["DotExprAST", VariableExprAST, "IndexExprAst", "CallExprAst"]
+    lhs: "DotExprAST | VariableExprAST | IndexExprAst | CallExprAst"
     rhs: VariableExprAST
 
     def __post_init__(self) -> None:
         self.identifier: str = f"{self.lhs.identifier}.{self.rhs.identifier}"
 
     def compile(
-        self, context: Union[CompilerContext, EikoBaseType, EikoResourceDefinition]
+        self, context: CompilerContext | EikoBaseType | EikoResourceDefinition
     ) -> StorableTypes | None:
         if isinstance(context, CompilerContext):
             lhs = self.lhs.compile(context)
@@ -717,7 +715,7 @@ class ListExprAST(ExprAST):
 class CallExprAst(ExprAST):
     """An AST expressing a resource-constructor or plugin."""
 
-    identifier_expr: Union[DotExprAST, VariableExprAST]
+    identifier_expr: DotExprAST | VariableExprAST
     args: ListExprAST
 
     def __post_init__(self) -> None:
@@ -879,7 +877,7 @@ class CallExprAst(ExprAST):
 class IndexExprAst(ExprAST):
     """An AST expressing an object being accessed by index."""
 
-    identifier_expr: Union[DotExprAST, VariableExprAST]
+    identifier_expr: DotExprAST | VariableExprAST
     index_expr: ListExprAST
 
     def __post_init__(self) -> None:
@@ -960,7 +958,7 @@ class IndexExprAst(ExprAST):
 class ResourcePropertyAST:
     """An AST expressing a resource property."""
 
-    expr: Union[VariableExprAST, AssignmentExprAST]
+    expr: VariableExprAST | AssignmentExprAST
 
     def __post_init__(self) -> None:
         if isinstance(self.expr, VariableExprAST):
@@ -1213,7 +1211,7 @@ class ResourceDefinitionAST(ExprAST):
             default_constructor = self.constructor.compile(context)
 
         # pylint: disable=unnecessary-comprehension
-        properties: dict[str, Union[EikoPromiseDefinition, ResourceProperty]] = {
+        properties: dict[str, EikoPromiseDefinition | ResourceProperty] = {
             key: value for key, value in arg_properties.items()
         }
         promises: list[EikoPromiseDefinition] = []
@@ -1248,7 +1246,7 @@ class ResourceDefinitionAST(ExprAST):
 class ConstructorArgExprAST:
     """An AST expressing an arg for a Constructor."""
 
-    expr: Union[VariableExprAST, AssignmentExprAST]
+    expr: VariableExprAST | AssignmentExprAST
 
     def __post_init__(self) -> None:
         if isinstance(self.expr, VariableExprAST):
@@ -1336,7 +1334,7 @@ class ImportExprAST(ExprAST):
     Represents an import of eiko code.
     """
 
-    rhs: Union[VariableExprAST, DotExprAST]
+    rhs: VariableExprAST | DotExprAST
 
     def compile(self, context: CompilerContext) -> None:
         import_list: list[str] = []
@@ -1375,7 +1373,7 @@ class FromImportExprAST(ExprAST):
     Represents a from ... import ... construct.
     """
 
-    lhs: Union["DotExprAST", VariableExprAST, None]
+    lhs: "DotExprAST | VariableExprAST | None"
     import_items: list[VariableExprAST]
     dots: list[Token]
 
@@ -1492,7 +1490,7 @@ class TypedefExprAST(ExprAST):
     """A type definition used to alias or restrict types."""
 
     name: str
-    super_type_expr: Union[VariableExprAST, DotExprAST]
+    super_type_expr: VariableExprAST | DotExprAST
     condition: ExprAST | None
 
     def compile(self, context: CompilerContext) -> None:
@@ -1525,7 +1523,7 @@ eiko_indexable_types = (
 class TypeExprAST(ExprAST):
     """An ExprAST expressing a complex type."""
 
-    primary_expr: Union[VariableExprAST, DotExprAST]
+    primary_expr: VariableExprAST | DotExprAST
     sub_expressions: list["TypeExprAST"]
 
     def compile(self, context: CompilerContext) -> EikoType:
@@ -1647,7 +1645,7 @@ class DictExprAST(ExprAST):
     def compile(self, context: CompilerContext) -> StorableTypes | None:
         key_types: list[EikoType] = []
         value_types: list[EikoType] = []
-        elements: dict[Union[EikoBaseType, bool, float, int, str], EikoBaseType] = {}
+        elements: dict[EikoBaseType | bool | float | int | str, EikoBaseType] = {}
         for key, value in self.kv_pairs:
             compiled_key = key.compile(context)
             if not isinstance(compiled_key, EikoBaseType):
@@ -1946,7 +1944,7 @@ class Parser:
             f"Unexpected token {self._current.type.name}.", index=self._current.index
         )
 
-    def _parse_unary_op(self) -> Union[UnaryNegExprAST, UnaryNotExprAST]:
+    def _parse_unary_op(self) -> UnaryNegExprAST | UnaryNotExprAST:
         token = self._current
         self._advance()
         if token.content == "-":
@@ -1967,9 +1965,7 @@ class Parser:
         self._advance()
         return next_expr
 
-    def _parse_bin_op_rhs(
-        self, expr_precedence: Union[float, int], lhs: ExprAST
-    ) -> ExprAST:
+    def _parse_bin_op_rhs(self, expr_precedence: float | int, lhs: ExprAST) -> ExprAST:
         while True:
             current_predecedence = self._bin_op_precedence.get(self._current.content, 0)
             if current_predecedence < expr_precedence:
@@ -2386,7 +2382,7 @@ class Parser:
                 dots.append(self._current)
             self._advance()
 
-        lhs: Union[DotExprAST, VariableExprAST, None] = None
+        lhs: DotExprAST | VariableExprAST | None = None
         if self._current.type == TokenType.IMPORT:
             if not dots:
                 raise EikoParserError(
@@ -2532,8 +2528,10 @@ class Parser:
 
         return TypedefExprAST(typedef_token, name, base_type_expr, if_expr)
 
-    def _parse_type(self, union_expressions: list[TypeExprAST] | None = None) -> TypeExprAST:
-        primary_expr: Union[VariableExprAST, DotExprAST] = self._parse_identifier()
+    def _parse_type(
+        self, union_expressions: list[TypeExprAST] | None = None
+    ) -> TypeExprAST:
+        primary_expr: VariableExprAST | DotExprAST = self._parse_identifier()
         if self._current.type == TokenType.DOT:
             while True:
                 if self._current.type != TokenType.DOT:
@@ -2569,9 +2567,7 @@ class Parser:
             self._advance()
             self._parse_type(union_expressions)
             return UnionTypeExprAST(
-                union_expressions[0].token,
-                primary_expr,
-                union_expressions
+                union_expressions[0].token, primary_expr, union_expressions
             )
 
         return TypeExprAST(primary_expr.token, primary_expr, sub_expressions)

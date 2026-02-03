@@ -1,6 +1,7 @@
 """
 Error types raised by the Eikobot compiler.
 """
+
 from .compiler._token import Token
 from .compiler.misc import Index
 

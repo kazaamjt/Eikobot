@@ -2,6 +2,7 @@
 The entrypoint to the client application.
 Schould only contain things related to the client cli.
 """
+
 import asyncio
 import datetime
 import sys

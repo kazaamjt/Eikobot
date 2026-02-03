@@ -50,7 +50,7 @@ Code cleanup:
 - [ ] implement an `expects` function for parser, raise if token is not correct type
 - [x] implement a `to_py` function on eiko objects, instead of using a conversion table
 - [ ] overhaul the way comparissons are done. (Should be a function of object a, not a matrix lookup function)
-- [ ] remove all uses of `Union` in python typing
+- [x] remove all uses of `Union` in python typing
 - [ ] replace `setup.py` and `setup.cfg` by `pyproject.toml`
 
 ### STD

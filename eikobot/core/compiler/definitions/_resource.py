@@ -2,8 +2,9 @@
 Resource and ResourceProperty class definitions.
 Resource is the base building block of the eiko language model.
 """
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from .base_types import EikoBaseType, EikoPromise, EikoResource, EikoType
 
@@ -47,7 +48,7 @@ class EikoPromiseDefinition:
 
 
 EikoResourceDefinitionType = EikoType("ResourceDefinition")
-PropertiesDict = dict[str, Union[ResourceProperty, EikoPromiseDefinition]]
+PropertiesDict = dict[str, ResourceProperty | EikoPromiseDefinition]
 
 
 class EikoResourceDefinition(EikoBaseType):

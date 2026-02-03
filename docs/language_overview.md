@@ -439,7 +439,7 @@ This works much like it does in Python:
 
 ```Python
 haha = "haha"
-test_list: list[Union[str, int]] = []
+test_list: list[str | int] = []
 
 for obj in ["hello", haha, 12]:
     test_list.append(obj)
@@ -447,8 +447,6 @@ for obj in ["hello", haha, 12]:
 for obj in {"key_1": "test", 1: 1}:
     test_list.append(obj)
 ```
-
-
 
 ## importing and modules
 

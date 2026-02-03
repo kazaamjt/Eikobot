@@ -3,6 +3,7 @@ Based on the pydantic BaseModel,
 the EikoBaseModel allows for linking of Eiko resources
 to a more easily useable python model.
 """
+
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import BaseModel
