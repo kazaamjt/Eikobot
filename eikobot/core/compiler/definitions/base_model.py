@@ -22,16 +22,18 @@ class EikoBaseModel(BaseModel):
     raw_resource: EikoResource
     __eiko_resource__: ClassVar[str]
     __eiko_linked_definition__: ClassVar["EikoResourceDefinition"]
+    model_config = {"arbitrary_types_allowed": True}
 
     def __init__(self, **data: Any) -> None:
+        for key, value in data.items():
+            if isinstance(value, EikoBaseModel):
+                data[key] = value.__dict__
+
         super().__init__(**data)
         self.__post_init__()
 
     def __post_init__(self) -> None:
         pass
-
-    class Config:
-        arbitrary_types_allowed = True
 
     @classmethod
     def link(cls, resource_cls: "EikoResourceDefinition") -> None:

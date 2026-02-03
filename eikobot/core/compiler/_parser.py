@@ -2534,7 +2534,7 @@ class Parser:
 
     def _parse_type(self, union_expressions: list[TypeExprAST] | None = None) -> TypeExprAST:
         primary_expr: Union[VariableExprAST, DotExprAST] = self._parse_identifier()
-        if self._current.type == TokenType.PIPE:
+        if self._current.type == TokenType.DOT:
             while True:
                 if self._current.type != TokenType.DOT:
                     break
