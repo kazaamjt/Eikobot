@@ -1338,9 +1338,6 @@ def to_eiko_type(cls: Type | None) -> Type[EikoBaseType] | Type[EikoType]:
     if cls is None:
         return EikoNone
 
-    if issubclass(cls, EikoBaseType) or issubclass(cls, EikoType):
-        return cls
-
     if cls == bool:
         return EikoBool
 
@@ -1362,6 +1359,9 @@ def to_eiko_type(cls: Type | None) -> Type[EikoBaseType] | Type[EikoType]:
 
         if cls.__origin__ == dict:
             return EikoDict
+
+    if issubclass(cls, EikoBaseType) or issubclass(cls, EikoType):
+        return cls
 
     raise ValueError
 

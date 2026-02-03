@@ -4,6 +4,7 @@
 
 - Update dependencies.
 - Add `|` as a union operator.
+- Fixed a bug in the typing conversion system of the python plugins
 
 ## 0.7.7
 
