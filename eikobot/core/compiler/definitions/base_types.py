@@ -3,6 +3,7 @@
 Base types are used by the compiler internally to represent Objects,
 strings, integers, floats, and booleans, in a way that makes sense to the compiler.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (

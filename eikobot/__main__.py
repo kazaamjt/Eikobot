@@ -12,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from . import VERSION
+from . import __version__
 from .core import logger, package_manager
 from .core.compiler import Compiler
 from .core.compiler.lexer import Token
@@ -24,7 +24,7 @@ from .core.project import PROJECT_SETTINGS, init_project
 
 @click.group()
 @click.option("--debug", is_flag=True)
-@click.version_option(VERSION)
+@click.version_option(__version__)
 def cli(debug: bool = False) -> None:
     """
     The Eikobot CLI allows for compilation

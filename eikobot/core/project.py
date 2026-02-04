@@ -11,7 +11,7 @@ from pathlib import Path
 from packaging import version
 from pydantic import BaseModel, ValidationError
 
-from .. import VERSION
+from .. import __version__
 from ..core import logger
 from .package_manager import install_pkgs, install_py_deps
 
@@ -63,7 +63,7 @@ def eiko_version_match(  # pylint: disable=too-many-branches
     if eikobot_version is None:
         return True
 
-    eiko_version = version.parse(VERSION)
+    eiko_version = version.parse(__version__)
     for version_req in eikobot_version.split(","):
         if version_req.startswith(">="):
             if eiko_version < _parse_version(version_req[2:]):

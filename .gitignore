@@ -1,5 +1,6 @@
 .coverage
 .env/
+venv/
 .mypy_cache/
 __pycache__/
 *.egg-info

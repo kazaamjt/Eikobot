@@ -1,6 +1,7 @@
 """
 The regex module contains bindings to pythons re module.
 """
+
 import re
 
 from eikobot.core.plugin import eiko_plugin

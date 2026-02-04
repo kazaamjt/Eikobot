@@ -93,6 +93,7 @@ class CompilerContext:
     """
 
     # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(
         self,
         name: str,
