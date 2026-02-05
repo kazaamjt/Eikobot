@@ -1,6 +1,7 @@
 """
 Contains various odds and ends.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 

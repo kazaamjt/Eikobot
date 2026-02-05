@@ -3,6 +3,7 @@ The entrypoint of the Eikobot Compiler.
 The compiler takes output from lexers/parsers
 and uses the resulting asts to create a model.
 """
+
 from pathlib import Path
 
 from ._parser import AssignmentExprAST, Parser

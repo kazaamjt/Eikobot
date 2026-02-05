@@ -2,9 +2,10 @@
 Context hold variables, classes and more.
 Used both by files/modules and fucntions.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Type, Union
+from typing import TYPE_CHECKING, Type
 
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
@@ -36,9 +37,13 @@ from .typedef import EikoTypeDef
 if TYPE_CHECKING:
     from .._parser import Parser
 
-_StorableTypes = Union[
-    EikoBaseType, EikoResourceDefinition, Type[EikoBaseType], EikoType, Type[EikoType]
-]
+_StorableTypes = (
+    EikoBaseType
+    | EikoResourceDefinition
+    | Type[EikoBaseType]
+    | EikoType
+    | Type[EikoType]
+)
 _builtins: dict[str, _StorableTypes] = {
     "int": EikoInt,
     "float": EikoFloat,
@@ -88,6 +93,7 @@ class CompilerContext:
     """
 
     # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(
         self,
         name: str,
@@ -99,7 +105,7 @@ class CompilerContext:
         self.name = name
         self.storage: dict[
             str,
-            Union[_StorableTypes, "CompilerContext", LazyLoadModule, EikoUnset, None],
+            "_StorableTypes | CompilerContext | LazyLoadModule | EikoUnset | None",
         ] = {}
         self.path: Path
         self.type = EikoType("eiko_internal_context")
@@ -158,7 +164,7 @@ class CompilerContext:
 
     def get(
         self, name: str, token: Token | None = None
-    ) -> Union[_StorableTypes, "CompilerContext", None]:
+    ) -> "_StorableTypes | CompilerContext | None":
         """Get a value from this context or a super context."""
         value = self.storage.get(name)
 
@@ -181,7 +187,7 @@ class CompilerContext:
 
     def shallow_get(
         self, name: str
-    ) -> Union[_StorableTypes, "CompilerContext", EikoUnset, None]:
+    ) -> "_StorableTypes | CompilerContext | EikoUnset | None":
         """
         Shallow get only gets builtins and values local to the current scope.
         It is primarily for use by 'Set'.
@@ -198,7 +204,7 @@ class CompilerContext:
     def set(
         self,
         name: str,
-        value: Union[_StorableTypes, "CompilerContext", EikoUnset],
+        value: "_StorableTypes | CompilerContext | EikoUnset",
         token: Token | None = None,
     ) -> None:
         """Set a value. Throws an error if it's already set."""
@@ -378,4 +384,4 @@ class CompilerContext:
         self._context_cache[name] = context
 
 
-StorableTypes = Union[_StorableTypes, "CompilerContext"]
+StorableTypes = _StorableTypes | CompilerContext

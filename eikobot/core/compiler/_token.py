@@ -2,6 +2,7 @@
 Lexer Tokens describe source content.
 They are used to construct the AST by the parser.
 """
+
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -43,6 +44,7 @@ class TokenType(Enum):
     DOUBLE_DOT = auto()
     TRIPLE_DOT = auto()
     AT_SIGN = auto()
+    PIPE = auto()
 
     DOUBLE_COLON = auto()
     ASSIGNMENT_OP = auto()
@@ -72,6 +74,7 @@ token_to_char = {
     TokenType.COMMA: ",",
     TokenType.DOT: ".",
     TokenType.AT_SIGN: "@",
+    TokenType.PIPE: "|",
 }
 
 

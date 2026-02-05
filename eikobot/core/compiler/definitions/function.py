@@ -2,19 +2,12 @@
 While real functions don't exist in the eiko language,
 constructors and plugins do, and they need some kind of representation.
 """
+
 import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from types import UnionType
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    List,
-    Type,
-    Union,
-    get_args,
-    get_origin,
-)
+from typing import TYPE_CHECKING, Dict, List, Type, Union, get_args, get_origin
 
 from ...errors import EikoCompilationError, EikoInternalError, EikoPluginError
 from ...plugin import EikoPluginException, EikoPluginTyping
@@ -61,7 +54,7 @@ class ConstructorDefinition(EikoBaseType):
         self.execution_context = execution_context
         self.index_def: list[str] = []
 
-    def printable(self, _: str = "") -> str:
+    def printable(self, indent: str = "") -> str:
         raise NotImplementedError
 
     def add_arg(self, arg: ConstructorArg) -> None:
@@ -139,7 +132,7 @@ class ConstructorDefinition(EikoBaseType):
             if property_name == self.parent.name:
                 continue
             prop_name_split = property_name.split(".")
-            index_prop: Union[EikoBaseType, EikoUnset, None] = resource
+            index_prop: EikoBaseType | EikoUnset | None = resource
             for prop_name in prop_name_split:
                 if isinstance(index_prop, EikoResource):
                     index_prop = index_prop.properties.get(prop_name)
@@ -259,8 +252,8 @@ class PluginArg:
     """Class representing an argument in a plugin call."""
 
     name: str
-    py_type: Union[Type[EikoBaseType], Type[PyTypes]]
-    default_value: Union[PyTypes, DefaultValueNotSet] = DefaultValueNotSet()
+    py_type: Type[EikoBaseType] | Type[PyTypes]
+    default_value: PyTypes | DefaultValueNotSet = DefaultValueNotSet()
 
 
 class PluginDefinition(EikoBaseType):
@@ -284,7 +277,7 @@ class PluginDefinition(EikoBaseType):
         self.identifier = identifier
         self.module = module
 
-    def printable(self, _: str = "") -> str:
+    def printable(self, indent: str = "") -> str:
         return f"Plugin '{self.identifier}'"
 
     def add_arg(self, arg: PluginArg) -> None:

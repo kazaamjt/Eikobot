@@ -2,6 +2,7 @@
 The importlib allows for importing
 of both Eiko and Python code.
 """
+
 import importlib.util
 from dataclasses import dataclass
 from inspect import getfullargspec, getmembers, isclass, isfunction

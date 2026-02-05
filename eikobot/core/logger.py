@@ -2,6 +2,7 @@
 The logging module is used to log messages in a consistent and unified way.
 It gives access to print helper functions and custom progress bars.
 """
+
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 

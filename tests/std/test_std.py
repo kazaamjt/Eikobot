@@ -47,7 +47,7 @@ def test_bad_v4_addr(tmp_eiko_file: Path, param_input: str) -> None:
         Compiler().compile(tmp_eiko_file)
 
 
-@pytest.mark.parametrize("param_input", [("2001:0db8:75a2::8a2e::5626")])
+@pytest.mark.parametrize("param_input", ["2001:0db8:75a2::8a2e::5626"])
 def test_bad_v6_addr(tmp_eiko_file: Path, param_input: str) -> None:
     with open(tmp_eiko_file, "w", encoding="utf-8") as file:
         content = "from std import IPv6Address\n"
