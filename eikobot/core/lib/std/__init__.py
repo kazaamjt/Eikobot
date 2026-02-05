@@ -2,6 +2,7 @@
 The Eiko standard library contains various quality of life
 plugins and resources.
 """
+
 import asyncio
 import getpass
 import os
@@ -706,11 +707,7 @@ class CmdHandler(Handler):
 
     __eiko_resource__ = "Cmd"
 
-    async def execute(self, ctx: HandlerContext) -> None:
-        if not isinstance(ctx.resource, CmdModel):
-            ctx.failed = True
-            return
-
+    async def execute(self, ctx: HandlerContext[CmdModel]) -> None:
         result = await ctx.resource.host.execute(ctx.resource.cmd, ctx)
         if result.failed():
             return

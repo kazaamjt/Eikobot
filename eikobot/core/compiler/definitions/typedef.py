@@ -2,7 +2,8 @@
 Typedef definitions are executable functions of sorts.
 They can alias types and even put restrictions on them.
 """
-from typing import TYPE_CHECKING, Optional, Union
+
+from typing import TYPE_CHECKING
 
 from ...errors import EikoCompilationError
 from .._token import Token
@@ -28,8 +29,8 @@ class EikoTypeDef(EikoBaseType):
     def __init__(
         self,
         name: str,
-        super_type: Union[EikoType, "EikoTypeDef"],
-        condition: Optional["ExprAST"],
+        super_type: "EikoType | EikoTypeDef",
+        condition: "ExprAST | None",
         context: "CompilerContext",
     ) -> None:
         self.name = name
@@ -42,13 +43,13 @@ class EikoTypeDef(EikoBaseType):
             self.type = EikoType(name, super_type.type, self)
         super().__init__(self.type)
 
-    def printable(self, _: str = "") -> str:
+    def printable(self, indent: str = "") -> str:
         return f"TypeDef '{self.name}' redefining '{self.type.super}'"
 
     def truthiness(self) -> bool:
         raise NotImplementedError
 
-    def execute(self, arg: EikoBaseType, arg_token: Optional[Token]) -> BuiltinTypes:
+    def execute(self, arg: EikoBaseType, arg_token: Token | None) -> BuiltinTypes:
         """
         Cast a value to a type and make sure it fits the given condition expression.
         """

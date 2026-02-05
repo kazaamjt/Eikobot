@@ -2,9 +2,10 @@
 The exporter takes the output from the compiler
 and turns it in tasks the deployer understands.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Callable
 
 from . import logger
 from .compiler import Compiler, CompilerContext
@@ -22,19 +23,19 @@ class Task:
 
     task_id: str
     ctx: HandlerContext[EikoBaseModel] | HandlerContext[dict]
-    handler: Optional[Handler]
+    handler: Handler | None
 
     def __post_init__(self) -> None:
         self.dependants: list["Task"] = []
         self.depends_on: list["Task"] = []
         self.depends_on_copy: list["Task"] = []
-        self._done_cb: Optional[Callable[[], None]] = None
-        self._failure_cb: Optional[Callable[[], None]] = None
+        self._done_cb: Callable[[], None] | None = None
+        self._failure_cb: Callable[[], None] | None = None
 
     def init(
         self,
-        done_cb: Optional[Callable[[], None]] = None,
-        failure_cb: Optional[Callable[[], None]] = None,
+        done_cb: Callable[[], None] | None = None,
+        failure_cb: Callable[[], None] | None = None,
     ) -> None:
         """Resets a task and it's sub tasks so they can run again."""
         self._done_cb = done_cb
@@ -164,7 +165,7 @@ class Exporter:
 
     def export_from_context(self, context: CompilerContext) -> None:
         """
-        Walks through a compiler context and exports it as a set fo tasks.
+        Walks through a compiler context and exports it as a set of tasks.
         """
         values = list(context.storage.values())
         values.extend(context.orphans)
@@ -175,12 +176,12 @@ class Exporter:
             elif isinstance(value, (EikoList, EikoDict)):
                 self._parse_multi(value)
 
-    def _parse_multi(self, value: Union[EikoList, EikoDict]) -> list[Task]:
+    def _parse_multi(self, value: EikoList | EikoDict) -> list[Task]:
         tasks: list[Task] = []
         if isinstance(value, EikoList):
             item_list = value.elements
 
-        elif isinstance(value, EikoDict):
+        else:
             item_list = list(value.elements.values())
 
         for item in item_list:
@@ -202,14 +203,10 @@ class Exporter:
             handler = resource.class_ref.handler()
             self.total_tasks += 1
 
-        # I have no idea how to fix the ignored type error below
-        # For reference:
-        # "Task" has incompatible type "HandlerContext[<nothing>]";
-        # expected "Union[HandlerContext[EikoBaseModel], HandlerContext[Dict[Any, Any]]]"
         _id = resource.index()
         task = Task(
             _id,
-            HandlerContext(resource, _id, self.spinner),  # type: ignore
+            HandlerContext(resource, _id, self.spinner),
             handler,
         )
 

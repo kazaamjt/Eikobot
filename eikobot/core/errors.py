@@ -1,7 +1,6 @@
 """
 Error types raised by the Eikobot compiler.
 """
-from typing import Optional
 
 from .compiler._token import Token
 from .compiler.misc import Index
@@ -10,9 +9,7 @@ from .compiler.misc import Index
 class EikoError(Exception):
     """An error that occured during the eiko process."""
 
-    def __init__(
-        self, reason: str, *args: object, token: Optional[Token] = None
-    ) -> None:
+    def __init__(self, reason: str, *args: object, token: Token | None = None) -> None:
         super().__init__(reason, *args)
         self.token = token
         self.index = None if token is None else token.index
@@ -28,9 +25,7 @@ class EikoInternalError(EikoError):
     most likely caused by a bug and not the user.
     """
 
-    def __init__(
-        self, reason: str, *args: object, token: Optional[Token] = None
-    ) -> None:
+    def __init__(self, reason: str, *args: object, token: Token | None = None) -> None:
         super().__init__("PANIC!! " + reason, *args, token=token)
 
 
@@ -39,9 +34,7 @@ class EikoSyntaxError(EikoError):
     A syntax error that either confused the parser or the lexer.
     """
 
-    def __init__(
-        self, reason: str, *args: object, index: Optional[Index] = None
-    ) -> None:
+    def __init__(self, reason: str, *args: object, index: Index | None = None) -> None:
         super().__init__("SyntaxError: " + reason, *args)
         self.index = index
 
@@ -52,9 +45,7 @@ class EikoParserError(EikoError):
     Usually an unexpected token or similar.
     """
 
-    def __init__(
-        self, reason: str, *args: object, token: Optional[Token] = None
-    ) -> None:
+    def __init__(self, reason: str, *args: object, token: Token | None = None) -> None:
         super().__init__("SyntaxError: " + reason, *args, token=token)
 
 
@@ -63,9 +54,7 @@ class EikoCompilationError(EikoError):
     An error that occured during the compilation step.
     """
 
-    def __init__(
-        self, reason: str, *args: object, token: Optional[Token] = None
-    ) -> None:
+    def __init__(self, reason: str, *args: object, token: Token | None = None) -> None:
         super().__init__("CompilationError: " + reason, *args, token=token)
 
 
@@ -78,8 +67,8 @@ class EikoPluginError(EikoError):
         self,
         reason: str,
         *args: object,
-        token: Optional[Token] = None,
-        python_exception: Optional[Exception] = None,
+        token: Token | None = None,
+        python_exception: Exception | None = None,
     ) -> None:
         super().__init__("PluginError: " + reason, *args, token=token)
         self.python_exception = python_exception
@@ -90,9 +79,7 @@ class EikoExportError(EikoError):
     Something went wrong inside the exporter.
     """
 
-    def __init__(
-        self, reason: str, *args: object, token: Optional[Token] = None
-    ) -> None:
+    def __init__(self, reason: str, *args: object, token: Token | None = None) -> None:
         super().__init__("ExportError: " + reason, *args, token=token)
 
 
@@ -101,7 +88,5 @@ class EikoDeployError(EikoError):
     Something went wrong inside a deploy task.
     """
 
-    def __init__(
-        self, reason: str, *args: object, token: Optional[Token] = None
-    ) -> None:
+    def __init__(self, reason: str, *args: object, token: Token | None = None) -> None:
         super().__init__("DeployError: " + reason, *args, token=token)

@@ -2,15 +2,16 @@
 Eikobot plugins expose python fucntions
 as callables directly to the Eikobot runtime.
 """
-from typing import Callable, Optional, Union
+
+from typing import Callable
 
 from . import human_readable, machine_readable
 from .compiler.definitions.base_types import EikoBaseType
 
-EikoPluginTyping = Callable[..., Union[None, bool, float, int, str, EikoBaseType]]
+EikoPluginTyping = Callable[..., None | bool | float | int | str | EikoBaseType]
 
 
-def eiko_plugin(alias: Optional[str] = None) -> Callable:
+def eiko_plugin(alias: str | None = None) -> Callable:
     """Tags a function as an Eikobot plugin with alias."""
 
     def _eiko_plugin(function: EikoPluginTyping) -> EikoPluginTyping:

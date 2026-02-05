@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.7.8
+
+- Update dependencies.
+- Add `|` as a union operator.
+- Fixed a bug in the typing conversion system of the python plugins
+- Fixed a bug in the basemodel initialization and validation
+- Fix bug in parsing of dot expressions in types
 
 ## 0.7.7
 

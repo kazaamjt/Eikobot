@@ -43,12 +43,15 @@ Features and bug fixes:
 - [ ] expand type system to take module in to account when resolving types
 - [x] add `enum`
 - [x] add `promise` (A piece of data that will be filled in during the deploy step)
+- [x] add `|` as a union type operator
 
 Code cleanup:
 
-- [ ] Implement an `expects` function for parser, raise if token is not correct type
-- [x] Implement a `to_py` function on eiko objects, instead of using a conversion table
-- [ ] Overhaul the way comparissons are done. (Should be a function of object a, not a matrix lookup function)
+- [ ] implement an `expects` function for parser, raise if token is not correct type
+- [x] implement a `to_py` function on eiko objects, instead of using a conversion table
+- [ ] overhaul the way comparissons are done. (Should be a function of object a, not a matrix lookup function)
+- [x] remove all uses of `Union` in python typing
+- [x] replace `setup.py` and `setup.cfg` by `pyproject.toml`
 
 ### STD
 
@@ -85,10 +88,10 @@ Adding a package manager and a way to build, install and uninstall packages easi
 - [x] install packages using https
 - [ ] install packages using git
 
-
 ## Modules
 
 - [ ] AWS
 - [ ] Kubernetes
 - [ ] Docker
 - [ ] Hyper-V
+- [ ] Virsh/qemu/kvm

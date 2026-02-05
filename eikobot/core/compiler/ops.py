@@ -3,9 +3,10 @@ Eikobot binary operations,
 allowing the addition, multiplication, division, etc...
 of Eikobot builtin types.
 """
+
 from enum import Enum, auto
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable
 
 from ..errors import EikoCompilationError, EikoInternalError, EikoSyntaxError
 from .definitions.base_types import (
@@ -126,18 +127,18 @@ def multiply_string(a: EikoStr, b: EikoInt) -> EikoStr:
     return EikoStr(a.value * b.value)
 
 
-def divide_path(a: EikoPath, b: Union[EikoPath, EikoStr]) -> EikoPath:
+def divide_path(a: EikoPath, b: EikoPath | EikoStr) -> EikoPath:
     return EikoPath(Path(a.value / b.value))
 
 
-BinOpCallable = Union[
-    Callable[[EikoInt, EikoInt], EikoBaseType],
-    Callable[[EikoStr, EikoInt], EikoBaseType],
-    Callable[[EikoStr, EikoStr], EikoBaseType],
-    Callable[[EikoNumber, EikoNumber], EikoBaseType],
-    Callable[[EikoBaseType, EikoBaseType], EikoBaseType],
-    Callable[[EikoPath, Union[EikoPath, EikoStr]], EikoBaseType],
-]
+BinOpCallable = (
+    Callable[[EikoInt, EikoInt], EikoBaseType]
+    | Callable[[EikoStr, EikoInt], EikoBaseType]
+    | Callable[[EikoStr, EikoStr], EikoBaseType]
+    | Callable[[EikoNumber, EikoNumber], EikoBaseType]
+    | Callable[[EikoBaseType, EikoBaseType], EikoBaseType]
+    | Callable[[EikoPath, EikoPath | EikoStr], EikoBaseType]
+)
 
 BinOpMatrix = dict[BinOP, BinOpCallable]
 

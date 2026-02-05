@@ -24,6 +24,7 @@ from eikobot.core.compiler._parser import (
     TypedefExprAST,
     TypeExprAST,
     UnaryNegExprAST,
+    UnionTypeExprAST,
     VariableExprAST,
 )
 from eikobot.core.compiler._token import Index, Token, TokenType
@@ -263,3 +264,17 @@ def test_parse_enum(eiko_enum_file: Path) -> None:
 
     expr_2 = next(parse_iter)
     assert isinstance(expr_2, ResourceDefinitionAST)
+
+
+def test_pipe_union(tmp_eiko_file: Path) -> None:
+    with open(tmp_eiko_file, "w", encoding="utf-8") as f:
+        f.write("test_list: list[str | int | None] = []")
+
+    parser = Parser(tmp_eiko_file)
+    parse_iter = parser.parse()
+
+    expr_1 = next(parse_iter)
+    assert isinstance(expr_1, AssignmentExprAST)
+    assert isinstance(expr_1.lhs, VariableExprAST)
+    assert isinstance(expr_1.lhs.type_expr, TypeExprAST)
+    assert isinstance(expr_1.lhs.type_expr.sub_expressions[0], UnionTypeExprAST)

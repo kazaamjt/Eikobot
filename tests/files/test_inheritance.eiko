@@ -4,7 +4,7 @@ resource BaseRes:
 
 
 resource SubRes(BaseRes):
-    prop_3: Union[str, int]
+    prop_3: str | int
 
 
 resource SubSubRes(SubRes):

@@ -1,10 +1,10 @@
 """
 This file is purely used for testing purposes.
 """
+
 import asyncio
 import time
 from datetime import datetime
-from typing import Optional
 
 from eikobot.core.handlers import CRUDHandler, HandlerContext
 
@@ -39,7 +39,7 @@ class TopHandler(CRUDHandler):
     __eiko_resource__ = "TopRes"
 
     def __init__(self) -> None:
-        self.created: Optional[datetime] = None
+        self.created: datetime | None = None
 
     async def create(self, ctx: HandlerContext) -> None:
         self.created = datetime.utcnow()

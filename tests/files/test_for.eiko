@@ -1,7 +1,7 @@
 import std
 
 haha = "haha"
-test_list: list[Union[str, int]] = []
+test_list: list[str | int] = []
 
 for obj in ["hello", haha, 12]:
     test_list.append(obj)

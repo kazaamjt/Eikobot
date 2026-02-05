@@ -2,9 +2,10 @@
 Context hold variables, classes and more.
 Used both by files/modules and fucntions.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Type, Union
+from typing import TYPE_CHECKING, Type
 
 from ... import logger
 from ...errors import EikoCompilationError, EikoInternalError
@@ -36,9 +37,13 @@ from .typedef import EikoTypeDef
 if TYPE_CHECKING:
     from .._parser import Parser
 
-_StorableTypes = Union[
-    EikoBaseType, EikoResourceDefinition, Type[EikoBaseType], EikoType, Type[EikoType]
-]
+_StorableTypes = (
+    EikoBaseType
+    | EikoResourceDefinition
+    | Type[EikoBaseType]
+    | EikoType
+    | Type[EikoType]
+)
 _builtins: dict[str, _StorableTypes] = {
     "int": EikoInt,
     "float": EikoFloat,
@@ -88,18 +93,19 @@ class CompilerContext:
     """
 
     # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(
         self,
         name: str,
         context_cache: dict[str, "CompilerContext"],
-        super_scope: Optional["CompilerContext"] = None,
-        super_module: Optional["CompilerContext"] = None,
+        super_scope: "CompilerContext | None" = None,
+        super_module: "CompilerContext | None" = None,
         is_root: bool = False,
     ) -> None:
         self.name = name
         self.storage: dict[
             str,
-            Union[_StorableTypes, "CompilerContext", LazyLoadModule, EikoUnset, None],
+            "_StorableTypes | CompilerContext | LazyLoadModule | EikoUnset | None",
         ] = {}
         self.path: Path
         self.type = EikoType("eiko_internal_context")
@@ -157,8 +163,8 @@ class CompilerContext:
         return return_str
 
     def get(
-        self, name: str, token: Optional[Token] = None
-    ) -> Union[_StorableTypes, "CompilerContext", None]:
+        self, name: str, token: Token | None = None
+    ) -> "_StorableTypes | CompilerContext | None":
         """Get a value from this context or a super context."""
         value = self.storage.get(name)
 
@@ -181,7 +187,7 @@ class CompilerContext:
 
     def shallow_get(
         self, name: str
-    ) -> Union[_StorableTypes, "CompilerContext", EikoUnset, None]:
+    ) -> "_StorableTypes | CompilerContext | EikoUnset | None":
         """
         Shallow get only gets builtins and values local to the current scope.
         It is primarily for use by 'Set'.
@@ -198,8 +204,8 @@ class CompilerContext:
     def set(
         self,
         name: str,
-        value: Union[_StorableTypes, "CompilerContext", EikoUnset],
-        token: Optional[Token] = None,
+        value: "_StorableTypes | CompilerContext | EikoUnset",
+        token: Token | None = None,
     ) -> None:
         """Set a value. Throws an error if it's already set."""
         prev_value = self.shallow_get(name)
@@ -236,7 +242,7 @@ class CompilerContext:
         self._connect_model(name)
 
     def get_or_set_context(
-        self, name: str, token: Optional[Token] = None
+        self, name: str, token: Token | None = None
     ) -> "CompilerContext":
         """
         Either retrieve a context or create it if it doesn't exist.
@@ -353,7 +359,7 @@ class CompilerContext:
 
         return self
 
-    def get_cached_context(self, import_path: list[str]) -> Optional["CompilerContext"]:
+    def get_cached_context(self, import_path: list[str]) -> "CompilerContext | None":
         """Checks to see if a given context already exists."""
         context = self._context_cache.get(import_path[0])
         if context is None:
@@ -378,4 +384,4 @@ class CompilerContext:
         self._context_cache[name] = context
 
 
-StorableTypes = Union[_StorableTypes, "CompilerContext"]
+StorableTypes = _StorableTypes | CompilerContext

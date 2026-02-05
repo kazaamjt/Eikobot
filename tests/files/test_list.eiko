@@ -1,4 +1,4 @@
-test_list: list[Union[str, int, bool]] = ["string_1", "string_2", 3]
+test_list: list[str | int | bool] = ["string_1", "string_2", 3]
 
 test_list.append(True)
 

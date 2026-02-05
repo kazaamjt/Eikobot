@@ -3,8 +3,8 @@ The lexer reads strings/files and turns the characters
 in to tokens useable that can be used by the parser
 to construct an Abstract Syntax Tree.
 """
+
 from pathlib import Path
-from typing import Optional
 
 from ..errors import EikoSyntaxError
 from ._token import Token, TokenType
@@ -39,6 +39,7 @@ SPECIAL_CHARS = {
     "}": TokenType.RIGHT_BRACE,
     ",": TokenType.COMMA,
     "@": TokenType.AT_SIGN,
+    "|": TokenType.PIPE,
 }
 
 
@@ -151,7 +152,7 @@ class Lexer:
         return Token(TokenType.INDENT, indent_str, index)
 
     def _scan_identifier(
-        self, identifier: str = "", index: Optional[Index] = None
+        self, identifier: str = "", index: Index | None = None
     ) -> Token:
         if index is None:
             index = self._current_index()

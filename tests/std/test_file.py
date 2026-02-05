@@ -34,7 +34,7 @@ from std.file import File
 
 File(
     host=Host("127.0.0.1"),
-    path=Path(r"{file_path}"),
+    path=Path("{file_path}"),
     content="{file_content}",
 )
 """
