@@ -2566,7 +2566,12 @@ class Parser:
                 union_expressions.append(type_expr)
 
             self._advance()
-            self._parse_type(union_expressions)
+            sub_expr = self._parse_type(union_expressions)
+            if isinstance(sub_expr, UnionTypeExprAST):
+                union_expressions.extend(sub_expr.sub_expressions)
+            else:
+                union_expressions.append(sub_expr)
+
             return UnionTypeExprAST(
                 union_expressions[0].token, primary_expr, union_expressions
             )
